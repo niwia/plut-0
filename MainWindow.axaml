@@ -5,31 +5,30 @@
         xmlns:models="clr-namespace:Pluto.Models"
         mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="580"
         x:Class="Pluto.MainWindow"
-        Title="PLUT-0 // Plugin Launcher"
+        Title="PLUT-0"
         Width="980" Height="580"
-        MinWidth="760" MinHeight="440"
+        MinWidth="640" MinHeight="400"
         WindowStartupLocation="CenterScreen"
-        Background="#0B0E14"
-        FontFamily="Inter, 'Segoe UI', sans-serif">
+        Background="#000000"
+        FontFamily="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
 
     <Window.Styles>
-        <!-- Modern ScrollViewer styling -->
-        <Style Selector="ScrollViewer">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-
-        <!-- Custom Game ListBox styling -->
+        <!-- Pure clean ListBox with hidden scrollbars -->
         <Style Selector="ListBox">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0,4" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
         </Style>
 
         <Style Selector="ListBoxItem">
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,3" />
+            <Setter Property="Padding" Value="0, 8" />
+            <Setter Property="Margin" Value="0" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Cursor" Value="Hand" />
         </Style>
 
         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
@@ -39,94 +38,73 @@
         <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
         </Style>
+
+        <Style Selector="ListBoxItem:focus /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <!-- Niagara Waterfall Typography -->
+        <Style Selector="ListBoxItem TextBlock.gameTitle">
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#444444" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="FontSize" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                    <BrushTransition Property="Foreground" Duration="0:0:0.18" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="ListBoxItem:pointerover TextBlock.gameTitle">
+            <Setter Property="Foreground" Value="#888888" />
+            <Setter Property="FontSize" Value="24" />
+        </Style>
+
+        <Style Selector="ListBoxItem:selected TextBlock.gameTitle">
+            <Setter Property="FontSize" Value="34" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <!-- Pure Minimal Search Box -->
+        <Style Selector="TextBox.minimalSearch">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="CaretBrush" Value="#FFFFFF" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+
+        <Style Selector="TextBox.minimalSearch:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <Style Selector="TextBox.minimalSearch:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
     </Window.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto">
-        <!-- Top Landscape Header & Search Bar -->
-        <Border Grid.Row="0" Background="#10141E" BorderBrush="#1C2333" BorderThickness="0,0,0,1" Padding="20,14">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- Brand / Logo -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,20,0" Spacing="10">
-                    <Border Width="10" Height="10" CornerRadius="5" Background="#6366F1" VerticalAlignment="Center">
-                        <Border.BoxShadow>
-                            <BoxShadows>0 0 10 2 #6366F1</BoxShadows>
-                        </Border.BoxShadow>
-                    </Border>
-                    <TextBlock Text="PLUT-0" FontSize="18" FontWeight="ExtraBold" Foreground="#F8FAFC" VerticalAlignment="Center" LetterSpacing="1" />
-                    <Border Background="#1E2738" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
-                        <TextBlock Text="PLUGIN LAUNCHER" FontSize="10" FontWeight="Bold" Foreground="#818CF8" LetterSpacing="0.5" />
-                    </Border>
-                </StackPanel>
+    <!-- Main Container: Pure black, left-aligned Niagara layout -->
+    <Grid RowDefinitions="Auto,*" Margin="64,48,64,36">
+        <!-- Top: Search Games Button / Input -->
+        <Grid Grid.Row="0" Margin="0,0,0,32" HorizontalAlignment="Left">
+            <TextBox x:Name="SearchBox"
+                     Classes="minimalSearch"
+                     PlaceholderText="Search games..."
+                     TextChanged="OnSearchTextChanged"
+                     KeyDown="OnSearchBoxKeyDown" />
+        </Grid>
 
-                <!-- Search Input Box -->
-                <Grid Grid.Column="1" VerticalAlignment="Center">
-                    <TextBox x:Name="SearchBox"
-                             PlaceholderText="Search plugin games by name, appid, or depot... [Press Y or /]"
-                             Background="#151A26"
-                             Foreground="#F1F5F9"
-                             BorderBrush="#252F44"
-                             BorderThickness="1"
-                             CornerRadius="8"
-                             FontSize="14"
-                             Padding="38,10,36,10"
-                             VerticalContentAlignment="Center"
-                             TextChanged="OnSearchTextChanged"
-                             KeyDown="OnSearchBoxKeyDown" />
-
-                    <!-- Search Icon Prefix -->
-                    <TextBlock Text="🔍"
-                               FontSize="13"
-                               Foreground="#64748B"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Left"
-                               Margin="12,0,0,0"
-                               IsHitTestVisible="False" />
-
-                    <!-- Clear Button -->
-                    <Button x:Name="ClearSearchBtn"
-                            Content="✕"
-                            FontSize="11"
-                            Foreground="#94A3B8"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            Margin="0,0,8,0"
-                            Padding="6,4"
-                            IsVisible="False"
-                            Click="OnClearSearchClicked" />
-                </Grid>
-
-                <!-- Status Pill -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0" Spacing="8">
-                    <Button Content="Sync All"
-                            Background="#1E293B"
-                            Foreground="#CBD5E1"
-                            BorderBrush="#334155"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="12,6"
-                            FontSize="12"
-                            FontWeight="SemiBold"
-                            Click="OnSyncAllClicked" />
-                    <Button Content="⟳"
-                            ToolTip.Tip="Refresh Library"
-                            Background="#1E293B"
-                            Foreground="#CBD5E1"
-                            BorderBrush="#334155"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="10,6"
-                            FontSize="12"
-                            FontWeight="Bold"
-                            Click="OnRefreshClicked" />
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- Main Content Area: Scrollable Games List -->
-        <Grid Grid.Row="1" Margin="20,12,20,10">
-            <!-- Scrollable Games List -->
+        <!-- Bottom: Waterfall List of Games -->
+        <Grid Grid.Row="1">
             <ListBox x:Name="GamesListBox"
                      SelectionMode="Single"
                      DoubleTapped="OnGameDoubleTapped"
@@ -134,254 +112,22 @@
                      KeyDown="OnGameListKeyDown">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="models:PluginGame">
-                        <!-- Custom Game Card -->
-                        <Border x:Name="GameCardBorder"
-                                Background="#131722"
-                                BorderBrush="#1C2436"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16,12"
-                                Margin="0,2">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <!-- Left Info Column -->
-                                <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}"
-                                               FontSize="16"
-                                               FontWeight="Bold"
-                                               Foreground="#F8FAFC" />
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <Border Background="#1C2333" CornerRadius="4" Padding="6,2">
-                                            <TextBlock Text="{Binding AppId, StringFormat='AppID: {0}'}"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#94A3B8" />
-                                        </Border>
-                                        <Border Background="#1C2333" CornerRadius="4" Padding="6,2">
-                                            <TextBlock Text="{Binding DepotCount, StringFormat='{}{0} Depots'}"
-                                                       FontSize="11"
-                                                       Foreground="#94A3B8" />
-                                        </Border>
-                                        <Border Background="#1C2333" CornerRadius="4" Padding="6,2">
-                                            <TextBlock Text="{Binding KeyCount, StringFormat='{}{0} Keys'}"
-                                                       FontSize="11"
-                                                       Foreground="#94A3B8" />
-                                        </Border>
-                                        <TextBlock Text="{Binding InstallDir, StringFormat='Dir: {0}'}"
-                                                   FontSize="11"
-                                                   Foreground="#64748B"
-                                                   VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </StackPanel>
-
-                                <!-- Right Actions & Status Column -->
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
-                                    <!-- SLS Synced Badge -->
-                                    <Border CornerRadius="6" Padding="8,4"
-                                            Background="{Binding IsSlsSynced, Converter={x:Null}}">
-                                        <Border.Styles>
-                                            <Style Selector="Border">
-                                                <Setter Property="Background" Value="#102A1E" />
-                                            </Style>
-                                        </Border.Styles>
-                                        <TextBlock Text="✓ SLS Synced"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#34D399" />
-                                    </Border>
-
-                                    <!-- Action Buttons -->
-                                    <Button Content="Details [X]"
-                                            Background="#1E2436"
-                                            Foreground="#94A3B8"
-                                            BorderBrush="#29354E"
-                                            BorderThickness="1"
-                                            CornerRadius="6"
-                                            FontSize="12"
-                                            Padding="10,6"
-                                            Click="OnOpenDetailsClicked" />
-
-                                    <Button Content="▶ Launch [A]"
-                                            Background="#4F46E5"
-                                            Foreground="#FFFFFF"
-                                            BorderThickness="0"
-                                            CornerRadius="6"
-                                            FontSize="12"
-                                            FontWeight="Bold"
-                                            Padding="14,6"
-                                            Click="OnLaunchGameClicked" />
-                                </StackPanel>
-                            </Grid>
-                        </Border>
+                        <TextBlock Classes="gameTitle"
+                                   Text="{Binding Name}"
+                                   VerticalAlignment="Center" />
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
 
-            <!-- Empty / No Results Message -->
-            <StackPanel x:Name="EmptyStatePanel"
-                        VerticalAlignment="Center"
-                        HorizontalAlignment="Center"
-                        Spacing="12"
-                        IsVisible="False">
-                <TextBlock Text="📦" FontSize="36" HorizontalAlignment="Center" />
-                <TextBlock Text="No plugin games found"
-                           FontSize="18"
-                           FontWeight="Bold"
-                           Foreground="#E2E8F0"
-                           HorizontalAlignment="Center" />
-                <TextBlock x:Name="EmptyStateSubtext"
-                           Text="No games match your current filter, or plugin_library.json is empty."
-                           FontSize="13"
-                           Foreground="#64748B"
-                           HorizontalAlignment="Center" />
-            </StackPanel>
+            <!-- Minimal Empty State -->
+            <TextBlock x:Name="EmptyStateText"
+                       Text="No games found"
+                       FontSize="18"
+                       Foreground="#333333"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       Margin="0,12,0,0"
+                       IsVisible="False" />
         </Grid>
-
-        <!-- Details / Management Modal Drawer (Overlay) -->
-        <Border x:Name="DetailsModal"
-                Grid.Row="0" Grid.RowSpan="3"
-                Background="#D005080E"
-                IsVisible="False">
-            <Border Background="#131824"
-                    BorderBrush="#253147"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Width="680"
-                    MaxHeight="500"
-                    VerticalAlignment="Center"
-                    HorizontalAlignment="Center"
-                    Padding="24"
-                    BoxShadow="0 10 30 5 #000000">
-                <Grid RowDefinitions="Auto,*,Auto">
-                    <!-- Modal Header -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,16">
-                        <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock x:Name="ModalGameTitle"
-                                       Text="Game Title"
-                                       FontSize="20"
-                                       FontWeight="Bold"
-                                       Foreground="#F8FAFC" />
-                            <TextBlock x:Name="ModalGameSubtitle"
-                                       Text="AppID: 000000 • Install: Path"
-                                       FontSize="12"
-                                       Foreground="#94A3B8" />
-                        </StackPanel>
-                        <Button Grid.Column="1"
-                                Content="✕"
-                                FontSize="14"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Foreground="#94A3B8"
-                                Padding="8,4"
-                                Click="OnCloseModalClicked" />
-                    </Grid>
-
-                    <!-- Depots and Keys List -->
-                    <ScrollViewer Grid.Row="1" Margin="0,0,0,16">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Depots &amp; Decryption Keys"
-                                       FontSize="13"
-                                       FontWeight="SemiBold"
-                                       Foreground="#E2E8F0" />
-                            
-                            <Border Background="#0C101A" BorderBrush="#1C2436" BorderThickness="1" CornerRadius="8" Padding="12">
-                                <TextBlock x:Name="ModalDepotsKeysText"
-                                           Text="No depots available"
-                                           FontFamily="Consolas, 'Cascadia Code', monospace"
-                                           FontSize="11"
-                                           Foreground="#A5B4FC"
-                                           TextWrapping="Wrap" />
-                            </Border>
-
-                            <TextBlock x:Name="ModalUpdatedText"
-                                       Text="Last updated: -"
-                                       FontSize="11"
-                                       Foreground="#64748B" />
-                        </StackPanel>
-                    </ScrollViewer>
-
-                    <!-- Modal Actions -->
-                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,8,0,0">
-                        <Button Grid.Column="0"
-                                Content="🗑 Remove"
-                                Background="#7F1D1D"
-                                Foreground="#FECACA"
-                                BorderThickness="0"
-                                CornerRadius="6"
-                                Padding="12,8"
-                                FontSize="12"
-                                FontWeight="SemiBold"
-                                Click="OnModalRemoveClicked" />
-
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="10">
-                            <Button Content="⚡ Sync to SLS config.yaml"
-                                    Background="#1E293B"
-                                    Foreground="#38BDF8"
-                                    BorderBrush="#38BDF8"
-                                    BorderThickness="1"
-                                    CornerRadius="6"
-                                    Padding="14,8"
-                                    FontSize="12"
-                                    FontWeight="SemiBold"
-                                    Click="OnModalSyncClicked" />
-
-                            <Button Content="▶ Launch Game [A]"
-                                    Background="#4F46E5"
-                                    Foreground="#FFFFFF"
-                                    BorderThickness="0"
-                                    CornerRadius="6"
-                                    Padding="18,8"
-                                    FontSize="12"
-                                    FontWeight="Bold"
-                                    Click="OnModalLaunchClicked" />
-
-                            <Button Content="Close [B]"
-                                    Background="#1E2436"
-                                    Foreground="#94A3B8"
-                                    BorderThickness="0"
-                                    CornerRadius="6"
-                                    Padding="14,8"
-                                    FontSize="12"
-                                    Click="OnCloseModalClicked" />
-                        </StackPanel>
-                    </Grid>
-                </Grid>
-            </Border>
-        </Border>
-
-        <!-- Bottom Landscape Footer & Gamepad Controls Legend -->
-        <Border Grid.Row="2" Background="#0E121C" BorderBrush="#1C2333" BorderThickness="0,1,0,0" Padding="20,10">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <!-- Controller Status -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                    <TextBlock x:Name="ControllerIcon" Text="🎮" FontSize="14" VerticalAlignment="Center" />
-                    <TextBlock x:Name="ControllerStatusText"
-                               Text="Detecting controllers..."
-                               FontSize="12"
-                               FontWeight="Medium"
-                               Foreground="#38BDF8"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-
-                <!-- Navigation Legend Hints -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
-                    <TextBlock Text="[▲▼] Navigate" FontSize="11" Foreground="#94A3B8" />
-                    <TextBlock Text="[A] Launch" FontSize="11" Foreground="#A5B4FC" FontWeight="Bold" />
-                    <TextBlock Text="[X] Manage" FontSize="11" Foreground="#94A3B8" />
-                    <TextBlock Text="[Y] Search" FontSize="11" Foreground="#94A3B8" />
-                    <TextBlock Text="[B] Back" FontSize="11" Foreground="#94A3B8" />
-                    <TextBlock Text="[Start] Sync All" FontSize="11" Foreground="#94A3B8" />
-                </StackPanel>
-
-                <!-- Game Count Badge -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="6">
-                    <TextBlock x:Name="GameCountText"
-                               Text="0 games"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="#E2E8F0"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-            </Grid>
-        </Border>
     </Grid>
 </Window>
