@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -20,6 +21,16 @@ public partial class MainWindow : Window
 
     private List<PluginGame> _allGames = new();
     private ObservableCollection<PluginGame> _displayedGames = new();
+    private PluginGame? _selectedGame;
+
+    private enum ActiveView
+    {
+        MainList,
+        GameDetail,
+        Settings
+    }
+
+    private ActiveView _currentView = ActiveView.MainList;
 
     public MainWindow()
     {
@@ -43,6 +54,11 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.Post(() => HandleGamepadAction(action));
         };
 
+        _gamepadService.ControllerStateChanged += (name, connected) =>
+        {
+            Dispatcher.UIThread.Post(() => UpdateControllerStatus(name, connected));
+        };
+
         Loaded += OnWindowLoaded;
         Closing += (_, _) =>
         {
@@ -54,6 +70,7 @@ public partial class MainWindow : Window
     private async void OnWindowLoaded(object? sender, RoutedEventArgs e)
     {
         _gamepadService.Start();
+        UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
         await ReloadLibraryAsync();
         GamesListBox.Focus();
     }
@@ -109,45 +126,117 @@ public partial class MainWindow : Window
         }
     }
 
+    private void UpdateControllerStatus(string name, bool connected)
+    {
+        if (SettingsControllerText != null)
+        {
+            SettingsControllerText.Text = connected ? $"Connected ({name})" : "No controller detected";
+        }
+    }
+
+    // View Navigation
+    private void ShowMainList()
+    {
+        _currentView = ActiveView.MainList;
+        MainListPanel.IsVisible = true;
+        GameDetailPanel.IsVisible = false;
+        SettingsPanel.IsVisible = false;
+        GamesListBox.Focus();
+    }
+
+    private void OpenGameDetailPage(PluginGame game)
+    {
+        _selectedGame = game;
+        _currentView = ActiveView.GameDetail;
+
+        DetailGameTitle.Text = game.Name;
+        DetailGameSubtitle.Text = $"AppID: {game.AppId} • {game.DepotCount} Depots • {game.KeyCount} Keys";
+
+        MainListPanel.IsVisible = false;
+        GameDetailPanel.IsVisible = true;
+        SettingsPanel.IsVisible = false;
+    }
+
+    private void OpenSettingsPage()
+    {
+        _currentView = ActiveView.Settings;
+
+        SettingsSlsConfigText.Text = File.Exists(SlsSteamService.SlsConfigPath)
+            ? $"{SlsSteamService.SlsConfigPath} (Active)"
+            : $"{SlsSteamService.SlsConfigPath} (Not Found)";
+
+        SettingsSlsPipeText.Text = File.Exists(SlsSteamService.SlsApiPipe)
+            ? $"{SlsSteamService.SlsApiPipe} (Ready)"
+            : $"{SlsSteamService.SlsApiPipe} (Idle)";
+
+        SettingsDbPathText.Text = _libraryService.DbPath;
+        UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
+
+        MainListPanel.IsVisible = false;
+        GameDetailPanel.IsVisible = false;
+        SettingsPanel.IsVisible = true;
+    }
+
     private void HandleGamepadAction(GamepadAction action)
     {
         switch (action)
         {
             case GamepadAction.NavigateUp:
-                NavigateList(-1);
+                if (_currentView == ActiveView.MainList) NavigateList(-1);
                 break;
 
             case GamepadAction.NavigateDown:
-                NavigateList(1);
+                if (_currentView == ActiveView.MainList) NavigateList(1);
                 break;
 
             case GamepadAction.PageUp:
-                NavigateList(-5);
+                if (_currentView == ActiveView.MainList) NavigateList(-5);
                 break;
 
             case GamepadAction.PageDown:
-                NavigateList(5);
+                if (_currentView == ActiveView.MainList) NavigateList(5);
                 break;
 
-            case GamepadAction.ConfirmLaunch:
-                if (GamesListBox.SelectedItem is PluginGame selected)
+            case GamepadAction.Confirm:
+                if (_currentView == ActiveView.MainList && GamesListBox.SelectedItem is PluginGame selected)
                 {
-                    LaunchGame(selected);
+                    OpenGameDetailPage(selected);
                 }
                 break;
 
             case GamepadAction.FocusSearch:
-            case GamepadAction.ManageGame:
-                SearchBox.Focus();
-                SearchBox.SelectAll();
+                if (_currentView == ActiveView.MainList)
+                {
+                    SearchBox.Focus();
+                    SearchBox.SelectAll();
+                }
                 break;
 
             case GamepadAction.BackOrCancel:
-                if (!string.IsNullOrEmpty(SearchBox.Text))
+                if (_currentView != ActiveView.MainList)
+                {
+                    ShowMainList();
+                }
+                else if (!string.IsNullOrEmpty(SearchBox.Text))
                 {
                     SearchBox.Text = string.Empty;
+                    GamesListBox.Focus();
                 }
-                GamesListBox.Focus();
+                else
+                {
+                    GamesListBox.Focus();
+                }
+                break;
+
+            case GamepadAction.OpenSettings:
+                if (_currentView == ActiveView.MainList)
+                {
+                    OpenSettingsPage();
+                }
+                else
+                {
+                    ShowMainList();
+                }
                 break;
 
             case GamepadAction.SyncAll:
@@ -171,12 +260,6 @@ public partial class MainWindow : Window
         {
             GamesListBox.ScrollIntoView(GamesListBox.SelectedItem);
         }
-    }
-
-    private void LaunchGame(PluginGame game)
-    {
-        Console.WriteLine($"[Pluto] Launching: {game.Name} ({game.AppId})");
-        _slsService.LaunchGame(game.AppId);
     }
 
     private async void SyncAllGames()
@@ -218,7 +301,12 @@ public partial class MainWindow : Window
     {
         if (e.Key == Key.Enter && GamesListBox.SelectedItem is PluginGame selected)
         {
-            LaunchGame(selected);
+            OpenGameDetailPage(selected);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Tab || e.Key == Key.F1)
+        {
+            OpenSettingsPage();
             e.Handled = true;
         }
         else if (e.Key == Key.Y || e.Key == Key.OemQuestion)
@@ -233,7 +321,7 @@ public partial class MainWindow : Window
     {
         if (GamesListBox.SelectedItem is PluginGame selected)
         {
-            LaunchGame(selected);
+            OpenGameDetailPage(selected);
         }
     }
 
@@ -243,5 +331,10 @@ public partial class MainWindow : Window
         {
             GamesListBox.ScrollIntoView(GamesListBox.SelectedItem);
         }
+    }
+
+    private void OnBackToMainClicked(object? sender, RoutedEventArgs e)
+    {
+        ShowMainList();
     }
 }

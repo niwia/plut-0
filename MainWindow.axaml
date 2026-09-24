@@ -43,7 +43,7 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
-        <!-- Niagara Waterfall Typography -->
+        <!-- Niagara Waterfall Typography: Clean, NO BOLD anywhere -->
         <Style Selector="ListBoxItem TextBlock.gameTitle">
             <Setter Property="FontSize" Value="20" />
             <Setter Property="FontWeight" Value="Normal" />
@@ -59,75 +59,208 @@
 
         <Style Selector="ListBoxItem:pointerover TextBlock.gameTitle">
             <Setter Property="Foreground" Value="#888888" />
-            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontSize" Value="25" />
+            <Setter Property="FontWeight" Value="Normal" />
         </Style>
 
         <Style Selector="ListBoxItem:selected TextBlock.gameTitle">
-            <Setter Property="FontSize" Value="34" />
-            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="FontSize" Value="32" />
+            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
-        <!-- Pure Minimal Search Box -->
+        <!-- Minimal Search Box: Low opacity, no bold -->
         <Style Selector="TextBox.minimalSearch">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
-            <Setter Property="FontSize" Value="22" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
-            <Setter Property="CaretBrush" Value="#FFFFFF" />
+            <Setter Property="FontSize" Value="19" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#999999" />
+            <Setter Property="CaretBrush" Value="#888888" />
             <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Opacity" Value="0.65" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="TextBox.minimalSearch:focus">
+            <Setter Property="Opacity" Value="0.9" />
         </Style>
 
         <Style Selector="TextBox.minimalSearch:focus /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
         </Style>
-
         <Style Selector="TextBox.minimalSearch:pointerover /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
         </Style>
+
+        <!-- Minimal Back Button -->
+        <Style Selector="Button.backBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,24" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#666666" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.backBtn:pointerover">
+            <Setter Property="Foreground" Value="#CCCCCC" />
+        </Style>
+        <Style Selector="Button.backBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
     </Window.Styles>
 
-    <!-- Main Container: Pure black, left-aligned Niagara layout -->
-    <Grid RowDefinitions="Auto,*" Margin="64,48,64,36">
-        <!-- Top: Search Games Button / Input -->
-        <Grid Grid.Row="0" Margin="0,0,0,32" HorizontalAlignment="Left">
-            <TextBox x:Name="SearchBox"
-                     Classes="minimalSearch"
-                     PlaceholderText="Search games..."
-                     TextChanged="OnSearchTextChanged"
-                     KeyDown="OnSearchBoxKeyDown" />
+    <!-- Root Container -->
+    <Grid>
+        <!-- Non-clickable brand watermark in top-right -->
+        <TextBlock Text="plut-0"
+                   FontSize="16"
+                   FontWeight="Normal"
+                   Foreground="#999999"
+                   Opacity="0.5"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Top"
+                   Margin="0,48,64,0"
+                   IsHitTestVisible="False" />
+
+        <!-- 1. MAIN LIST VIEW -->
+        <Grid x:Name="MainListPanel"
+              RowDefinitions="Auto,*"
+              Margin="64,48,64,36"
+              IsVisible="True">
+            
+            <!-- Top: Minimal Search Box (with generous spacing below) -->
+            <Grid Grid.Row="0" Margin="0,0,0,60" HorizontalAlignment="Left">
+                <TextBox x:Name="SearchBox"
+                         Classes="minimalSearch"
+                         PlaceholderText="Search games..."
+                         TextChanged="OnSearchTextChanged"
+                         KeyDown="OnSearchBoxKeyDown" />
+            </Grid>
+
+            <!-- Bottom: Waterfall List of Games -->
+            <Grid Grid.Row="1">
+                <ListBox x:Name="GamesListBox"
+                         SelectionMode="Single"
+                         DoubleTapped="OnGameDoubleTapped"
+                         SelectionChanged="OnGameSelectionChanged"
+                         KeyDown="OnGameListKeyDown">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:PluginGame">
+                            <TextBlock Classes="gameTitle"
+                                       Text="{Binding Name}"
+                                       VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Minimal Empty State -->
+                <TextBlock x:Name="EmptyStateText"
+                           Text="No games found"
+                           FontSize="18"
+                           FontWeight="Normal"
+                           Foreground="#333333"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top"
+                           Margin="0,12,0,0"
+                           IsVisible="False" />
+            </Grid>
         </Grid>
 
-        <!-- Bottom: Waterfall List of Games -->
-        <Grid Grid.Row="1">
-            <ListBox x:Name="GamesListBox"
-                     SelectionMode="Single"
-                     DoubleTapped="OnGameDoubleTapped"
-                     SelectionChanged="OnGameSelectionChanged"
-                     KeyDown="OnGameListKeyDown">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="models:PluginGame">
-                        <TextBlock Classes="gameTitle"
-                                   Text="{Binding Name}"
-                                   VerticalAlignment="Center" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+        <!-- 2. GAME DETAIL PAGE VIEW (Clean, empty for now with back button) -->
+        <Grid x:Name="GameDetailPanel"
+              RowDefinitions="Auto,Auto,*"
+              Margin="64,48,64,36"
+              IsVisible="False">
+            
+            <!-- Back Button -->
+            <Button Grid.Row="0"
+                    Classes="backBtn"
+                    Content="← back"
+                    Click="OnBackToMainClicked" />
 
-            <!-- Minimal Empty State -->
-            <TextBlock x:Name="EmptyStateText"
-                       Text="No games found"
-                       FontSize="18"
-                       Foreground="#333333"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Top"
-                       Margin="0,12,0,0"
-                       IsVisible="False" />
+            <!-- Game Title (Left-aligned, normal weight) -->
+            <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,32">
+                <TextBlock x:Name="DetailGameTitle"
+                           Text="Game Title"
+                           FontSize="32"
+                           FontWeight="Normal"
+                           Foreground="#FFFFFF" />
+                <TextBlock x:Name="DetailGameSubtitle"
+                           Text="AppID: 000000"
+                           FontSize="14"
+                           FontWeight="Normal"
+                           Foreground="#555555" />
+            </StackPanel>
+
+            <!-- Empty Game Page Body -->
+            <Grid Grid.Row="2">
+                <!-- Placeholder for future game details / actions -->
+            </Grid>
+        </Grid>
+
+        <!-- 3. SETTINGS PAGE VIEW (Triggered by Select button) -->
+        <Grid x:Name="SettingsPanel"
+              RowDefinitions="Auto,Auto,*"
+              Margin="64,48,64,36"
+              IsVisible="False">
+            
+            <!-- Back Button -->
+            <Button Grid.Row="0"
+                    Classes="backBtn"
+                    Content="← back"
+                    Click="OnBackToMainClicked" />
+
+            <!-- Settings Title -->
+            <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,36">
+                <TextBlock Text="settings"
+                           FontSize="30"
+                           FontWeight="Normal"
+                           Foreground="#FFFFFF" />
+                <TextBlock Text="system &amp; plugin status"
+                           FontSize="14"
+                           FontWeight="Normal"
+                           Foreground="#555555" />
+            </StackPanel>
+
+            <!-- Settings Content -->
+            <StackPanel Grid.Row="2" Spacing="24">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="SLSsteam Config" FontSize="13" Foreground="#666666" />
+                    <TextBlock x:Name="SettingsSlsConfigText" Text="~/.config/SLSsteam/config.yaml" FontSize="15" Foreground="#AAAAAA" />
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="SLSsteam API Pipe" FontSize="13" Foreground="#666666" />
+                    <TextBlock x:Name="SettingsSlsPipeText" Text="/tmp/SLSsteam.API" FontSize="15" Foreground="#AAAAAA" />
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Plugin Library DB" FontSize="13" Foreground="#666666" />
+                    <TextBlock x:Name="SettingsDbPathText" Text="~/.local/share/ACCELA/db/plugin_library.json" FontSize="15" Foreground="#AAAAAA" />
+                </StackPanel>
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Controller" FontSize="13" Foreground="#666666" />
+                    <TextBlock x:Name="SettingsControllerText" Text="No controller detected" FontSize="15" Foreground="#AAAAAA" />
+                </StackPanel>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

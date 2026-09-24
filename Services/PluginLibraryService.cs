@@ -14,6 +14,10 @@ public class PluginLibraryService : IDisposable
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".local", "share", "ACCELA", "db", "plugin_library.json");
 
+    public static readonly string GamesCachePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".local", "share", "ACCELA", "db", "games_cache.json");
+
     private readonly string _dbPath;
     private FileSystemWatcher? _watcher;
     private readonly JsonSerializerOptions _jsonOptions;
@@ -62,7 +66,6 @@ public class PluginLibraryService : IDisposable
     private DateTime _lastNotification = DateTime.MinValue;
     private void OnFileChanged()
     {
-        // Debounce rapid inotify events
         if ((DateTime.UtcNow - _lastNotification).TotalMilliseconds < 300)
             return;
 
@@ -83,7 +86,12 @@ public class PluginLibraryService : IDisposable
             var dict = await JsonSerializer.DeserializeAsync<Dictionary<string, PluginGame>>(stream, _jsonOptions);
             if (dict == null) return new List<PluginGame>();
 
-            return dict.Values
+            var list = dict.Values.ToList();
+
+            // Enrich with games_cache.json if available
+            await EnrichWithGamesCacheAsync(list);
+
+            return list
                 .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -91,6 +99,47 @@ public class PluginLibraryService : IDisposable
         {
             Console.WriteLine($"[PluginLibraryService] Error reading {_dbPath}: {ex.Message}");
             return new List<PluginGame>();
+        }
+    }
+
+    private async Task EnrichWithGamesCacheAsync(List<PluginGame> games)
+    {
+        if (!File.Exists(GamesCachePath)) return;
+
+        try
+        {
+            await using var stream = File.OpenRead(GamesCachePath);
+            using var doc = await JsonDocument.ParseAsync(stream);
+            if (doc.RootElement.TryGetProperty("games", out var gamesArray) && gamesArray.ValueKind == JsonValueKind.Array)
+            {
+                var cacheByAppId = new Dictionary<string, JsonElement>();
+                foreach (var el in gamesArray.EnumerateArray())
+                {
+                    if (el.TryGetProperty("appid", out var appidProp))
+                    {
+                        cacheByAppId[appidProp.GetString() ?? ""] = el;
+                    }
+                }
+
+                foreach (var game in games)
+                {
+                    if (cacheByAppId.TryGetValue(game.AppId, out var el))
+                    {
+                        if (el.TryGetProperty("install_path", out var ip))
+                            game.InstallPath = ip.GetString() ?? "";
+
+                        if (el.TryGetProperty("appmanifest_path", out var ap))
+                            game.AppmanifestPath = ap.GetString() ?? "";
+
+                        if (el.TryGetProperty("is_accela_install", out var ai))
+                            game.IsAccelaManaged = ai.GetBoolean();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PluginLibraryService] Note: Failed to enrich from games_cache.json: {ex.Message}");
         }
     }
 

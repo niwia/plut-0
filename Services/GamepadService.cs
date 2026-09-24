@@ -12,12 +12,12 @@ public enum GamepadAction
     NavigateDown,
     PageUp,
     PageDown,
-    ConfirmLaunch,     // A / Cross
+    Confirm,           // A / Cross
     ManageGame,        // X / Square
     FocusSearch,       // Y / Triangle
     BackOrCancel,      // B / Circle
     SyncAll,           // Start / Menu
-    ToggleDetails      // Back / Select
+    OpenSettings       // Back / Select / View
 }
 
 public class GamepadService : IDisposable
@@ -55,14 +55,12 @@ public class GamepadService : IDisposable
     {
         try
         {
-            // Initialize joystick and game controller subsystems
             if (SDL.SDL_Init(SDL.SDL_INIT_GAMECONTROLLER | SDL.SDL_INIT_JOYSTICK) < 0)
             {
                 Console.WriteLine($"[GamepadService] SDL_Init failed: {SDL.SDL_GetError()}");
                 return;
             }
 
-            // Check any existing connected controllers
             int numJoysticks = SDL.SDL_NumJoysticks();
             for (int i = 0; i < numJoysticks; i++)
             {
@@ -160,7 +158,7 @@ public class GamepadService : IDisposable
         switch (button)
         {
             case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_A:
-                ActionTriggered?.Invoke(GamepadAction.ConfirmLaunch);
+                ActionTriggered?.Invoke(GamepadAction.Confirm);
                 break;
 
             case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_B:
@@ -196,7 +194,8 @@ public class GamepadService : IDisposable
                 break;
 
             case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_BACK:
-                ActionTriggered?.Invoke(GamepadAction.ToggleDetails);
+                // Select button -> opens settings
+                ActionTriggered?.Invoke(GamepadAction.OpenSettings);
                 break;
         }
     }

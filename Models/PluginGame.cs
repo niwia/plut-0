@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json.Serialization;
 
 namespace Pluto.Models;
@@ -31,7 +32,16 @@ public class PluginGame
     public long UpdatedAt { get; set; }
 
     [JsonIgnore]
+    public string InstallPath { get; set; } = string.Empty;
+
+    [JsonIgnore]
+    public string AppmanifestPath { get; set; } = string.Empty;
+
+    [JsonIgnore]
     public bool IsSlsSynced { get; set; }
+
+    [JsonIgnore]
+    public bool IsAccelaManaged { get; set; }
 
     [JsonIgnore]
     public int DepotCount => Depots?.Count ?? 0;
