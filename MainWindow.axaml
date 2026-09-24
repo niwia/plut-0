@@ -209,10 +209,26 @@
                            Foreground="#555555" />
             </StackPanel>
 
-            <!-- Empty Game Page Body -->
-            <Grid Grid.Row="2">
-                <!-- Placeholder for future game details / actions -->
-            </Grid>
+            <!-- Game Page Actions -->
+            <StackPanel Grid.Row="2" Spacing="16" HorizontalAlignment="Left">
+                <Button Classes="backBtn"
+                        Content="▶ launch game"
+                        FontSize="18"
+                        Foreground="#E0E0E0"
+                        Click="OnLaunchDetailGameClicked" />
+
+                <Button Classes="backBtn"
+                        Content="⚡ sync to slssteam config"
+                        FontSize="16"
+                        Foreground="#888888"
+                        Click="OnSyncDetailGameClicked" />
+
+                <Button Classes="backBtn"
+                        Content="🔄 switch mode (plugin / accela)"
+                        FontSize="16"
+                        Foreground="#666666"
+                        Click="OnToggleModeClicked" />
+            </StackPanel>
         </Grid>
 
         <!-- 3. SETTINGS PAGE VIEW (Triggered by Select button) -->

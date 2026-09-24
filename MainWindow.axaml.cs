@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 {
     private readonly PluginLibraryService _libraryService;
     private readonly SlsSteamService _slsService;
+    private readonly GameTransitionService _transitionService;
     private readonly GamepadService _gamepadService;
 
     private List<PluginGame> _allGames = new();
@@ -38,6 +39,7 @@ public partial class MainWindow : Window
 
         _libraryService = new PluginLibraryService();
         _slsService = new SlsSteamService();
+        _transitionService = new GameTransitionService(_slsService, _libraryService);
         _gamepadService = new GamepadService();
 
         GamesListBox.ItemsSource = _displayedGames;
@@ -78,6 +80,11 @@ public partial class MainWindow : Window
     private async Task ReloadLibraryAsync()
     {
         var games = await _libraryService.LoadGamesAsync();
+        foreach (var g in games)
+        {
+            g.IsSlsSynced = _slsService.IsAppConfigured(g.AppId);
+        }
+
         _allGames = games;
         ApplyFilter(SearchBox?.Text);
     }
@@ -131,6 +138,64 @@ public partial class MainWindow : Window
         if (SettingsControllerText != null)
         {
             SettingsControllerText.Text = connected ? $"Connected ({name})" : "No controller detected";
+        }
+    }
+
+    // Window-level Keyboard Handling (Guarantees Up / Down / Enter always work)
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        if (_currentView == ActiveView.MainList)
+        {
+            if (e.Key == Key.Up && !SearchBox.IsFocused)
+            {
+                NavigateList(-1);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Down && !SearchBox.IsFocused)
+            {
+                NavigateList(1);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.PageUp && !SearchBox.IsFocused)
+            {
+                NavigateList(-5);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.PageDown && !SearchBox.IsFocused)
+            {
+                NavigateList(5);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter && !SearchBox.IsFocused && GamesListBox.SelectedItem is PluginGame selected)
+            {
+                OpenGameDetailPage(selected);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Tab || e.Key == Key.F1)
+            {
+                OpenSettingsPage();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape)
+            {
+                if (!string.IsNullOrEmpty(SearchBox.Text))
+                {
+                    SearchBox.Text = string.Empty;
+                }
+                GamesListBox.Focus();
+                e.Handled = true;
+            }
+        }
+        else
+        {
+            // Inside GameDetail or Settings
+            if (e.Key == Key.Escape || e.Key == Key.Back)
+            {
+                ShowMainList();
+                e.Handled = true;
+            }
         }
     }
 
@@ -250,21 +315,22 @@ public partial class MainWindow : Window
         if (_displayedGames.Count == 0) return;
 
         int currentIndex = GamesListBox.SelectedIndex;
-        int newIndex = currentIndex + offset;
+        if (currentIndex < 0) currentIndex = 0;
 
-        if (newIndex < 0) newIndex = 0;
-        if (newIndex >= _displayedGames.Count) newIndex = _displayedGames.Count - 1;
+        int newIndex = (currentIndex + offset) % _displayedGames.Count;
+        if (newIndex < 0) newIndex += _displayedGames.Count;
 
         GamesListBox.SelectedIndex = newIndex;
-        if (GamesListBox.SelectedItem != null)
+        var item = GamesListBox.SelectedItem;
+        if (item != null)
         {
-            GamesListBox.ScrollIntoView(GamesListBox.SelectedItem);
+            GamesListBox.ScrollIntoView(item);
         }
     }
 
     private async void SyncAllGames()
     {
-        Console.WriteLine("[Pluto] Syncing games to SLS config.yaml...");
+        Console.WriteLine("[Pluto] Cleanly syncing games into ~/.config/SLSsteam/config.yaml...");
         foreach (var g in _allGames)
         {
             await _slsService.SyncGameToConfigAsync(g);
@@ -280,12 +346,17 @@ public partial class MainWindow : Window
 
     private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Down || e.Key == Key.Enter)
+        if (e.Key == Key.Down)
         {
+            NavigateList(1);
             GamesListBox.Focus();
-            if (GamesListBox.SelectedIndex < 0 && _displayedGames.Count > 0)
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            if (GamesListBox.SelectedItem is PluginGame selected)
             {
-                GamesListBox.SelectedIndex = 0;
+                OpenGameDetailPage(selected);
             }
             e.Handled = true;
         }
@@ -302,6 +373,16 @@ public partial class MainWindow : Window
         if (e.Key == Key.Enter && GamesListBox.SelectedItem is PluginGame selected)
         {
             OpenGameDetailPage(selected);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up)
+        {
+            NavigateList(-1);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Down)
+        {
+            NavigateList(1);
             e.Handled = true;
         }
         else if (e.Key == Key.Tab || e.Key == Key.F1)
@@ -336,5 +417,40 @@ public partial class MainWindow : Window
     private void OnBackToMainClicked(object? sender, RoutedEventArgs e)
     {
         ShowMainList();
+    }
+
+    private void OnLaunchDetailGameClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedGame != null)
+        {
+            Console.WriteLine($"[Pluto] Launching: {_selectedGame.Name} ({_selectedGame.AppId})");
+            _slsService.LaunchGame(_selectedGame.AppId);
+        }
+    }
+
+    private async void OnSyncDetailGameClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedGame != null)
+        {
+            await _slsService.SyncGameToConfigAsync(_selectedGame);
+            _slsService.NotifyReload();
+        }
+    }
+
+    private async void OnToggleModeClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedGame != null)
+        {
+            if (_selectedGame.Source == "plugin_native")
+            {
+                await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
+            }
+            else
+            {
+                await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
+            }
+            await ReloadLibraryAsync();
+            ShowMainList();
+        }
     }
 }
