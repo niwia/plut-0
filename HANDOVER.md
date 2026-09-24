@@ -13,9 +13,11 @@
    - [A. Moving ACCELA Managed ➔ AT0-M (Plugin Native)](#a-moving-accela-managed--at0-m-plugin-native)
    - [B. Moving AT0-M ➔ ACCELA Managed](#b-moving-at0-m--accela-managed)
 5. [The Steam ACF Manifest Contract (`appmanifest_<appid>.acf`)](#5-the-steam-acf-manifest-contract)
-6. [SLSsteam & Bridge Integration (`assella_bridge.lua`)](#6-slssteam--bridge-integration)
-7. [Implementation Blueprint for Pluto (C# Services)](#7-implementation-blueprint-for-pluto)
-8. [Critical Gotchas & Guardrails](#8-critical-gotchas--guardrails)
+6. [AT0-M / Vapor Global Settings](#6-at0-m--vapor-global-settings)
+7. [Best Architecture for Pluto to Manage ASSella Games](#7-best-architecture-for-pluto-to-manage-assella-games)
+8. [SLSsteam & Bridge Integration (`assella_bridge.lua`)](#8-slssteam--bridge-integration)
+9. [Implementation Blueprint for Pluto (C# Services)](#9-implementation-blueprint-for-pluto)
+10. [Critical Gotchas & Guardrails](#10-critical-gotchas--guardrails)
 
 ---
 
@@ -52,6 +54,7 @@
 | **ACCELA Games Cache**| `~/.local/share/ACCELA/db/games_cache.json` | Pre-parsed snapshot of all discovered games, paths, flags, and build IDs. |
 | **Depot Keys SQLite** | `~/.local/share/ACCELA/db/depot_keys.db` | SQLite database storing AES decryption keys by AppID / DepotID. |
 | **Steam Libraries VDF**| `~/.local/share/Steam/steamapps/libraryfolders.vdf` | Steam's official registry of all mounted library paths (internal, microSD, external drives). |
+| **ACCELA / AT0-M Settings**| `~/.config/Tachibana Labs/ACCELA.conf` | INI configuration file storing AT0-M/Vapor settings, download behavior, and UI preferences. |
 | **SLSsteam Config** | `~/.config/SLSsteam/config.yaml` | Active SLS configuration containing `AdditionalApps`, `AdditionalDepots`, and `DecryptionKeys`. |
 | **SLSsteam Plugins** | `~/.config/SLSsteam/plugins/` | Location of Lua plugins, including `assella_bridge.lua`. |
 | **SLSsteam API Pipe** | `/tmp/SLSsteam.API` | Named FIFO / text pipe used to send commands directly to SLSsteam (e.g., `reloadlua`). |
@@ -263,16 +266,92 @@ Path: `<library_path>/steamapps/appmanifest_<appid>.acf`
 }
 ```
 
-### Essential Rules for ACF Manipulation
-1. **`StateFlags` must be `"4"`**: This indicates `STATE_FULLY_INSTALLED`. If it is `"0"` or `"1026"`, Steam client thinks the download is incomplete or corrupted.
-2. **`InstalledDepots` must not be empty**:
-   - Every content depot must have an entry: `"<depot_id>" { "manifest" "<manifest_gid>" "size" "<bytes>" }`.
-   - If manifest GID is unknown, `"0"` is acceptable as fallback, but providing the real manifest GID allows Steam to check for updates.
-3. **`SizeOnDisk` must be > 0**: If `"SizeOnDisk"` is `"0"`, Steam's download manager will attempt to wipe and re-download all depots.
+### Essential Rules for ACF Manipulation & SizeOnDisk Clarification
+1. **For SLSsteam Injection (`config.yaml`)**:
+   - `SizeOnDisk` is **not needed** by SLSsteam at all.
+   - Cleanly injecting `AdditionalApps`, `AdditionalDepots`, and `DecryptionKeys` into `~/.config/SLSsteam/config.yaml` and issuing `reloadlua` is 100% of what SLSsteam needs to unlock licenses and allow Steam to run or download the game.
+2. **For Steam Client (`appmanifest_<appid>.acf`)**:
+   - `StateFlags` should be `"4"` (`STATE_FULLY_INSTALLED`).
+   - `InstalledDepots` should ideally be present so Steam recognizes existing depots.
+   - `SizeOnDisk`: Pluto does **not** need to crawl the filesystem to calculate `SizeOnDisk`. If it's `"0"` or left as-is, Steam's client automatically re-evaluates the folder on verification or ASSella calculates it asynchronously in the background. Clean `config.yaml` injection is the true priority.
 
 ---
 
-## 6. SLSsteam & Bridge Integration
+## 6. AT0-M / Vapor Global Settings
+
+All global settings configured in ASSella's **Settings ➔ AT0-M** tab are stored in the user's Qt configuration file:
+
+**File Location:**  
+`~/.config/Tachibana Labs/ACCELA.conf`
+
+### Configuration Keys & Values
+
+```ini
+[General]
+# Enable / disable AT0-M integration globally
+enable_vapor=true
+enable_at0m=true
+
+# Download behavior for AT0-M games:
+# "native"  = Native Steam client handles downloads and updates
+# "ask"     = Prompt the user each time
+# "accela"  = Use ACCELA's DepotDownloader engine
+vapor_default_download_action=native
+
+# Prevent Steam client from auto-updating AT0-M games
+vapor_disable_updates=false
+at0m_disable_updates=false
+
+# Whether to prompt with the depot checklist before initiating download
+vapor_show_depot_checklist=true
+
+# Start download behavior: "immediate" or "queued"
+vapor_start_download_action=immediate
+vapor_start_download_immediately=true
+
+# Use native Steam download handoff
+use_native_steam_download=true
+```
+
+Pluto can read this `.conf` file (standard INI format) on startup to align its behavior with the user's preferences (e.g. knowing whether native downloads or auto-updates are preferred).
+
+---
+
+## 7. Best Architecture for Pluto to Manage ASSella Games
+
+To let Pluto seamlessly manage both **ACCELA-managed games** and **AT0-M plugin games**, adopt this dual-source pattern:
+
+### 1. Dual-Source Library Loading
+In Pluto's `PluginLibraryService` (or a unified `GameLibraryService`):
+1. **Load AT0-M games** from `~/.local/share/ACCELA/db/plugin_library.json`.
+2. **Load all ACCELA / Steam games** from `~/.local/share/ACCELA/db/games_cache.json`.
+3. Merge them into a single list of `PlutoGame` models:
+   - If `is_atom == true` or `is_vapor == true`: Mode is `[AT0-M]`.
+   - If `is_accela_install == true` and not in `plugin_library.json`: Mode is `[ACCELA]`.
+   - If purely owned on Steam: Mode is `[STEAM]`.
+
+### 2. FileSystemWatchers on Both Sources
+Set up `FileSystemWatcher` on:
+- `~/.local/share/ACCELA/db/plugin_library.json`
+- `~/.local/share/ACCELA/db/games_cache.json`
+
+Any time ASSella installs a game or updates its cache, Pluto's list refreshes automatically!
+
+### 3. One-Click Mode Toggle (`[X]` Button on Gamepad)
+When a user selects a game in Pluto and presses `[X]` (or clicks "Toggle Mode"):
+- **If currently `[ACCELA]` ➔ Convert to `[AT0-M]`**:
+  1. Delete marker `<game_path>/.ACCELA` (or `.DepotDownloader`).
+  2. Add AppID, Depots, and Keys into `~/.config/SLSsteam/config.yaml` (in-place).
+  3. Add entry to `~/.local/share/ACCELA/db/plugin_library.json`.
+  4. Send `reloadlua\n` to `/tmp/SLSsteam.API`.
+- **If currently `[AT0-M]` ➔ Convert to `[ACCELA]`**:
+  1. Create `<game_path>/.ACCELA`.
+  2. Remove from `plugin_library.json`.
+  3. Remove AppID from `config.yaml` (in-place).
+  4. Send `reloadlua\n` to `/tmp/SLSsteam.API`.
+
+
+## 8. SLSsteam & Bridge Integration
 
 SLSsteam hooks into the Steam client process and controls license emulation and depot unlocking.
 
@@ -330,7 +409,7 @@ If Pluto does not run an IPC server, Pluto can simply write commands to `/tmp/as
 
 ---
 
-## 7. Implementation Blueprint for Pluto
+## 9. Implementation Blueprint for Pluto
 
 Below are ready-to-use C# service implementations for Pluto to handle ACCELA discovery, ACF repairs, and mode transitions.
 
@@ -463,7 +542,7 @@ public class GameTransitionService
 
 ---
 
-## 8. Critical Gotchas & Guardrails
+## 10. Critical Gotchas & Guardrails
 
 1. **Inode Preservation on `~/.config/SLSsteam/config.yaml`**:
    - SLSsteam uses Linux `inotify` on `config.yaml`.
