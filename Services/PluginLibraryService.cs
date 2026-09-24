@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Pluto.Models;
 
@@ -19,6 +20,7 @@ public class PluginLibraryService : IDisposable
         ".local", "share", "ACCELA", "db", "games_cache.json");
 
     private readonly string _dbPath;
+    private readonly At0mScriptBridge _bridge;
     private FileSystemWatcher? _watcher;
     private readonly JsonSerializerOptions _jsonOptions;
 
@@ -27,17 +29,19 @@ public class PluginLibraryService : IDisposable
     public PluginLibraryService(string? customDbPath = null)
     {
         _dbPath = customDbPath ?? DefaultDbPath;
+        _bridge = new At0mScriptBridge();
         _jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            PropertyNameCaseInsensitive = true
+            PropertyNameCaseInsensitive = true,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
         };
 
         SetupWatcher();
     }
 
     public string DbPath => _dbPath;
-
+    public At0mScriptBridge Bridge => _bridge;
     public bool Exists => File.Exists(_dbPath);
 
     private void SetupWatcher()
@@ -75,6 +79,23 @@ public class PluginLibraryService : IDisposable
 
     public async Task<List<PluginGame>> LoadGamesAsync()
     {
+        // 1. Try loading via At0mScriptBridge (loads both AT0-M and ACCELA games)
+        try
+        {
+            var bridgeGames = await _bridge.ListAllGamesAsync();
+            if (bridgeGames != null && bridgeGames.Count > 0)
+            {
+                return bridgeGames
+                    .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PluginLibraryService] At0mScriptBridge list-all error: {ex.Message}");
+        }
+
+        // 2. Fallback: Direct file read of plugin_library.json
         if (!File.Exists(_dbPath))
         {
             return new List<PluginGame>();
@@ -87,8 +108,6 @@ public class PluginLibraryService : IDisposable
             if (dict == null) return new List<PluginGame>();
 
             var list = dict.Values.ToList();
-
-            // Enrich with games_cache.json if available
             await EnrichWithGamesCacheAsync(list);
 
             return list
@@ -132,7 +151,7 @@ public class PluginLibraryService : IDisposable
                             game.AppmanifestPath = ap.GetString() ?? "";
 
                         if (el.TryGetProperty("is_accela_install", out var ai))
-                            game.IsAccelaManaged = ai.GetBoolean();
+                            game.IsAccela = ai.GetBoolean();
                     }
                 }
             }

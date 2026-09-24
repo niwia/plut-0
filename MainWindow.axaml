@@ -69,7 +69,24 @@
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
-        <!-- Minimal Search Box: Low opacity, no bold -->
+        <!-- ACCELA Installed Games: Refined Dark Blue with matched visual weight -->
+        <Style Selector="ListBoxItem TextBlock.accela">
+            <Setter Property="Foreground" Value="#385473" />
+        </Style>
+
+        <Style Selector="ListBoxItem:pointerover TextBlock.accela">
+            <Setter Property="Foreground" Value="#5278A3" />
+            <Setter Property="FontSize" Value="25" />
+            <Setter Property="FontWeight" Value="Normal" />
+        </Style>
+
+        <Style Selector="ListBoxItem:selected TextBlock.accela">
+            <Setter Property="FontSize" Value="32" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#60A5FA" />
+        </Style>
+
+        <!-- Minimal Search Box: Low opacity, no bold, no emojis -->
         <Style Selector="TextBox.minimalSearch">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -101,16 +118,14 @@
             <Setter Property="BorderThickness" Value="0" />
         </Style>
 
-        <!-- Minimal Back Button -->
-        <Style Selector="Button.backBtn">
+        <!-- Minimal Plain Text Buttons: No backgrounds, no borders, no emojis -->
+        <Style Selector="Button.minimalTextBtn">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,0,24" />
-            <Setter Property="FontSize" Value="16" />
+            <Setter Property="FontSize" Value="15" />
             <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="#666666" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Foreground" Value="#555555" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Transitions">
                 <Transitions>
@@ -118,10 +133,10 @@
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Button.backBtn:pointerover">
+        <Style Selector="Button.minimalTextBtn:pointerover">
             <Setter Property="Foreground" Value="#CCCCCC" />
         </Style>
-        <Style Selector="Button.backBtn:pointerover /template/ ContentPresenter">
+        <Style Selector="Button.minimalTextBtn:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
         </Style>
     </Window.Styles>
@@ -149,7 +164,7 @@
             <Grid Grid.Row="0" Margin="0,0,0,60" HorizontalAlignment="Left">
                 <TextBox x:Name="SearchBox"
                          Classes="minimalSearch"
-                         PlaceholderText="Search games..."
+                         PlaceholderText="search games..."
                          TextChanged="OnSearchTextChanged"
                          KeyDown="OnSearchBoxKeyDown" />
             </Grid>
@@ -164,6 +179,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="models:PluginGame">
                             <TextBlock Classes="gameTitle"
+                                       Classes.accela="{Binding IsAccela}"
                                        Text="{Binding Name}"
                                        VerticalAlignment="Center" />
                         </DataTemplate>
@@ -172,7 +188,7 @@
 
                 <!-- Minimal Empty State -->
                 <TextBlock x:Name="EmptyStateText"
-                           Text="No games found"
+                           Text="no games found"
                            FontSize="18"
                            FontWeight="Normal"
                            Foreground="#333333"
@@ -181,9 +197,19 @@
                            Margin="0,12,0,0"
                            IsVisible="False" />
             </Grid>
+
+            <!-- Settings Button at Bottom Right of Main Page -->
+            <Button x:Name="SettingsBtn"
+                    Grid.Row="1"
+                    Classes="minimalTextBtn"
+                    Content="settings"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,0,0"
+                    Click="OnOpenSettingsClicked" />
         </Grid>
 
-        <!-- 2. GAME DETAIL PAGE VIEW (Clean, empty for now with back button) -->
+        <!-- 2. GAME DETAIL PAGE VIEW -->
         <Grid x:Name="GameDetailPanel"
               RowDefinitions="Auto,Auto,*"
               Margin="64,48,64,36"
@@ -191,11 +217,12 @@
             
             <!-- Back Button -->
             <Button Grid.Row="0"
-                    Classes="backBtn"
-                    Content="← back"
+                    Classes="minimalTextBtn"
+                    Content="back"
+                    Margin="0,0,0,24"
                     Click="OnBackToMainClicked" />
 
-            <!-- Game Title (Left-aligned, normal weight) -->
+            <!-- Game Title & Subtitle -->
             <StackPanel Grid.Row="1" Spacing="8" Margin="0,0,0,32">
                 <TextBlock x:Name="DetailGameTitle"
                            Text="Game Title"
@@ -203,7 +230,7 @@
                            FontWeight="Normal"
                            Foreground="#FFFFFF" />
                 <TextBlock x:Name="DetailGameSubtitle"
-                           Text="AppID: 000000"
+                           Text="appid: 000000 | mode: at0-m plugin"
                            FontSize="14"
                            FontWeight="Normal"
                            Foreground="#555555" />
@@ -211,27 +238,29 @@
 
             <!-- Game Page Actions -->
             <StackPanel Grid.Row="2" Spacing="16" HorizontalAlignment="Left">
-                <Button Classes="backBtn"
-                        Content="▶ launch game"
+                <Button Classes="minimalTextBtn"
+                        Content="launch game"
                         FontSize="18"
                         Foreground="#E0E0E0"
                         Click="OnLaunchDetailGameClicked" />
 
-                <Button Classes="backBtn"
-                        Content="⚡ sync to slssteam config"
+                <Button x:Name="DetailSyncSlsBtn"
+                        Classes="minimalTextBtn"
+                        Content="sync to sls config"
                         FontSize="16"
                         Foreground="#888888"
                         Click="OnSyncDetailGameClicked" />
 
-                <Button Classes="backBtn"
-                        Content="🔄 switch mode (plugin / accela)"
+                <Button x:Name="DetailSwitchModeBtn"
+                        Classes="minimalTextBtn"
+                        Content="convert to at0-m plugin native"
                         FontSize="16"
                         Foreground="#666666"
                         Click="OnToggleModeClicked" />
             </StackPanel>
         </Grid>
 
-        <!-- 3. SETTINGS PAGE VIEW (Triggered by Select button) -->
+        <!-- 3. SETTINGS PAGE VIEW (Interactive Toggles & System Control) -->
         <Grid x:Name="SettingsPanel"
               RowDefinitions="Auto,Auto,*"
               Margin="64,48,64,36"
@@ -239,8 +268,9 @@
             
             <!-- Back Button -->
             <Button Grid.Row="0"
-                    Classes="backBtn"
-                    Content="← back"
+                    Classes="minimalTextBtn"
+                    Content="back"
+                    Margin="0,0,0,24"
                     Click="OnBackToMainClicked" />
 
             <!-- Settings Title -->
@@ -249,34 +279,80 @@
                            FontSize="30"
                            FontWeight="Normal"
                            Foreground="#FFFFFF" />
-                <TextBlock Text="system &amp; plugin status"
+                <TextBlock Text="system &amp; at0-m configuration"
                            FontSize="14"
                            FontWeight="Normal"
                            Foreground="#555555" />
             </StackPanel>
 
-            <!-- Settings Content -->
-            <StackPanel Grid.Row="2" Spacing="24">
-                <StackPanel Spacing="6">
-                    <TextBlock Text="SLSsteam Config" FontSize="13" Foreground="#666666" />
-                    <TextBlock x:Name="SettingsSlsConfigText" Text="~/.config/SLSsteam/config.yaml" FontSize="15" Foreground="#AAAAAA" />
-                </StackPanel>
+            <!-- Settings Content: Interactive Toggles & Actions -->
+            <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
+                <StackPanel Spacing="24">
+                    <!-- Toggle: Plugin Engine (enable_vapor) -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="at0-m plugin engine" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleVaporBtn"
+                                Classes="minimalTextBtn"
+                                Content="enabled"
+                                FontSize="16"
+                                Foreground="#38BDF8"
+                                Click="OnToggleVaporClicked" />
+                    </StackPanel>
 
-                <StackPanel Spacing="6">
-                    <TextBlock Text="SLSsteam API Pipe" FontSize="13" Foreground="#666666" />
-                    <TextBlock x:Name="SettingsSlsPipeText" Text="/tmp/SLSsteam.API" FontSize="15" Foreground="#AAAAAA" />
-                </StackPanel>
+                    <!-- Toggle: Default Download Action (vapor_default_download_action) -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="download provider" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleDownloadActionBtn"
+                                Classes="minimalTextBtn"
+                                Content="native steam"
+                                FontSize="16"
+                                Foreground="#38BDF8"
+                                Click="OnToggleDownloadActionClicked" />
+                    </StackPanel>
 
-                <StackPanel Spacing="6">
-                    <TextBlock Text="Plugin Library DB" FontSize="13" Foreground="#666666" />
-                    <TextBlock x:Name="SettingsDbPathText" Text="~/.local/share/ACCELA/db/plugin_library.json" FontSize="15" Foreground="#AAAAAA" />
-                </StackPanel>
+                    <!-- Toggle: Disable Updates (vapor_disable_updates) -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="steam updates" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleUpdatesBtn"
+                                Classes="minimalTextBtn"
+                                Content="normal (updates allowed)"
+                                FontSize="16"
+                                Foreground="#38BDF8"
+                                Click="OnToggleUpdatesClicked" />
+                    </StackPanel>
 
-                <StackPanel Spacing="6">
-                    <TextBlock Text="Controller" FontSize="13" Foreground="#666666" />
-                    <TextBlock x:Name="SettingsControllerText" Text="No controller detected" FontSize="15" Foreground="#AAAAAA" />
+                    <!-- Action: Sync All Games to SLS -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="slssteam synchronization" FontSize="13" Foreground="#666666" />
+                        <Button Classes="minimalTextBtn"
+                                Content="sync all games into config.yaml"
+                                FontSize="16"
+                                Foreground="#818CF8"
+                                Click="OnSyncAllClicked" />
+                    </StackPanel>
+
+                    <!-- Action: Reload SLSsteam -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="slssteam api pipe" FontSize="13" Foreground="#666666" />
+                        <Button Classes="minimalTextBtn"
+                                Content="reload slssteam plugins (reloadlua)"
+                                FontSize="16"
+                                Foreground="#818CF8"
+                                Click="OnReloadSlsClicked" />
+                    </StackPanel>
+
+                    <!-- Informational: Library Counts & Paths -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="library summary" FontSize="13" Foreground="#666666" />
+                        <TextBlock x:Name="SettingsGameCountsText" Text="loading..." FontSize="14" Foreground="#AAAAAA" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="controller" FontSize="13" Foreground="#666666" />
+                        <TextBlock x:Name="SettingsControllerText" Text="no controller detected" FontSize="14" Foreground="#AAAAAA" />
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
+            </ScrollViewer>
         </Grid>
     </Grid>
 </Window>

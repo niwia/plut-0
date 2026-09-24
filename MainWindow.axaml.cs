@@ -24,6 +24,11 @@ public partial class MainWindow : Window
     private ObservableCollection<PluginGame> _displayedGames = new();
     private PluginGame? _selectedGame;
 
+    // Cached Settings
+    private bool _settingVaporEnabled = true;
+    private string _settingDownloadAction = "native";
+    private bool _settingDisableUpdates = false;
+
     private enum ActiveView
     {
         MainList,
@@ -74,6 +79,7 @@ public partial class MainWindow : Window
         _gamepadService.Start();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
         await ReloadLibraryAsync();
+        await LoadSettingsFromConfigAsync();
         GamesListBox.Focus();
     }
 
@@ -87,6 +93,7 @@ public partial class MainWindow : Window
 
         _allGames = games;
         ApplyFilter(SearchBox?.Text);
+        UpdateGameCountsText();
     }
 
     private void ApplyFilter(string? query)
@@ -115,11 +122,11 @@ public partial class MainWindow : Window
             EmptyStateText.IsVisible = list.Count == 0;
             if (list.Count == 0 && !string.IsNullOrEmpty(trimmed))
             {
-                EmptyStateText.Text = $"No games matching \"{trimmed}\"";
+                EmptyStateText.Text = $"no games matching \"{trimmed}\"";
             }
             else
             {
-                EmptyStateText.Text = "No games found in plugin library";
+                EmptyStateText.Text = "no games found in library";
             }
         }
 
@@ -137,7 +144,17 @@ public partial class MainWindow : Window
     {
         if (SettingsControllerText != null)
         {
-            SettingsControllerText.Text = connected ? $"Connected ({name})" : "No controller detected";
+            SettingsControllerText.Text = connected ? $"connected ({name})" : "no controller detected";
+        }
+    }
+
+    private void UpdateGameCountsText()
+    {
+        if (SettingsGameCountsText != null)
+        {
+            int atomCount = _allGames.Count(g => !g.IsAccela);
+            int accelaCount = _allGames.Count(g => g.IsAccela);
+            SettingsGameCountsText.Text = $"{atomCount} at0-m plugin games, {accelaCount} accela managed games";
         }
     }
 
@@ -215,7 +232,18 @@ public partial class MainWindow : Window
         _currentView = ActiveView.GameDetail;
 
         DetailGameTitle.Text = game.Name;
-        DetailGameSubtitle.Text = $"AppID: {game.AppId} • {game.DepotCount} Depots • {game.KeyCount} Keys";
+        DetailGameSubtitle.Text = $"appid: {game.AppId} | mode: {game.ModeBadgeText}";
+
+        if (game.IsAccela)
+        {
+            DetailSyncSlsBtn.IsVisible = false;
+            DetailSwitchModeBtn.Content = "convert to at0-m plugin native";
+        }
+        else
+        {
+            DetailSyncSlsBtn.IsVisible = true;
+            DetailSwitchModeBtn.Content = "convert to accela managed";
+        }
 
         MainListPanel.IsVisible = false;
         GameDetailPanel.IsVisible = true;
@@ -226,15 +254,7 @@ public partial class MainWindow : Window
     {
         _currentView = ActiveView.Settings;
 
-        SettingsSlsConfigText.Text = File.Exists(SlsSteamService.SlsConfigPath)
-            ? $"{SlsSteamService.SlsConfigPath} (Active)"
-            : $"{SlsSteamService.SlsConfigPath} (Not Found)";
-
-        SettingsSlsPipeText.Text = File.Exists(SlsSteamService.SlsApiPipe)
-            ? $"{SlsSteamService.SlsApiPipe} (Ready)"
-            : $"{SlsSteamService.SlsApiPipe} (Idle)";
-
-        SettingsDbPathText.Text = _libraryService.DbPath;
+        UpdateGameCountsText();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
 
         MainListPanel.IsVisible = false;
@@ -330,8 +350,8 @@ public partial class MainWindow : Window
 
     private async void SyncAllGames()
     {
-        Console.WriteLine("[Pluto] Cleanly syncing games into ~/.config/SLSsteam/config.yaml...");
-        foreach (var g in _allGames)
+        Console.WriteLine("[Pluto] Syncing all at0-m games into config.yaml...");
+        foreach (var g in _allGames.Where(g => !g.IsAccela))
         {
             await _slsService.SyncGameToConfigAsync(g);
         }
@@ -419,6 +439,11 @@ public partial class MainWindow : Window
         ShowMainList();
     }
 
+    private void OnOpenSettingsClicked(object? sender, RoutedEventArgs e)
+    {
+        OpenSettingsPage();
+    }
+
     private void OnLaunchDetailGameClicked(object? sender, RoutedEventArgs e)
     {
         if (_selectedGame != null)
@@ -441,16 +466,95 @@ public partial class MainWindow : Window
     {
         if (_selectedGame != null)
         {
-            if (_selectedGame.Source == "plugin_native")
+            if (_selectedGame.IsAccela)
             {
-                await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
+                await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
             }
             else
             {
-                await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
+                await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
             }
             await ReloadLibraryAsync();
             ShowMainList();
         }
+    }
+
+    private void OnSyncAllClicked(object? sender, RoutedEventArgs e)
+    {
+        SyncAllGames();
+    }
+
+    private void OnReloadSlsClicked(object? sender, RoutedEventArgs e)
+    {
+        _slsService.NotifyReload();
+    }
+
+    // Settings Toggle Handlers
+    private async Task LoadSettingsFromConfigAsync()
+    {
+        try
+        {
+            var dict = await _libraryService.Bridge.GetSettingsAsync();
+            if (dict.TryGetValue("enable_vapor", out var v) || dict.TryGetValue("enable_at0m", out v))
+            {
+                _settingVaporEnabled = v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            if (dict.TryGetValue("vapor_default_download_action", out var da))
+            {
+                _settingDownloadAction = da.Trim();
+            }
+            if (dict.TryGetValue("vapor_disable_updates", out var du))
+            {
+                _settingDisableUpdates = du.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            UpdateSettingsUi();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Pluto] Failed to read settings: {ex.Message}");
+        }
+    }
+
+    private void UpdateSettingsUi()
+    {
+        if (ToggleVaporBtn != null)
+        {
+            ToggleVaporBtn.Content = _settingVaporEnabled ? "enabled" : "disabled";
+            ToggleVaporBtn.Foreground = _settingVaporEnabled
+                ? Avalonia.Media.Brushes.MediumSpringGreen
+                : Avalonia.Media.Brushes.Gray;
+        }
+
+        if (ToggleDownloadActionBtn != null)
+        {
+            ToggleDownloadActionBtn.Content = _settingDownloadAction == "native" ? "native steam" : "accela downloader";
+        }
+
+        if (ToggleUpdatesBtn != null)
+        {
+            ToggleUpdatesBtn.Content = _settingDisableUpdates ? "disabled" : "normal (updates allowed)";
+        }
+    }
+
+    private async void OnToggleVaporClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingVaporEnabled = !_settingVaporEnabled;
+        UpdateSettingsUi();
+        await _libraryService.Bridge.SetSettingAsync("enable_vapor", _settingVaporEnabled ? "true" : "false");
+        await _libraryService.Bridge.SetSettingAsync("enable_at0m", _settingVaporEnabled ? "true" : "false");
+    }
+
+    private async void OnToggleDownloadActionClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDownloadAction = _settingDownloadAction == "native" ? "accela" : "native";
+        UpdateSettingsUi();
+        await _libraryService.Bridge.SetSettingAsync("vapor_default_download_action", _settingDownloadAction);
+    }
+
+    private async void OnToggleUpdatesClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDisableUpdates = !_settingDisableUpdates;
+        UpdateSettingsUi();
+        await _libraryService.Bridge.SetSettingAsync("vapor_disable_updates", _settingDisableUpdates ? "true" : "false");
     }
 }
