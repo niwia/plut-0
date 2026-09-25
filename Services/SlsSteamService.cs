@@ -346,4 +346,190 @@ public class SlsSteamService
 
         return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
     }
+
+    /// <summary>
+    /// Checks whether SLSonline (FakeAppId 480 Spacewar) is currently enabled for an AppID.
+    /// </summary>
+    public bool IsSlsOnline(string appId)
+    {
+        if (!File.Exists(SlsConfigPath)) return false;
+        try
+        {
+            var content = File.ReadAllText(SlsConfigPath);
+            var bounds = GetSectionBounds(content, "FakeAppIds");
+            if (!bounds.HasValue) return false;
+
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var pattern = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:[ \t]*", RegexOptions.Multiline);
+            return pattern.IsMatch(secContent);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Toggles SLSonline (FakeAppId 480 -> Spacewar) in config.yaml and reloads SLSsteam.
+    /// </summary>
+    public async Task<bool> SetSlsOnlineAsync(string appId, string gameName, bool enable)
+    {
+        if (!File.Exists(SlsConfigPath)) return false;
+        try
+        {
+            var content = await File.ReadAllTextAsync(SlsConfigPath);
+            if (enable)
+            {
+                content = EnsureFakeAppId(content, appId, "480", $"{gameName} -> Spacewar");
+            }
+            else
+            {
+                content = RemoveFakeAppId(content, appId);
+                content = RemoveLaunchOption(content, appId); // Disable netsock if online disabled
+            }
+
+            await WriteInPlaceAsync(SlsConfigPath, content);
+            NotifyReload();
+            PlutoLogger.Info("SLS", $"Set SLSonline for {appId} ({gameName}) to {enable}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("SLS", $"Error setting SLSonline for {appId}", ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks whether Netsock LD_AUDIT multiplayer proxy is configured in LaunchOptions for an AppID.
+    /// </summary>
+    public bool IsNetsock(string appId)
+    {
+        if (!File.Exists(SlsConfigPath)) return false;
+        try
+        {
+            var content = File.ReadAllText(SlsConfigPath);
+            var bounds = GetSectionBounds(content, "LaunchOptions");
+            if (!bounds.HasValue) return false;
+
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var pattern = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:.*netsock\.so", RegexOptions.Multiline);
+            return pattern.IsMatch(secContent);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Toggles Netsock LD_AUDIT multiplayer proxy in LaunchOptions in config.yaml and reloads SLSsteam.
+    /// </summary>
+    public async Task<bool> SetNetsockAsync(string appId, bool enable)
+    {
+        if (!File.Exists(SlsConfigPath)) return false;
+        try
+        {
+            var content = await File.ReadAllTextAsync(SlsConfigPath);
+            if (enable)
+            {
+                var netsockPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "SLSsteam", "tools", "netsock", "netsock.so");
+                var cmd = $"\"env LD_AUDIT=\\\"{netsockPath}\\\" %command%\"";
+                content = EnsureLaunchOption(content, appId, cmd);
+            }
+            else
+            {
+                content = RemoveLaunchOption(content, appId);
+            }
+
+            await WriteInPlaceAsync(SlsConfigPath, content);
+            NotifyReload();
+            PlutoLogger.Info("SLS", $"Set Netsock for {appId} to {enable}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("SLS", $"Error setting Netsock for {appId}", ex);
+            return false;
+        }
+    }
+
+    private static string EnsureFakeAppId(string content, string appId, string fakeAppId, string comment)
+    {
+        var bounds = GetSectionBounds(content, "FakeAppIds");
+        var entry = string.IsNullOrWhiteSpace(comment)
+            ? $"  {appId}: {fakeAppId}\n"
+            : $"  {appId}: {fakeAppId} # {comment.Trim()}\n";
+
+        if (bounds.HasValue)
+        {
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var itemRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:[ \t]*", RegexOptions.Multiline);
+            if (itemRegex.IsMatch(secContent))
+            {
+                // Already present, replace it
+                var replaceRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:[^\r\n]*(\r?\n|$)", RegexOptions.Multiline);
+                var newSecContent = replaceRegex.Replace(secContent, entry, 1);
+                return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
+            }
+
+            int insertPos = bounds.Value.sectionEnd;
+            if (insertPos > 0 && content[insertPos - 1] != '\n')
+            {
+                entry = "\n" + entry;
+            }
+            return content.Insert(insertPos, entry);
+        }
+        else
+        {
+            return content.TrimEnd() + $"\n\nFakeAppIds:\n{entry}";
+        }
+    }
+
+    private static string RemoveFakeAppId(string content, string appId)
+    {
+        var bounds = GetSectionBounds(content, "FakeAppIds");
+        if (!bounds.HasValue) return content;
+
+        var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+        var itemRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:[^\r\n]*(\r?\n|$)", RegexOptions.Multiline);
+        var newSecContent = itemRegex.Replace(secContent, "");
+
+        return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
+    }
+
+    private static string EnsureLaunchOption(string content, string appId, string command)
+    {
+        var bounds = GetSectionBounds(content, "LaunchOptions");
+        var entry = $"  {appId}: {command}\n";
+
+        if (bounds.HasValue)
+        {
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var itemRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:[ \t]*", RegexOptions.Multiline);
+            if (itemRegex.IsMatch(secContent))
+            {
+                var replaceRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:[^\r\n]*(\r?\n|$)", RegexOptions.Multiline);
+                var newSecContent = replaceRegex.Replace(secContent, entry, 1);
+                return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
+            }
+
+            int insertPos = bounds.Value.sectionEnd;
+            if (insertPos > 0 && content[insertPos - 1] != '\n')
+            {
+                entry = "\n" + entry;
+            }
+            return content.Insert(insertPos, entry);
+        }
+        else
+        {
+            return content.TrimEnd() + $"\n\nLaunchOptions:\n{entry}";
+        }
+    }
+
+    private static string RemoveLaunchOption(string content, string appId)
+    {
+        var bounds = GetSectionBounds(content, "LaunchOptions");
+        if (!bounds.HasValue) return content;
+
+        var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+        var itemRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*:[^\r\n]*(\r?\n|$)", RegexOptions.Multiline);
+        var newSecContent = itemRegex.Replace(secContent, "");
+
+        return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
+    }
 }

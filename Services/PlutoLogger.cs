@@ -9,7 +9,7 @@ public static class PlutoLogger
 
     public static readonly string LogDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "pluto");
+        ".local", "share", "pluto", "logs");
 
     public static readonly string LogFilePath = Path.Combine(LogDirectory, "pluto.log");
 

@@ -57,7 +57,7 @@ public class PluginGame
     public int KeyCount => Keys?.Count ?? 0;
 
     [JsonIgnore]
-    public string ModeBadgeText => IsAccela ? "accela managed" : "at0-m plugin";
+    public string ModeBadgeText => IsAccela ? "assella" : "native";
 
     [JsonIgnore]
     public string DisplayColorHex => IsAccela ? "#4A6B8A" : "#444444";

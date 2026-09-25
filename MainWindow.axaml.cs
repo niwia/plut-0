@@ -40,6 +40,8 @@ public partial class MainWindow : Window
 
     private ActiveView _currentView = ActiveView.MainList;
 
+    private readonly SteamlessService _steamlessService;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -50,6 +52,7 @@ public partial class MainWindow : Window
         _configService = new AccelaConfigService();
         _transitionService = new GameTransitionService(_slsService, _libraryService, _depotKeyService);
         _gamepadService = new GamepadService();
+        _steamlessService = new SteamlessService();
 
         GamesListBox.ItemsSource = _displayedGames;
 
@@ -238,17 +241,51 @@ public partial class MainWindow : Window
         _currentView = ActiveView.GameDetail;
 
         DetailGameTitle.Text = game.Name;
-        DetailGameSubtitle.Text = $"appid: {game.AppId} | mode: {game.ModeBadgeText}";
+        DetailGameSubtitle.Text = $"{game.AppId}  •  {(game.IsAccela ? "assella" : "native")}";
 
         if (game.IsAccela)
         {
-            DetailSyncSlsBtn.IsVisible = false;
-            DetailSwitchModeBtn.Content = "convert to at0-m plugin native";
+            DetailSwitchModeBtn.Content = "add to plugin";
+            DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
         }
         else
         {
-            DetailSyncSlsBtn.IsVisible = true;
-            DetailSwitchModeBtn.Content = "convert to accela managed";
+            DetailSwitchModeBtn.Content = "move to assella";
+            DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.LightSkyBlue;
+        }
+
+        // SLSonline & Netsock status
+        bool isOnline = _slsService.IsSlsOnline(game.AppId);
+        bool isNetsock = _slsService.IsNetsock(game.AppId);
+        UpdateOnlineTogglesUi(isOnline, isNetsock);
+
+        // Reset Steamless UI state
+        DetailSteamlessBtn.IsEnabled = true;
+        DetailSteamlessBtn.Content = "apply steamless";
+        DetailSteamlessStatus.IsVisible = false;
+
+        // Load Thumbnail Artwork with gradient opacity mask from ACCELA cache
+        var imageCachePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".local", "share", "ACCELA", "image_cache", $"{game.AppId}.jpg");
+
+        if (File.Exists(imageCachePath))
+        {
+            try
+            {
+                DetailGameBackdrop.Source = new Avalonia.Media.Imaging.Bitmap(imageCachePath);
+                DetailGameBackdrop.IsVisible = true;
+            }
+            catch
+            {
+                DetailGameBackdrop.Source = null;
+                DetailGameBackdrop.IsVisible = false;
+            }
+        }
+        else
+        {
+            DetailGameBackdrop.Source = null;
+            DetailGameBackdrop.IsVisible = false;
         }
 
         MainListPanel.IsVisible = false;
@@ -455,40 +492,89 @@ public partial class MainWindow : Window
         OpenSettingsPage();
     }
 
-    private void OnLaunchDetailGameClicked(object? sender, RoutedEventArgs e)
-    {
-        if (_selectedGame != null)
-        {
-            PlutoLogger.Info("Pluto", $"Launching: {_selectedGame.Name} ({_selectedGame.AppId})");
-            _slsService.LaunchGame(_selectedGame.AppId);
-        }
-    }
-
-    private async void OnSyncDetailGameClicked(object? sender, RoutedEventArgs e)
-    {
-        if (_selectedGame != null)
-        {
-            await _slsService.SyncGameToConfigAsync(_selectedGame);
-            _slsService.NotifyReload();
-        }
-    }
-
     private async void OnToggleModeClicked(object? sender, RoutedEventArgs e)
     {
         if (_selectedGame != null)
         {
             if (_selectedGame.IsAccela)
             {
-                PlutoLogger.Info("Transition", $"Converting {_selectedGame.AppId} ({_selectedGame.Name}) to AT0-M plugin native");
+                PlutoLogger.Info("Transition", $"Converting {_selectedGame.AppId} ({_selectedGame.Name}) to plugin native");
                 await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
+                _selectedGame.IsAccela = false;
             }
             else
             {
-                PlutoLogger.Info("Transition", $"Reverting {_selectedGame.AppId} ({_selectedGame.Name}) to ACCELA managed mode");
+                PlutoLogger.Info("Transition", $"Reverting {_selectedGame.AppId} ({_selectedGame.Name}) to assella managed mode");
                 await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
+                _selectedGame.IsAccela = true;
             }
+
+            DetailGameSubtitle.Text = $"{_selectedGame.AppId}  •  {(_selectedGame.IsAccela ? "assella" : "native")}";
+            DetailSwitchModeBtn.Content = _selectedGame.IsAccela ? "add to plugin" : "move to assella";
+            DetailSwitchModeBtn.Foreground = _selectedGame.IsAccela ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.LightSkyBlue;
+
             await ReloadLibraryAsync();
-            ShowMainList();
+        }
+    }
+
+    private async void OnToggleSlsOnlineClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedGame != null)
+        {
+            bool current = _slsService.IsSlsOnline(_selectedGame.AppId);
+            await _slsService.SetSlsOnlineAsync(_selectedGame.AppId, _selectedGame.Name, !current);
+            bool nowOnline = _slsService.IsSlsOnline(_selectedGame.AppId);
+            bool nowNetsock = _slsService.IsNetsock(_selectedGame.AppId);
+            UpdateOnlineTogglesUi(nowOnline, nowNetsock);
+        }
+    }
+
+    private async void OnToggleNetsockClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedGame != null)
+        {
+            bool current = _slsService.IsNetsock(_selectedGame.AppId);
+            await _slsService.SetNetsockAsync(_selectedGame.AppId, !current);
+            bool isOnline = _slsService.IsSlsOnline(_selectedGame.AppId);
+            bool nowNetsock = _slsService.IsNetsock(_selectedGame.AppId);
+            UpdateOnlineTogglesUi(isOnline, nowNetsock);
+        }
+    }
+
+    private void UpdateOnlineTogglesUi(bool isOnline, bool isNetsock)
+    {
+        if (isOnline)
+        {
+            DetailSlsOnlineBtn.Content = "slsonline: active";
+            DetailSlsOnlineBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
+            DetailNetsockBtn.IsVisible = true;
+            DetailNetsockBtn.Content = isNetsock ? "netsock proxy: active" : "enable netsock proxy";
+            DetailNetsockBtn.Foreground = isNetsock ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+        else
+        {
+            DetailSlsOnlineBtn.Content = "enable slsonline";
+            DetailSlsOnlineBtn.Foreground = Avalonia.Media.Brushes.Gray;
+            DetailNetsockBtn.IsVisible = false;
+        }
+    }
+
+    private async void OnApplySteamlessClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedGame != null)
+        {
+            DetailSteamlessBtn.IsEnabled = false;
+            DetailSteamlessBtn.Content = "processing steamless...";
+            DetailSteamlessStatus.Text = "scanning and unpacking executables...";
+            DetailSteamlessStatus.Foreground = Avalonia.Media.Brushes.Gray;
+            DetailSteamlessStatus.IsVisible = true;
+
+            var result = await _steamlessService.ProcessGameAsync(_selectedGame.InstallPath, _selectedGame.Name);
+
+            DetailSteamlessBtn.IsEnabled = true;
+            DetailSteamlessBtn.Content = "apply steamless";
+            DetailSteamlessStatus.Text = result.Message;
+            DetailSteamlessStatus.Foreground = result.Success ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
         }
     }
 
