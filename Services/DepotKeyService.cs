@@ -81,4 +81,60 @@ public class DepotKeyService
         var keys = GetKeysForApp(appId);
         return new List<string>(keys.Keys);
     }
+
+    /// <summary>
+    /// Gets the AppToken for an appid if available.
+    /// </summary>
+    public string? GetAppToken(string appId)
+    {
+        if (!File.Exists(_dbPath)) return null;
+
+        try
+        {
+            var connStr = new SqliteConnectionStringBuilder
+            {
+                DataSource = _dbPath,
+                Mode = SqliteOpenMode.ReadOnly
+            }.ToString();
+
+            using var conn = new SqliteConnection(connStr);
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT token FROM app_tokens WHERE appid = @appid LIMIT 1;";
+            cmd.Parameters.AddWithValue("@appid", appId);
+
+            var result = cmd.ExecuteScalar();
+            if (result != null && result != DBNull.Value)
+            {
+                return result.ToString()?.Trim();
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Generates a temporary depot keys file formatted for DepotDownloaderMod (-depotkeys).
+    /// </summary>
+    public async System.Threading.Tasks.Task<string?> CreateTempDepotKeysFileAsync(string appId, IEnumerable<string> depotIds)
+    {
+        var keys = GetKeysForApp(appId);
+        var lines = new List<string>();
+
+        foreach (var depotId in depotIds)
+        {
+            if (keys.TryGetValue(depotId, out var key))
+            {
+                lines.Add($"{depotId};{key}");
+            }
+        }
+
+        if (lines.Count == 0) return null;
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"pluto_keys_{appId}_{Guid.NewGuid():N}.txt");
+        await File.WriteAllLinesAsync(tempPath, lines);
+        return tempPath;
+    }
 }
