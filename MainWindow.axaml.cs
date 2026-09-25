@@ -288,11 +288,16 @@ public partial class MainWindow : Window
 
             Dispatcher.UIThread.Post(() =>
             {
+                if (PlutoVersionText != null)
+                {
+                    PlutoVersionText.Text = PlutoVersion.FullVersion;
+                }
+
                 if (VisorHubcapText != null)
                 {
                     VisorHubcapText.Text = health.Hubcap.IsConfigured 
-                        ? $"{health.Hubcap.DailyUsage}/{health.Hubcap.DailyLimit}" 
-                        : "not set";
+                        ? $"API: {health.Hubcap.DailyUsage}/{health.Hubcap.DailyLimit}" 
+                        : "API: --/--";
                     VisorHubcapText.Foreground = health.Hubcap.IsConfigured
                         ? Avalonia.Media.Brushes.LightGray
                         : Avalonia.Media.Brushes.Gray;
@@ -300,7 +305,8 @@ public partial class MainWindow : Window
 
                 if (VisorSlsText != null)
                 {
-                    VisorSlsText.Text = health.SlsProcessActive ? "Active" : (health.SlsBinaryDetected ? "Inactive" : "Not Found");
+                    string slsVal = health.SlsProcessActive ? "active" : (health.SlsBinaryDetected ? "inactive" : "not found");
+                    VisorSlsText.Text = $"SLS: {slsVal}";
                     VisorSlsText.Foreground = health.SlsProcessActive
                         ? Avalonia.Media.Brushes.LightGray
                         : (health.SlsBinaryDetected ? Avalonia.Media.Brushes.Goldenrod : Avalonia.Media.Brushes.IndianRed);
@@ -308,7 +314,8 @@ public partial class MainWindow : Window
 
                 if (VisorSteamText != null)
                 {
-                    VisorSteamText.Text = health.SteamRunning ? "Online" : "Offline";
+                    string steamVal = health.SteamRunning ? "online" : "offline";
+                    VisorSteamText.Text = $"Steam: {steamVal}";
                     VisorSteamText.Foreground = health.SteamRunning
                         ? Avalonia.Media.Brushes.LightGray
                         : Avalonia.Media.Brushes.IndianRed;
@@ -316,9 +323,9 @@ public partial class MainWindow : Window
 
                 if (VisorHealthText != null)
                 {
-                    VisorHealthText.Text = health.OverallState;
+                    VisorHealthText.Text = $"health: {health.OverallState.ToLowerInvariant()}";
                     VisorHealthText.Foreground = health.IsOptimal
-                        ? Avalonia.Media.Brushes.LightGray
+                        ? Avalonia.Media.Brushes.MediumSpringGreen
                         : (health.OverallState == "Attention" ? Avalonia.Media.Brushes.Goldenrod : Avalonia.Media.Brushes.IndianRed);
                 }
 

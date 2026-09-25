@@ -22,6 +22,7 @@ public class ThemeService
 
     public static readonly List<ThemeColorPreset> AccelaPresets = new()
     {
+        new("classic white", "#FFFFFF", "#555555"),
         new("slate blue", "#60A5FA", "#385473"),
         new("deep cyan", "#22D3EE", "#155E75"),
         new("royal indigo", "#818CF8", "#3730A3"),
@@ -45,7 +46,7 @@ public class ThemeService
     public void LoadFromConfig()
     {
         var savedNative = _configService.GetValue("theme_native_color", "#FFFFFF");
-        var savedAccela = _configService.GetValue("theme_accela_color", "#60A5FA");
+        var savedAccela = _configService.GetValue("theme_accela_color", "#FFFFFF");
 
         int nIdx = NativePresets.FindIndex(p => p.HighlightHex.Equals(savedNative, StringComparison.OrdinalIgnoreCase));
         _nativeIndex = nIdx >= 0 ? nIdx : 0;

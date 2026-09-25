@@ -263,7 +263,7 @@ public partial class MainWindow
             {
                 MainBackdropImage.Source    = bmp;
                 MainBackdropImage.IsVisible = true;
-                MainBackdropImage.Opacity   = 0.18;
+                MainBackdropImage.Opacity   = 0.38;
             }
         }
         catch { }

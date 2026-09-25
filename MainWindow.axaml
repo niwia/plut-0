@@ -16,9 +16,9 @@
         <SolidColorBrush x:Key="NativeGameColor" Color="#FFFFFF" />
         <SolidColorBrush x:Key="NativeGameHoverColor" Color="#CCCCCC" />
         <SolidColorBrush x:Key="NativeGameUnselectedColor" Color="#555555" />
-        <SolidColorBrush x:Key="AccelaGameColor" Color="#60A5FA" />
-        <SolidColorBrush x:Key="AccelaGameHoverColor" Color="#93C5FD" />
-        <SolidColorBrush x:Key="AccelaGameUnselectedColor" Color="#385473" />
+        <SolidColorBrush x:Key="AccelaGameColor" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="AccelaGameHoverColor" Color="#CCCCCC" />
+        <SolidColorBrush x:Key="AccelaGameUnselectedColor" Color="#555555" />
     </Window.Resources>
 
     <Window.Styles>
@@ -95,23 +95,16 @@
             <Setter Property="Foreground" Value="{DynamicResource AccelaGameColor}" />
         </Style>
 
-        <!-- Dynamic gap: Starts with generous gap (85px), glides up when accessed/focused -->
+        <!-- Games list scrolling bounding box: Keeps highlighted selection within comfortable upper/mid screen space -->
         <Style Selector="ListBox#GamesListBox">
-            <Setter Property="RenderTransform" Value="translateY(85px)" />
-            <Setter Property="Transitions">
-                <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut" />
-                </Transitions>
-            </Setter>
+            <Setter Property="MaxHeight" Value="340" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="ClipToBounds" Value="True" />
         </Style>
-        <Style Selector="ListBox#GamesListBox.accessed">
-            <Setter Property="RenderTransform" Value="translateY(0px)" />
-        </Style>
-        <Style Selector="ListBox#GamesListBox:focus-within">
-            <Setter Property="RenderTransform" Value="translateY(0px)" />
-        </Style>
-        <Style Selector="ListBox#GamesListBox:pointerover">
-            <Setter Property="RenderTransform" Value="translateY(0px)" />
+        <Style Selector="ListBox#SearchResultsListBox">
+            <Setter Property="MaxHeight" Value="340" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="ClipToBounds" Value="True" />
         </Style>
 
         <!-- Minimal Search Box: Low opacity, no bold, no emojis -->
@@ -238,56 +231,33 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
-        <!-- Controller Button Badges & Prompt Labels: Clean, Muted Monochromatic -->
+        <!-- Controller Prompt Labels: Plain Text (A) select, (B) back, etc. Zero box/pill styling -->
+        <Style Selector="TextBlock.ctrlPrompt">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#777777" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBlock.ctrlPromptKey">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#CCCCCC" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
         <Style Selector="Border.btnBadge">
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Height" Value="18" />
-            <Setter Property="MinWidth" Value="18" />
-            <Setter Property="Padding" Value="4, 0" />
-            <Setter Property="Background" Value="#1A1D24" />
-            <Setter Property="BorderBrush" Value="#30363D" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-
-        <Style Selector="Border.btnBadge.btnA">
-            <Setter Property="BorderBrush" Value="#30363D" />
-            <Setter Property="Background" Value="#1A1D24" />
-        </Style>
-        <Style Selector="Border.btnBadge.btnB">
-            <Setter Property="BorderBrush" Value="#30363D" />
-            <Setter Property="Background" Value="#1A1D24" />
-        </Style>
-        <Style Selector="Border.btnBadge.btnX">
-            <Setter Property="BorderBrush" Value="#30363D" />
-            <Setter Property="Background" Value="#1A1D24" />
-        </Style>
-        <Style Selector="Border.btnBadge.btnY">
-            <Setter Property="BorderBrush" Value="#30363D" />
-            <Setter Property="Background" Value="#1A1D24" />
-        </Style>
-
         <Style Selector="TextBlock.btnBadgeText">
-            <Setter Property="FontSize" Value="10" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#E2E8F0" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#CCCCCC" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-
-        <Style Selector="TextBlock.btnBadgeText.txtA">
-            <Setter Property="Foreground" Value="#E2E8F0" />
-        </Style>
-        <Style Selector="TextBlock.btnBadgeText.txtB">
-            <Setter Property="Foreground" Value="#E2E8F0" />
-        </Style>
-        <Style Selector="TextBlock.btnBadgeText.txtX">
-            <Setter Property="Foreground" Value="#E2E8F0" />
-        </Style>
-        <Style Selector="TextBlock.btnBadgeText.txtY">
-            <Setter Property="Foreground" Value="#E2E8F0" />
-        </Style>
-
         <Style Selector="TextBlock.hintLabel">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="#777777" />
@@ -319,18 +289,80 @@
             </Image.OpacityMask>
         </Image>
 
-        <!-- Non-clickable brand watermark in top-right -->
-        <TextBlock Text="plut-0"
-                   FontSize="16"
-                   FontWeight="Normal"
-                   Foreground="#999999"
-                   Opacity="0.5"
-                   HorizontalAlignment="Right"
-                   VerticalAlignment="Top"
-                   Margin="0,48,64,0"
-                   IsHitTestVisible="False" />        <!-- 1. MAIN LIST VIEW -->
+        <!-- Dedicated dark vignette specifically behind the top-right status & Pluto watermark -->
+        <Border HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Width="420"
+                Height="220"
+                IsHitTestVisible="False">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="100%,0%" EndPoint="0%,100%">
+                    <GradientStop Color="#F0000000" Offset="0.0" />
+                    <GradientStop Color="#90000000" Offset="0.5" />
+                    <GradientStop Color="#00000000" Offset="1.0" />
+                </LinearGradientBrush>
+            </Border.Background>
+        </Border>
+
+        <!-- Top-Right Integrated Status sewn into the main window -->
+        <StackPanel HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    Margin="0,36,64,0"
+                    Spacing="3">
+            <TextBlock Text="plut-0"
+                       FontSize="18"
+                       FontWeight="Normal"
+                       Foreground="#FFFFFF"
+                       Opacity="0.95"
+                       HorizontalAlignment="Right" />
+            <TextBlock x:Name="PlutoVersionText"
+                       Text="0.0.8-0125+09+26"
+                       FontSize="11"
+                       FontWeight="Normal"
+                       Foreground="#666666"
+                       HorizontalAlignment="Right" />
+
+            <!-- Visor Status Lines Right Aligned -->
+            <StackPanel Orientation="Vertical" Spacing="2" Margin="0,4,0,0" HorizontalAlignment="Right">
+                <!-- API: xx/xx -->
+                <TextBlock x:Name="VisorHubcapText"
+                           Text="API: --/--"
+                           FontSize="12"
+                           FontWeight="Normal"
+                           Foreground="#777777"
+                           HorizontalAlignment="Right" />
+
+                <!-- SLS: active -->
+                <TextBlock x:Name="VisorSlsText"
+                           Text="SLS: checking..."
+                           FontSize="12"
+                           FontWeight="Normal"
+                           Foreground="#777777"
+                           HorizontalAlignment="Right" />
+
+                <!-- Steam: online -->
+                <TextBlock x:Name="VisorSteamText"
+                           Text="Steam: offline"
+                           FontSize="12"
+                           FontWeight="Normal"
+                           Foreground="#777777"
+                           HorizontalAlignment="Right" />
+
+                <!-- health: status (clickable to health settings) -->
+                <TextBlock x:Name="VisorHealthText"
+                           Text="health: checking..."
+                           FontSize="12"
+                           FontWeight="Normal"
+                           Foreground="#34D399"
+                           Cursor="Hand"
+                           PointerPressed="OnVisorHealthClicked"
+                           HorizontalAlignment="Right" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 1. MAIN LIST VIEW -->
         <Grid x:Name="MainListPanel"
-              RowDefinitions="Auto,*,Auto,Auto"
+              RowDefinitions="Auto,*,Auto"
               Margin="64,48,64,24"
               IsVisible="True">
             <Grid.Transitions>
@@ -340,12 +372,10 @@
                 </Transitions>
             </Grid.Transitions>
             
-            <!-- Top: Minimal Search Box with [Y] Controller Badge -->
+            <!-- Top: Minimal Search Box with (Y) Controller Prompt -->
             <StackPanel Grid.Row="0" Margin="0,0,0,0" HorizontalAlignment="Left" Spacing="6">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Border Classes="btnBadge btnY" Cursor="Hand" PointerPressed="OnSearchBadgeClicked">
-                        <TextBlock Classes="btnBadgeText txtY" Text="Y" />
-                    </Border>
+                    <TextBlock Classes="ctrlPromptKey" Text="(Y)" Cursor="Hand" PointerPressed="OnSearchBadgeClicked" VerticalAlignment="Center" />
                     <TextBox x:Name="SearchBox"
                              Classes="minimalSearch"
                              PlaceholderText="search games..."
@@ -437,77 +467,21 @@
                            IsVisible="False" />
             </Grid>
 
-            <!-- Row 2: Visor Status Strip (Hubcap Quota, SLS State, Steam, Health) -->
-            <Border Grid.Row="2"
-                    Margin="0,10,0,0"
-                    Padding="14,6"
-                    Background="#0DFFFFFF"
-                    BorderBrush="#18FFFFFF"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Cursor="Hand"
-                    PointerPressed="OnVisorHealthClicked">
-                <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
-                        <!-- Hubcap Quota -->
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="HUBCAP" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
-                            <TextBlock x:Name="VisorHubcapText" Text="Connecting..." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                        </StackPanel>
-
-                        <!-- SLS Status -->
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="SLS" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
-                            <TextBlock x:Name="VisorSlsText" Text="Checking..." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                        </StackPanel>
-
-                        <!-- Steam Process -->
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="STEAM" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
-                            <TextBlock x:Name="VisorSteamText" Text="Checking..." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </StackPanel>
-
-                    <!-- Overall Health Status -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="HEALTH" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
-                        <TextBlock x:Name="VisorHealthText" Text="Good" FontSize="12" Foreground="#34D399" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- Row 3: Controller Hints on Left & Settings on Right -->
-            <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,12,0,0" VerticalAlignment="Bottom">
+            <!-- Row 2: Controller Hints on Left & Settings on Right -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0" VerticalAlignment="Bottom">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
-                        <TextBlock Classes="hintLabel" Text="select" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Border Classes="btnBadge btnX"><TextBlock Classes="btnBadgeText txtX" Text="X" /></Border>
-                        <TextBlock Classes="hintLabel" Text="options" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Border Classes="btnBadge btnY"><TextBlock Classes="btnBadgeText txtY" Text="Y" /></Border>
-                        <TextBlock Classes="hintLabel" Text="search" />
-                    </StackPanel>
+                    <TextBlock Classes="ctrlPrompt" Text="(A) select" />
+                    <TextBlock Classes="ctrlPrompt" Text="(X) options" />
+                    <TextBlock Classes="ctrlPrompt" Text="(Y) search" />
                 </StackPanel>
 
-                <!-- Settings Button with Controller Select / View Icon -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                    <Border Classes="btnBadge" MinWidth="22" Height="18" Padding="3,0" Cursor="Hand" PointerPressed="OnOpenSettingsPointerPressed">
-                        <Path Data="M 0,3 h 8 v 6 h -8 Z M 4,1 h 8 v 6 h -8 Z"
-                              Stroke="#888888"
-                              StrokeThickness="1"
-                              VerticalAlignment="Center"
-                              HorizontalAlignment="Center" />
-                    </Border>
-                    <Button x:Name="SettingsBtn"
-                            Classes="minimalTextBtn"
-                            Content="settings"
-                            Focusable="False"
-                            Click="OnOpenSettingsClicked" />
-                </StackPanel>
+                <!-- Settings Button -->
+                <Button x:Name="SettingsBtn"
+                        Grid.Column="1"
+                        Classes="minimalTextBtn"
+                        Content="settings"
+                        Focusable="False"
+                        Click="OnOpenSettingsClicked" />
             </Grid>
         </Grid>
 
@@ -558,11 +532,9 @@
                     <Grid RowDefinitions="Auto,*,Auto,Auto"
                           Margin="36,26,36,20">
                         
-                        <!-- Row 0: Back Button with [B] Controller Badge -->
+                        <!-- Row 0: Back Button with (B) Controller Prompt -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,16">
-                            <Border Classes="btnBadge btnB" Cursor="Hand" PointerPressed="OnBackBadgeClicked">
-                                <TextBlock Classes="btnBadgeText txtB" Text="B" />
-                            </Border>
+                            <TextBlock Classes="ctrlPromptKey" Text="(B)" Cursor="Hand" PointerPressed="OnBackBadgeClicked" VerticalAlignment="Center" />
                             <Button Classes="minimalTextBtn"
                                     Content="back"
                                     Focusable="False"
@@ -726,37 +698,17 @@
                         <!-- Row 3: Controller Hints Footer Bar -->
                         <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="32,18,0,0" VerticalAlignment="Bottom">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="↑↓" /></Border>
-                                    <TextBlock Classes="hintLabel" Text="navigate" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
-                                    <TextBlock Classes="hintLabel" Text="select" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Classes="btnBadge btnB"><TextBlock Classes="btnBadgeText txtB" Text="B" /></Border>
-                                    <TextBlock Classes="hintLabel" Text="back" />
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Border Classes="btnBadge btnX"><TextBlock Classes="btnBadgeText txtX" Text="X" /></Border>
-                                    <TextBlock Classes="hintLabel" Text="options" />
-                                </StackPanel>
+                                <TextBlock Classes="ctrlPrompt" Text="(↑↓) navigate" />
+                                <TextBlock Classes="ctrlPrompt" Text="(A) select" />
+                                <TextBlock Classes="ctrlPrompt" Text="(B) back" />
+                                <TextBlock Classes="ctrlPrompt" Text="(X) options" />
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                                <Border Classes="btnBadge" MinWidth="22" Height="18" Padding="3,0" Cursor="Hand" PointerPressed="OnOpenSettingsPointerPressed">
-                                    <Path Data="M 0,3 h 8 v 6 h -8 Z M 4,1 h 8 v 6 h -8 Z"
-                                          Stroke="#888888"
-                                          StrokeThickness="1"
-                                          VerticalAlignment="Center"
-                                          HorizontalAlignment="Center" />
-                                </Border>
-                                <Button Classes="minimalTextBtn"
-                                        Content="settings"
-                                        Focusable="False"
-                                        Click="OnOpenSettingsClicked" />
-                            </StackPanel>
+                            <Button Classes="minimalTextBtn"
+                                    Grid.Column="1"
+                                    Content="settings"
+                                    Focusable="False"
+                                    Click="OnOpenSettingsClicked" />
                         </Grid>
                     </Grid>
                 </Grid>
@@ -769,11 +721,9 @@
               Margin="64,48,64,28"
               IsVisible="False">
             
-            <!-- Row 0: Back Button with [B] Controller Badge -->
+            <!-- Row 0: Back Button with (B) Controller Prompt -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,20">
-                <Border Classes="btnBadge btnB" Cursor="Hand" PointerPressed="OnBackBadgeClicked">
-                    <TextBlock Classes="btnBadgeText txtB" Text="B" />
-                </Border>
+                <TextBlock Classes="ctrlPromptKey" Text="(B)" Cursor="Hand" PointerPressed="OnBackBadgeClicked" VerticalAlignment="Center" />
                 <Button Classes="minimalTextBtn"
                         Content="back"
                         Focusable="False"
@@ -814,10 +764,7 @@
                         Classes="settingsTabBtn"
                         Content="health &amp; sanitation"
                         Click="OnSettingsTabHealthClicked" />
-                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="8,0,0,0">
-                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="←→" /></Border>
-                    <TextBlock Classes="hintLabel" Text="switch tab" />
-                </StackPanel>
+                <TextBlock Classes="ctrlPrompt" Text="(←→) switch tab" Margin="8,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
             <!-- Row 3: Submenu Content Panels -->
@@ -1098,22 +1045,10 @@
 
             <!-- Row 4: Controller Hints Footer Bar -->
             <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="18" Margin="0,16,0,0" VerticalAlignment="Center">
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="←→" /></Border>
-                    <TextBlock Classes="hintLabel" Text="tabs" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="↑↓" /></Border>
-                    <TextBlock Classes="hintLabel" Text="navigate" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
-                    <TextBlock Classes="hintLabel" Text="toggle" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Border Classes="btnBadge btnB"><TextBlock Classes="btnBadgeText txtB" Text="B" /></Border>
-                    <TextBlock Classes="hintLabel" Text="back" />
-                </StackPanel>
+                <TextBlock Classes="ctrlPrompt" Text="(←→) tabs" />
+                <TextBlock Classes="ctrlPrompt" Text="(↑↓) navigate" />
+                <TextBlock Classes="ctrlPrompt" Text="(A) toggle" />
+                <TextBlock Classes="ctrlPrompt" Text="(B) back" />
             </StackPanel>
         </Grid>
     </Grid>

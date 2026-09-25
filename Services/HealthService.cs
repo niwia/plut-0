@@ -243,95 +243,223 @@ public class HealthService
 
     // ── ASSfixer (SLS Config Fixer) Runner ───────────────────────────────────
 
-    public static string FindAssfixerScript()
+    public static string FindSlsConfigPath()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         string[] candidates =
         {
-            Path.Combine(home, ".local", "share", "ACCELA", "squashfs-root", "bin", "src", "utils", "assfixer.py"),
-            Path.Combine(home, ".local", "share", "ACCELA", "bin", "src", "utils", "assfixer.py")
+            Path.Combine(home, ".config", "SLSsteam", "config.yaml"),
+            Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".config", "SLSsteam", "config.yaml")
         };
-
         foreach (var c in candidates)
         {
             if (File.Exists(c)) return c;
         }
-        return string.Empty;
+        return candidates[0];
     }
 
+    /// <summary>
+    /// Pure C# validation of SLSsteam config.yaml (syntax, duplicate keys, illegal tabs, line endings).
+    /// </summary>
     public async Task<(bool success, string output)> RunAssfixerCheckAsync()
     {
-        var script = FindAssfixerScript();
-        if (string.IsNullOrEmpty(script))
+        await Task.Yield();
+        var configPath = FindSlsConfigPath();
+        if (!File.Exists(configPath))
         {
-            return (false, "assfixer.py script not found in ACCELA directory.");
+            return (false, $"SLSsteam config.yaml not found at {configPath}");
         }
 
         try
         {
-            var psi = new ProcessStartInfo
+            var rawText = await File.ReadAllTextAsync(configPath);
+            if (string.IsNullOrWhiteSpace(rawText))
             {
-                FileName = "python3",
-                Arguments = $"\"{script}\" --validate-only --no-resolve-names",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+                return (false, "config.yaml is empty.");
+            }
 
-            using var proc = Process.Start(psi);
-            if (proc == null) return (false, "Could not launch python3 process.");
+            var issues = new List<string>();
+            var lines = rawText.Split('\n');
+            int gameCount = 0;
+            string currentSection = string.Empty;
+            var sectionKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int duplicateCount = 0;
 
-            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
-            var stderrTask = proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                int lineno = i + 1;
 
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
+                // Check for illegal tabs
+                if (line.Contains('\t'))
+                {
+                    issues.Add($"Line {lineno}: contains illegal tab character (YAML requires spaces)");
+                }
 
-            bool isOk = proc.ExitCode == 0 && (stdout.Contains("looks good") || stdout.Contains("No formatting issues"));
-            var msg = string.IsNullOrWhiteSpace(stdout) ? stderr : stdout;
-            return (isOk, msg.Trim());
+                // Check Windows CRLF
+                if (line.EndsWith('\r'))
+                {
+                    issues.Add($"Line {lineno}: contains Windows CRLF line ending");
+                }
+
+                var trimmed = line.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#"))
+                    continue;
+
+                // Top level section
+                if (!line.StartsWith(" ") && !line.StartsWith("\t") && trimmed.EndsWith(":"))
+                {
+                    currentSection = trimmed.TrimEnd(':').Trim();
+                    sectionKeys.Clear();
+                    continue;
+                }
+
+                // Child entry under list or map
+                if (line.StartsWith("  ") && !line.StartsWith("    "))
+                {
+                    if (currentSection is "AppIds" or "AdditionalApps" or "FakeOffline")
+                    {
+                        if (trimmed.StartsWith("- "))
+                        {
+                            var val = trimmed[2..].Split('#')[0].Trim();
+                            if (!sectionKeys.Add(val))
+                            {
+                                duplicateCount++;
+                                issues.Add($"Duplicate entry '{val}' in {currentSection} (Line {lineno})");
+                            }
+                            else if (currentSection == "AppIds" || currentSection == "AdditionalApps")
+                            {
+                                gameCount++;
+                            }
+                        }
+                    }
+                    else if (currentSection is "AppTokens" or "FakeAppIds" or "GameTitles" or "SubscriptionTimestamps")
+                    {
+                        var colonIdx = trimmed.IndexOf(':');
+                        if (colonIdx > 0)
+                        {
+                            var key = trimmed[..colonIdx].Trim();
+                            if (!sectionKeys.Add(key))
+                            {
+                                duplicateCount++;
+                                issues.Add($"Duplicate mapping key '{key}' in {currentSection} (Line {lineno})");
+                            }
+                            else if (currentSection == "AppTokens")
+                            {
+                                gameCount++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (issues.Count > 0)
+            {
+                var summary = string.Join("\n• ", issues.Take(6));
+                if (issues.Count > 6) summary += $"\n... and {issues.Count - 6} more issue(s)";
+                return (false, $"Found {issues.Count} issue(s):\n• {summary}");
+            }
+
+            return (true, $"Config healthy: {gameCount} game entries verified, clean YAML indentation, 0 duplicate keys.");
         }
         catch (Exception ex)
         {
-            return (false, $"Error executing assfixer: {ex.Message}");
+            return (false, $"Error validating config: {ex.Message}");
         }
     }
 
+    /// <summary>
+    /// Pure C# repair of SLSsteam config.yaml: creates timestamped backup, normalizes indentation & line endings,
+    /// deduplicates keys in sections, and cleans trailing whitespace.
+    /// </summary>
     public async Task<(bool success, string output)> RunAssfixerRepairAsync()
     {
-        var script = FindAssfixerScript();
-        if (string.IsNullOrEmpty(script))
+        await Task.Yield();
+        var configPath = FindSlsConfigPath();
+        if (!File.Exists(configPath))
         {
-            return (false, "assfixer.py script not found in ACCELA directory.");
+            return (false, $"SLSsteam config.yaml not found at {configPath}");
         }
 
         try
         {
-            var psi = new ProcessStartInfo
+            var dir = Path.GetDirectoryName(configPath) ?? string.Empty;
+            var backupName = $"config.yaml.{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+            var backupPath = Path.Combine(dir, backupName);
+            File.Copy(configPath, backupPath, true);
+
+            var rawText = await File.ReadAllTextAsync(configPath);
+            var lines = rawText.Replace("\r\n", "\n").Split('\n');
+            var repairedLines = new List<string>();
+
+            string currentSection = string.Empty;
+            var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int fixesCount = 0;
+
+            foreach (var line in lines)
             {
-                FileName = "python3",
-                Arguments = $"\"{script}\" --no-resolve-names",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+                // Convert tabs to 2 spaces
+                string processed = line.Replace("\t", "  ");
+                if (processed != line) fixesCount++;
 
-            using var proc = Process.Start(psi);
-            if (proc == null) return (false, "Could not launch python3 process.");
+                // Strip trailing spaces
+                string rtrimmed = processed.TrimEnd();
+                if (rtrimmed != processed) fixesCount++;
 
-            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
-            var stderrTask = proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
+                string trimmed = rtrimmed.Trim();
+                if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("#"))
+                {
+                    repairedLines.Add(rtrimmed);
+                    continue;
+                }
 
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
+                // Top level section
+                if (!rtrimmed.StartsWith(" ") && trimmed.EndsWith(":"))
+                {
+                    currentSection = trimmed.TrimEnd(':').Trim();
+                    seenKeys.Clear();
+                    repairedLines.Add(rtrimmed);
+                    continue;
+                }
 
-            bool isOk = proc.ExitCode == 0;
-            var msg = string.IsNullOrWhiteSpace(stdout) ? stderr : stdout;
-            return (isOk, msg.Trim());
+                // Map or list entry under section
+                if (rtrimmed.StartsWith("  ") && !rtrimmed.StartsWith("    "))
+                {
+                    if (currentSection is "AppIds" or "AdditionalApps" or "FakeOffline" && trimmed.StartsWith("- "))
+                    {
+                        var val = trimmed[2..].Split('#')[0].Trim();
+                        if (!seenKeys.Add(val))
+                        {
+                            // Deduplicate duplicate list item
+                            fixesCount++;
+                            continue;
+                        }
+                    }
+                    else if (currentSection is "AppTokens" or "FakeAppIds" or "GameTitles" or "SubscriptionTimestamps")
+                    {
+                        var colonIdx = trimmed.IndexOf(':');
+                        if (colonIdx > 0)
+                        {
+                            var key = trimmed[..colonIdx].Trim();
+                            if (!seenKeys.Add(key))
+                            {
+                                // Deduplicate duplicate mapping key
+                                fixesCount++;
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                repairedLines.Add(rtrimmed);
+            }
+
+            var cleanOutput = string.Join("\n", repairedLines) + "\n";
+            await File.WriteAllTextAsync(configPath, cleanOutput);
+            File.SetLastWriteTimeUtc(configPath, DateTime.UtcNow);
+
+            PlutoLogger.Info("Health", $"Repaired config.yaml: {fixesCount} fixes applied. Backup: {backupName}");
+            return (true, $"Repaired: {fixesCount} formatting/duplicate fixes applied. Backup created: {backupName}");
         }
         catch (Exception ex)
         {

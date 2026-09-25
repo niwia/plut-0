@@ -30,7 +30,7 @@ public partial class MainWindow
         if (MainBackdropImage != null)
         {
             MainBackdropImage.IsVisible = true;
-            MainBackdropImage.Opacity   = 0.18;
+            MainBackdropImage.Opacity   = 0.38;
         }
 
         if (_settingDynamicMainBackdrop && _mainBackdropPool.Count > 0)
