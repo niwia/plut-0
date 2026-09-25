@@ -176,11 +176,8 @@ public sealed class GameInstallService
         await SteamAcfWriter.SeedDepotDownloaderDeltaCacheAsync(gameInstallDir, installedDepotsMap);
         await SteamAcfWriter.WriteAccelaMetadataAsync(gameInstallDir, appId, appInfo.Name, appInfo.BuildId, appInfo.InstallDir, installedDepotsMap);
 
-        // 8. Write standard Steam appmanifest_<appid>.acf
-        await SteamAcfWriter.WriteAcfManifestAsync(steamapps, appId, appInfo.Name, appInfo.InstallDir, appInfo.BuildId, sizeOnDisk, installedDepotsMap);
-
-        // 9. Synchronize to SLS config.yaml and notify SLSsteam API pipe
-        progress?.Report(new InstallStepProgress("Configuring SLSsteam", 95, 100, 0, "Registering game in SLS config & notifying pipe..."));
+        // 8. Register in SLS config.yaml & notify SLSsteam API pipe
+        progress?.Report(new InstallStepProgress("Configuring SLSsteam", 90, 100, 0, "Registering in SLS config & notifying Steam via pipe..."));
         var pluginGame = new PluginGame
         {
             AppId = appId.ToString(),
@@ -189,28 +186,65 @@ public sealed class GameInstallService
         };
         await _slsService.SyncGameToConfigAsync(pluginGame);
 
-        // Notify /tmp/SLSsteam.API with install command
-        NotifySlsInstallPipe(appId);
+        // Notify /tmp/SLSsteam.API with install command (install|appid|0)
+        bool pipeSent = NotifySlsInstallPipe(appId);
+
+        // 9. Smart ACF Verification: Wait for Steam to create the authentic ACF natively
+        var acfPath = Path.Combine(steamapps, $"appmanifest_{appId}.acf");
+        bool steamCreatedAcf = false;
+
+        if (pipeSent)
+        {
+            progress?.Report(new InstallStepProgress("Waiting for Steam ACF", 95, 100, 0, "Waiting for Steam to create authentic appmanifest natively..."));
+            steamCreatedAcf = await WaitForNativeSteamAcfAsync(acfPath, timeoutSeconds: 6, cancellationToken);
+        }
+
+        // 10. Fallback: If Steam is offline or watcher is inactive, write fallback ACF
+        if (!steamCreatedAcf && !File.Exists(acfPath))
+        {
+            PlutoLogger.Info("GameInstallService", $"Steam did not create ACF natively (Steam may be closed). Writing fallback manifest to {acfPath}...");
+            await SteamAcfWriter.WriteAcfManifestAsync(steamapps, appId, appInfo.Name, appInfo.InstallDir, appInfo.BuildId, sizeOnDisk, installedDepotsMap);
+        }
+        else if (steamCreatedAcf)
+        {
+            PlutoLogger.Info("GameInstallService", $"Confirmed: Steam natively created authentic ACF manifest at {acfPath}");
+        }
 
         progress?.Report(new InstallStepProgress("Complete", 100, 100, 0, $"Successfully installed {appInfo.Name}!"));
         PlutoLogger.Info("GameInstallService", $"Installation workflow completed successfully for {appInfo.Name} ({appId})");
         return true;
     }
 
-    private static void NotifySlsInstallPipe(uint appId)
+    private static bool NotifySlsInstallPipe(uint appId)
     {
         const string pipePath = "/tmp/SLSsteam.API";
-        if (!File.Exists(pipePath)) return;
+        if (!File.Exists(pipePath)) return false;
 
         try
         {
             // Flow for install: send install|appid|0 to /tmp/SLSsteam.API
             File.WriteAllText(pipePath, $"install|{appId}|0\n");
             PlutoLogger.Info("GameInstallService", $"Sent install|{appId}|0 to {pipePath}");
+            return true;
         }
         catch (Exception ex)
         {
             PlutoLogger.Warn("GameInstallService", $"Could not write to {pipePath}: {ex.Message}");
+            return false;
         }
+    }
+
+    private static async Task<bool> WaitForNativeSteamAcfAsync(string acfPath, int timeoutSeconds, CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
+        while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+        {
+            if (File.Exists(acfPath))
+            {
+                return true;
+            }
+            await Task.Delay(350, ct);
+        }
+        return File.Exists(acfPath);
     }
 }
