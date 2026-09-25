@@ -10,6 +10,11 @@ using Pluto.Models;
 
 namespace Pluto.Services;
 
+/// <summary>
+/// Direct, high-performance C# manager for SLSsteam configuration and IPC.
+/// Guarantees in-place writes to ~/.config/SLSsteam/config.yaml so Linux inotify file watchers
+/// are never invalidated by inode changes.
+/// </summary>
 public class SlsSteamService
 {
     public static readonly string SlsConfigPath = Path.Combine(
@@ -18,11 +23,13 @@ public class SlsSteamService
 
     public const string SlsApiPipe = "/tmp/SLSsteam.API";
 
+    private static readonly Regex TopLevelSectionPattern = new(@"^[A-Za-z0-9_]+[ \t]*:", RegexOptions.Multiline);
+
     public bool IsSlsConfigPresent => File.Exists(SlsConfigPath);
     public bool IsSlsPipePresent => File.Exists(SlsApiPipe);
 
     /// <summary>
-    /// Checks whether an AppID is currently configured in SLSsteam AdditionalApps.
+    /// Checks whether an AppID is currently listed in SLSsteam AdditionalApps.
     /// </summary>
     public bool IsAppConfigured(string appId)
     {
@@ -31,9 +38,12 @@ public class SlsSteamService
         try
         {
             var content = File.ReadAllText(SlsConfigPath);
-            // Look for AdditionalApps section and check if appId is listed
-            var regex = new Regex($@"^\s*-\s*['""]?{Regex.Escape(appId)}['""]?\s*(?:#.*)?$", RegexOptions.Multiline);
-            return regex.IsMatch(content);
+            var bounds = GetSectionBounds(content, "AdditionalApps");
+            if (!bounds.HasValue) return false;
+
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var pattern = new Regex($@"^[ \t]*-[ \t]*['""]?{Regex.Escape(appId)}['""]?(?:[ \t]*#.*)?$", RegexOptions.Multiline);
+            return pattern.IsMatch(secContent);
         }
         catch
         {
@@ -42,8 +52,8 @@ public class SlsSteamService
     }
 
     /// <summary>
-    /// In-place sync of a game's AppID, Depots, and DecryptionKeys into ~/.config/SLSsteam/config.yaml,
-    /// preserving the file inode so SLSsteam's inotify watcher triggers immediately.
+    /// In-place sync of a game's AppID, Depots, and DecryptionKeys into config.yaml.
+    /// Preserves file inode and triggers inotify immediately.
     /// </summary>
     public async Task<bool> SyncGameToConfigAsync(PluginGame game)
     {
@@ -90,7 +100,7 @@ public class SlsSteamService
     }
 
     /// <summary>
-    /// Removes the AppID and non-shared depots/keys from SLS config.yaml.
+    /// Removes the AppID and unshared depots/keys from SLS config.yaml.
     /// </summary>
     public async Task<bool> RemoveGameFromConfigAsync(PluginGame game, List<PluginGame> allOtherGames)
     {
@@ -103,9 +113,9 @@ public class SlsSteamService
             // Remove AppId
             content = RemoveAdditionalApp(content, game.AppId);
 
-            // Gather remaining depots & keys
-            var remainingDepots = new HashSet<string>(allOtherGames.SelectMany(g => g.Depots));
-            var remainingKeys = new HashSet<string>(allOtherGames.SelectMany(g => g.Keys.Keys));
+            // Gather remaining depots & keys from all other registered games
+            var remainingDepots = new HashSet<string>(allOtherGames.Where(g => g.AppId != game.AppId).SelectMany(g => g.Depots));
+            var remainingKeys = new HashSet<string>(allOtherGames.Where(g => g.AppId != game.AppId).SelectMany(g => g.Keys.Keys));
 
             foreach (var depot in game.Depots)
             {
@@ -135,6 +145,9 @@ public class SlsSteamService
         }
     }
 
+    /// <summary>
+    /// Sends 'reloadlua\n' command directly into /tmp/SLSsteam.API pipe.
+    /// </summary>
     public bool NotifyReload()
     {
         try
@@ -157,24 +170,9 @@ public class SlsSteamService
         return false;
     }
 
-    public bool TriggerInstallPipe(string appId, int libraryIndex = 0)
-    {
-        try
-        {
-            if (File.Exists(SlsApiPipe))
-            {
-                File.WriteAllText(SlsApiPipe, $"install|{appId}|{libraryIndex}\n");
-                PlutoLogger.Info("SLS", $"Sent install command for {appId} (lib: {libraryIndex}) to {SlsApiPipe}");
-                return true;
-            }
-        }
-        catch (Exception ex)
-        {
-            PlutoLogger.Error("SLS", $"Failed to send install command for {appId}", ex);
-        }
-        return false;
-    }
-
+    /// <summary>
+    /// Launches a game via Steam URL scheme steam://rungameid/{appId}.
+    /// </summary>
     public bool LaunchGame(string appId)
     {
         try
@@ -197,90 +195,155 @@ public class SlsSteamService
         }
     }
 
+    // In-place atomic file stream writer to preserve Linux inotify inodes
     private static async Task WriteInPlaceAsync(string filePath, string content)
     {
         var bytes = Encoding.UTF8.GetBytes(content);
-        await using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+        await using var fs = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite);
         fs.Seek(0, SeekOrigin.Begin);
         await fs.WriteAsync(bytes, 0, bytes.Length);
         fs.SetLength(bytes.Length);
         await fs.FlushAsync();
     }
 
+    /// <summary>
+    /// Locates the byte range for a top-level section in YAML.
+    /// Returns headerStart, contentStart, and sectionEnd.
+    /// </summary>
+    private static (int headerStart, int contentStart, int sectionEnd)? GetSectionBounds(string content, string sectionName)
+    {
+        var headerRegex = new Regex($@"^[ \t]*{Regex.Escape(sectionName)}[ \t]*:[ \t]*(?:#[^\r\n]*)?$", RegexOptions.Multiline);
+        var match = headerRegex.Match(content);
+        if (!match.Success) return null;
+
+        int headerStart = match.Index;
+        int contentStart = match.Index + match.Length;
+        if (contentStart < content.Length && content[contentStart] == '\r') contentStart++;
+        if (contentStart < content.Length && content[contentStart] == '\n') contentStart++;
+
+        var afterSection = content.Substring(contentStart);
+        var nextMatch = TopLevelSectionPattern.Match(afterSection);
+        int sectionEnd = nextMatch.Success ? contentStart + nextMatch.Index : content.Length;
+
+        return (headerStart, contentStart, sectionEnd);
+    }
+
     private static string EnsureAdditionalApp(string content, string appId, string comment)
     {
-        var pattern = $@"^\s*-\s*['""]?{Regex.Escape(appId)}['""]?";
-        if (Regex.IsMatch(content, pattern, RegexOptions.Multiline))
-            return content;
+        var bounds = GetSectionBounds(content, "AdditionalApps");
+        var entry = string.IsNullOrWhiteSpace(comment) ? $"  - {appId}\n" : $"  - {appId} # {comment.Trim()}\n";
 
-        var sectionMatch = Regex.Match(content, @"^(AdditionalApps:\s*\n)", RegexOptions.Multiline);
-        var entry = string.IsNullOrWhiteSpace(comment) ? $"  - {appId}\n" : $"  - {appId} # {comment}\n";
-
-        if (sectionMatch.Success)
+        if (bounds.HasValue)
         {
-            return content.Insert(sectionMatch.Index + sectionMatch.Length, entry);
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var itemRegex = new Regex($@"^[ \t]*-[ \t]*['""]?{Regex.Escape(appId)}['""]?(?:[ \t]*#.*)?$", RegexOptions.Multiline);
+            if (itemRegex.IsMatch(secContent))
+            {
+                return content;
+            }
+
+            int insertPos = bounds.Value.sectionEnd;
+            if (insertPos > 0 && content[insertPos - 1] != '\n')
+            {
+                entry = "\n" + entry;
+            }
+            return content.Insert(insertPos, entry);
         }
         else
         {
-            return content + $"\nAdditionalApps:\n{entry}";
+            return content.TrimEnd() + $"\n\nAdditionalApps:\n{entry}";
         }
     }
 
     private static string RemoveAdditionalApp(string content, string appId)
     {
-        var pattern = $@"^[ \t]*-[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*(?:#.*)?\r?\n";
-        return Regex.Replace(content, pattern, "", RegexOptions.Multiline);
+        var bounds = GetSectionBounds(content, "AdditionalApps");
+        if (!bounds.HasValue) return content;
+
+        var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+        var itemRegex = new Regex($@"^[ \t]*-[ \t]*['""]?{Regex.Escape(appId)}['""]?[ \t]*(?:#.*)?(\r?\n|$)", RegexOptions.Multiline);
+        var newSecContent = itemRegex.Replace(secContent, "");
+
+        return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
     }
 
     private static string EnsureAdditionalDepot(string content, string depotId, string comment)
     {
-        var pattern = $@"^\s*-\s*['""]?{Regex.Escape(depotId)}['""]?";
-        if (Regex.IsMatch(content, pattern, RegexOptions.Multiline))
-            return content;
+        var bounds = GetSectionBounds(content, "AdditionalDepots");
+        var entry = string.IsNullOrWhiteSpace(comment) ? $"  - {depotId}\n" : $"  - {depotId} # {comment.Trim()}\n";
 
-        var sectionMatch = Regex.Match(content, @"^(AdditionalDepots:\s*\n)", RegexOptions.Multiline);
-        var entry = string.IsNullOrWhiteSpace(comment) ? $"  - {depotId}\n" : $"  - {depotId} # {comment}\n";
-
-        if (sectionMatch.Success)
+        if (bounds.HasValue)
         {
-            return content.Insert(sectionMatch.Index + sectionMatch.Length, entry);
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var itemRegex = new Regex($@"^[ \t]*-[ \t]*['""]?{Regex.Escape(depotId)}['""]?(?:[ \t]*#.*)?$", RegexOptions.Multiline);
+            if (itemRegex.IsMatch(secContent))
+            {
+                return content;
+            }
+
+            int insertPos = bounds.Value.sectionEnd;
+            if (insertPos > 0 && content[insertPos - 1] != '\n')
+            {
+                entry = "\n" + entry;
+            }
+            return content.Insert(insertPos, entry);
         }
         else
         {
-            return content + $"\nAdditionalDepots:\n{entry}";
+            return content.TrimEnd() + $"\n\nAdditionalDepots:\n{entry}";
         }
     }
 
     private static string RemoveAdditionalDepot(string content, string depotId)
     {
-        var pattern = $@"^[ \t]*-[ \t]*['""]?{Regex.Escape(depotId)}['""]?[ \t]*(?:#.*)?\r?\n";
-        return Regex.Replace(content, pattern, "", RegexOptions.Multiline);
+        var bounds = GetSectionBounds(content, "AdditionalDepots");
+        if (!bounds.HasValue) return content;
+
+        var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+        var itemRegex = new Regex($@"^[ \t]*-[ \t]*['""]?{Regex.Escape(depotId)}['""]?[ \t]*(?:#.*)?(\r?\n|$)", RegexOptions.Multiline);
+        var newSecContent = itemRegex.Replace(secContent, "");
+
+        return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
     }
 
     private static string EnsureDecryptionKey(string content, string depotId, string key, string comment)
     {
-        var pattern = $@"^\s*['""]?{Regex.Escape(depotId)}['""]?\s*:\s*";
-        if (Regex.IsMatch(content, pattern, RegexOptions.Multiline))
-            return content;
-
-        var sectionMatch = Regex.Match(content, @"^(DecryptionKeys:\s*\n)", RegexOptions.Multiline);
+        var bounds = GetSectionBounds(content, "DecryptionKeys");
         var entry = string.IsNullOrWhiteSpace(comment) 
             ? $"  {depotId}: {key}\n" 
-            : $"  {depotId}: {key} # {comment}\n";
+            : $"  {depotId}: {key} # {comment.Trim()}\n";
 
-        if (sectionMatch.Success)
+        if (bounds.HasValue)
         {
-            return content.Insert(sectionMatch.Index + sectionMatch.Length, entry);
+            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+            var itemRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(depotId)}['""]?[ \t]*:[ \t]*", RegexOptions.Multiline);
+            if (itemRegex.IsMatch(secContent))
+            {
+                return content;
+            }
+
+            int insertPos = bounds.Value.sectionEnd;
+            if (insertPos > 0 && content[insertPos - 1] != '\n')
+            {
+                entry = "\n" + entry;
+            }
+            return content.Insert(insertPos, entry);
         }
         else
         {
-            return content + $"\nDecryptionKeys:\n{entry}";
+            return content.TrimEnd() + $"\n\nDecryptionKeys:\n{entry}";
         }
     }
 
     private static string RemoveDecryptionKey(string content, string depotId)
     {
-        var pattern = $@"^[ \t]*['""]?{Regex.Escape(depotId)}['""]?[ \t]*:[ \t]*[a-fA-F0-9]+[ \t]*(?:#.*)?\r?\n";
-        return Regex.Replace(content, pattern, "", RegexOptions.Multiline);
+        var bounds = GetSectionBounds(content, "DecryptionKeys");
+        if (!bounds.HasValue) return content;
+
+        var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
+        var itemRegex = new Regex($@"^[ \t]*['""]?{Regex.Escape(depotId)}['""]?[ \t]*:[ \t]*[a-fA-F0-9]+[ \t]*(?:#.*)?(\r?\n|$)", RegexOptions.Multiline);
+        var newSecContent = itemRegex.Replace(secContent, "");
+
+        return content.Substring(0, bounds.Value.contentStart) + newSecContent + content.Substring(bounds.Value.sectionEnd);
     }
 }

@@ -17,6 +17,8 @@ public partial class MainWindow : Window
 {
     private readonly PluginLibraryService _libraryService;
     private readonly SlsSteamService _slsService;
+    private readonly DepotKeyService _depotKeyService;
+    private readonly AccelaConfigService _configService;
     private readonly GameTransitionService _transitionService;
     private readonly GamepadService _gamepadService;
 
@@ -44,12 +46,14 @@ public partial class MainWindow : Window
 
         _libraryService = new PluginLibraryService();
         _slsService = new SlsSteamService();
-        _transitionService = new GameTransitionService(_slsService, _libraryService);
+        _depotKeyService = new DepotKeyService();
+        _configService = new AccelaConfigService();
+        _transitionService = new GameTransitionService(_slsService, _libraryService, _depotKeyService);
         _gamepadService = new GamepadService();
 
         GamesListBox.ItemsSource = _displayedGames;
 
-        // Auto-refresh when plugin_library.json changes on disk
+        // Auto-refresh when plugin_library.json or games_cache.json changes on disk
         _libraryService.LibraryChanged += () =>
         {
             Dispatcher.UIThread.Post(async () => await ReloadLibraryAsync());
@@ -80,7 +84,7 @@ public partial class MainWindow : Window
         _gamepadService.Start();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
         await ReloadLibraryAsync();
-        await LoadSettingsFromConfigAsync();
+        LoadSettingsFromConfig();
         GamesListBox.Focus();
     }
 
@@ -357,7 +361,7 @@ public partial class MainWindow : Window
 
     private async void SyncAllGames()
     {
-        Console.WriteLine("[Pluto] Syncing all at0-m games into config.yaml...");
+        PlutoLogger.Info("Pluto", "Syncing all at0-m games into config.yaml...");
         foreach (var g in _allGames.Where(g => !g.IsAccela))
         {
             await _slsService.SyncGameToConfigAsync(g);
@@ -455,7 +459,7 @@ public partial class MainWindow : Window
     {
         if (_selectedGame != null)
         {
-            Console.WriteLine($"[Pluto] Launching: {_selectedGame.Name} ({_selectedGame.AppId})");
+            PlutoLogger.Info("Pluto", $"Launching: {_selectedGame.Name} ({_selectedGame.AppId})");
             _slsService.LaunchGame(_selectedGame.AppId);
         }
     }
@@ -476,20 +480,12 @@ public partial class MainWindow : Window
             if (_selectedGame.IsAccela)
             {
                 PlutoLogger.Info("Transition", $"Converting {_selectedGame.AppId} ({_selectedGame.Name}) to AT0-M plugin native");
-                var ok = await _libraryService.Bridge.ConvertToAtomAsync(_selectedGame.AppId, _selectedGame.InstallPath);
-                if (!ok)
-                {
-                    await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
-                }
+                await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
             }
             else
             {
                 PlutoLogger.Info("Transition", $"Reverting {_selectedGame.AppId} ({_selectedGame.Name}) to ACCELA managed mode");
-                var ok = await _libraryService.Bridge.ConvertToAccelaAsync(_selectedGame.AppId, _selectedGame.InstallPath);
-                if (!ok)
-                {
-                    await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
-                }
+                await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
             }
             await ReloadLibraryAsync();
             ShowMainList();
@@ -506,29 +502,20 @@ public partial class MainWindow : Window
         _slsService.NotifyReload();
     }
 
-    // Settings Toggle Handlers
-    private async Task LoadSettingsFromConfigAsync()
+    // Settings Management (Native C# via AccelaConfigService)
+    private void LoadSettingsFromConfig()
     {
         try
         {
-            var dict = await _libraryService.Bridge.GetSettingsAsync();
-            if (dict.TryGetValue("enable_vapor", out var v) || dict.TryGetValue("enable_at0m", out v))
-            {
-                _settingVaporEnabled = v.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
-            }
-            if (dict.TryGetValue("vapor_default_download_action", out var da))
-            {
-                _settingDownloadAction = da.Trim();
-            }
-            if (dict.TryGetValue("vapor_disable_updates", out var du))
-            {
-                _settingDisableUpdates = du.Trim().Equals("true", StringComparison.OrdinalIgnoreCase);
-            }
+            _settingVaporEnabled = _configService.GetBool("enable_vapor", true) || _configService.GetBool("enable_at0m", true);
+            _settingDownloadAction = _configService.GetValue("vapor_default_download_action", "native");
+            _settingDisableUpdates = _configService.GetBool("vapor_disable_updates", false) || _configService.GetBool("at0m_disable_updates", false);
             UpdateSettingsUi();
+            PlutoLogger.Info("Pluto", $"Settings loaded: vapor={_settingVaporEnabled}, downloadAction={_settingDownloadAction}, disableUpdates={_settingDisableUpdates}");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Pluto] Failed to read settings: {ex.Message}");
+            PlutoLogger.Error("Pluto", "Failed to read settings from config", ex);
         }
     }
 
@@ -553,25 +540,26 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void OnToggleVaporClicked(object? sender, RoutedEventArgs e)
+    private void OnToggleVaporClicked(object? sender, RoutedEventArgs e)
     {
         _settingVaporEnabled = !_settingVaporEnabled;
         UpdateSettingsUi();
-        await _libraryService.Bridge.SetSettingAsync("enable_vapor", _settingVaporEnabled ? "true" : "false");
-        await _libraryService.Bridge.SetSettingAsync("enable_at0m", _settingVaporEnabled ? "true" : "false");
+        _configService.SetBool("enable_vapor", _settingVaporEnabled);
+        _configService.SetBool("enable_at0m", _settingVaporEnabled);
     }
 
-    private async void OnToggleDownloadActionClicked(object? sender, RoutedEventArgs e)
+    private void OnToggleDownloadActionClicked(object? sender, RoutedEventArgs e)
     {
         _settingDownloadAction = _settingDownloadAction == "native" ? "accela" : "native";
         UpdateSettingsUi();
-        await _libraryService.Bridge.SetSettingAsync("vapor_default_download_action", _settingDownloadAction);
+        _configService.SetValue("vapor_default_download_action", _settingDownloadAction);
     }
 
-    private async void OnToggleUpdatesClicked(object? sender, RoutedEventArgs e)
+    private void OnToggleUpdatesClicked(object? sender, RoutedEventArgs e)
     {
         _settingDisableUpdates = !_settingDisableUpdates;
         UpdateSettingsUi();
-        await _libraryService.Bridge.SetSettingAsync("vapor_disable_updates", _settingDisableUpdates ? "true" : "false");
+        _configService.SetBool("vapor_disable_updates", _settingDisableUpdates);
+        _configService.SetBool("at0m_disable_updates", _settingDisableUpdates);
     }
 }

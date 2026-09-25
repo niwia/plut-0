@@ -9,6 +9,11 @@ using Pluto.Models;
 
 namespace Pluto.Services;
 
+/// <summary>
+/// Dual-source game library manager for Pluto in native C#.
+/// Reads both plugin_library.json and games_cache.json directly,
+/// seamlessly merging AT0-M plugin native games and ACCELA managed games without python.
+/// </summary>
 public class PluginLibraryService : IDisposable
 {
     public static readonly string DefaultDbPath = Path.Combine(
@@ -20,50 +25,63 @@ public class PluginLibraryService : IDisposable
         ".local", "share", "ACCELA", "db", "games_cache.json");
 
     private readonly string _dbPath;
-    private readonly At0mScriptBridge _bridge;
-    private FileSystemWatcher? _watcher;
+    private readonly string _cachePath;
+    private FileSystemWatcher? _dbWatcher;
+    private FileSystemWatcher? _cacheWatcher;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public event Action? LibraryChanged;
 
-    public PluginLibraryService(string? customDbPath = null)
+    public PluginLibraryService(string? customDbPath = null, string? customCachePath = null)
     {
         _dbPath = customDbPath ?? DefaultDbPath;
-        _bridge = new At0mScriptBridge();
+        _cachePath = customCachePath ?? GamesCachePath;
+
         _jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
             PropertyNameCaseInsensitive = true,
-            NumberHandling = JsonNumberHandling.AllowReadingFromString
+            NumberHandling = JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString
         };
 
-        SetupWatcher();
+        SetupWatchers();
     }
 
     public string DbPath => _dbPath;
-    public At0mScriptBridge Bridge => _bridge;
-    public bool Exists => File.Exists(_dbPath);
+    public string CachePath => _cachePath;
+    public bool Exists => File.Exists(_dbPath) || File.Exists(_cachePath);
 
-    private void SetupWatcher()
+    private void SetupWatchers()
     {
         try
         {
-            var dir = Path.GetDirectoryName(_dbPath);
-            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+            var dbDir = Path.GetDirectoryName(_dbPath);
+            if (!string.IsNullOrEmpty(dbDir) && Directory.Exists(dbDir))
             {
-                _watcher = new FileSystemWatcher(dir, Path.GetFileName(_dbPath))
+                _dbWatcher = new FileSystemWatcher(dbDir, Path.GetFileName(_dbPath))
                 {
                     NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
                     EnableRaisingEvents = true
                 };
+                _dbWatcher.Changed += (_, _) => OnFileChanged();
+                _dbWatcher.Created += (_, _) => OnFileChanged();
+            }
 
-                _watcher.Changed += (_, _) => OnFileChanged();
-                _watcher.Created += (_, _) => OnFileChanged();
+            var cacheDir = Path.GetDirectoryName(_cachePath);
+            if (!string.IsNullOrEmpty(cacheDir) && Directory.Exists(cacheDir))
+            {
+                _cacheWatcher = new FileSystemWatcher(cacheDir, Path.GetFileName(_cachePath))
+                {
+                    NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName,
+                    EnableRaisingEvents = true
+                };
+                _cacheWatcher.Changed += (_, _) => OnFileChanged();
+                _cacheWatcher.Created += (_, _) => OnFileChanged();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[PluginLibraryService] Warning: Failed to setup file watcher: {ex.Message}");
+            PlutoLogger.Warn("Library", $"Failed to setup file watcher: {ex.Message}");
         }
     }
 
@@ -77,91 +95,142 @@ public class PluginLibraryService : IDisposable
         LibraryChanged?.Invoke();
     }
 
+    /// <summary>
+    /// Dual-source loads all AT0-M and ACCELA games natively.
+    /// </summary>
     public async Task<List<PluginGame>> LoadGamesAsync()
     {
-        // 1. Try loading via At0mScriptBridge (loads both AT0-M and ACCELA games)
-        try
+        var result = new List<PluginGame>();
+        var seenAppIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. Load AT0-M plugin native games from plugin_library.json
+        if (File.Exists(_dbPath))
         {
-            var bridgeGames = await _bridge.ListAllGamesAsync();
-            if (bridgeGames != null && bridgeGames.Count > 0)
+            try
             {
-                return bridgeGames
-                    .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                await using var stream = File.OpenRead(_dbPath);
+                var dict = await JsonSerializer.DeserializeAsync<Dictionary<string, PluginGame>>(stream, _jsonOptions);
+                if (dict != null)
+                {
+                    foreach (var (appId, game) in dict)
+                    {
+                        var aid = !string.IsNullOrWhiteSpace(game.AppId) ? game.AppId : appId;
+                        game.AppId = aid;
+                        game.IsAccela = false;
+                        if (string.IsNullOrWhiteSpace(game.Name))
+                        {
+                            game.Name = $"App {aid}";
+                        }
+                        seenAppIds.Add(aid);
+                        result.Add(game);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                PlutoLogger.Error("Library", $"Error reading {_dbPath}", ex);
             }
         }
-        catch (Exception ex)
+
+        // 2. Load ACCELA games from games_cache.json
+        if (File.Exists(_cachePath))
         {
-            Console.WriteLine($"[PluginLibraryService] At0mScriptBridge list-all error: {ex.Message}");
+            try
+            {
+                await using var stream = File.OpenRead(_cachePath);
+                using var doc = await JsonDocument.ParseAsync(stream);
+
+                if (doc.RootElement.TryGetProperty("games", out var gamesArray) && gamesArray.ValueKind == JsonValueKind.Array)
+                {
+                    var gamesByAppId = result.ToDictionary(g => g.AppId, StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var el in gamesArray.EnumerateArray())
+                    {
+                        var aid = GetStringSafe(el, "appid");
+                        if (string.IsNullOrWhiteSpace(aid)) continue;
+
+                        string gameName = GetStringSafe(el, "game_name", $"App {aid}");
+                        string installDir = GetStringSafe(el, "install_dir");
+                        string installPath = GetStringSafe(el, "install_path");
+                        string appmanifestPath = GetStringSafe(el, "appmanifest_path");
+                        bool isAccela = GetBoolSafe(el, "is_accela_install");
+                        bool isAtom = GetBoolSafe(el, "is_atom") || GetBoolSafe(el, "is_vapor") || GetStringSafe(el, "source").Equals("at0-m", StringComparison.OrdinalIgnoreCase);
+                        long lastUpdated = GetLongSafe(el, "last_updated");
+
+                        if (gamesByAppId.TryGetValue(aid, out var existing))
+                        {
+                            // Enrich existing plugin game with filesystem paths
+                            if (string.IsNullOrEmpty(existing.InstallPath) && !string.IsNullOrEmpty(installPath))
+                                existing.InstallPath = installPath;
+
+                            if (string.IsNullOrEmpty(existing.AppmanifestPath) && !string.IsNullOrEmpty(appmanifestPath))
+                                existing.AppmanifestPath = appmanifestPath;
+
+                            if (string.IsNullOrEmpty(existing.InstallDir) && !string.IsNullOrEmpty(installDir))
+                                existing.InstallDir = installDir;
+                        }
+                        else
+                        {
+                            // Not in plugin_library.json: Add if it's an ACCELA or AT0-M managed game
+                            if (isAccela || isAtom)
+                            {
+                                seenAppIds.Add(aid);
+                                var newGame = new PluginGame
+                                {
+                                    AppId = aid,
+                                    Name = gameName,
+                                    InstallDir = installDir,
+                                    InstallPath = installPath,
+                                    AppmanifestPath = appmanifestPath,
+                                    IsAccela = !isAtom && isAccela,
+                                    Source = isAtom ? "at0-m" : "ACCELA",
+                                    UpdatedAt = lastUpdated
+                                };
+                                result.Add(newGame);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                PlutoLogger.Error("Library", $"Error enriching from {_cachePath}", ex);
+            }
         }
 
-        // 2. Fallback: Direct file read of plugin_library.json
+        return result
+            .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Loads only the games registered in plugin_library.json as a dictionary.
+    /// </summary>
+    public async Task<Dictionary<string, PluginGame>> LoadPluginLibraryDictAsync()
+    {
         if (!File.Exists(_dbPath))
         {
-            return new List<PluginGame>();
+            return new Dictionary<string, PluginGame>(StringComparer.OrdinalIgnoreCase);
         }
 
         try
         {
             await using var stream = File.OpenRead(_dbPath);
             var dict = await JsonSerializer.DeserializeAsync<Dictionary<string, PluginGame>>(stream, _jsonOptions);
-            if (dict == null) return new List<PluginGame>();
-
-            var list = dict.Values.ToList();
-            await EnrichWithGamesCacheAsync(list);
-
-            return list
-                .OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            return dict != null
+                ? new Dictionary<string, PluginGame>(dict, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, PluginGame>(StringComparer.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[PluginLibraryService] Error reading {_dbPath}: {ex.Message}");
-            return new List<PluginGame>();
+            PlutoLogger.Error("Library", $"Error reading dictionary from {_dbPath}", ex);
+            return new Dictionary<string, PluginGame>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
-    private async Task EnrichWithGamesCacheAsync(List<PluginGame> games)
-    {
-        if (!File.Exists(GamesCachePath)) return;
-
-        try
-        {
-            await using var stream = File.OpenRead(GamesCachePath);
-            using var doc = await JsonDocument.ParseAsync(stream);
-            if (doc.RootElement.TryGetProperty("games", out var gamesArray) && gamesArray.ValueKind == JsonValueKind.Array)
-            {
-                var cacheByAppId = new Dictionary<string, JsonElement>();
-                foreach (var el in gamesArray.EnumerateArray())
-                {
-                    if (el.TryGetProperty("appid", out var appidProp))
-                    {
-                        cacheByAppId[appidProp.GetString() ?? ""] = el;
-                    }
-                }
-
-                foreach (var game in games)
-                {
-                    if (cacheByAppId.TryGetValue(game.AppId, out var el))
-                    {
-                        if (el.TryGetProperty("install_path", out var ip))
-                            game.InstallPath = ip.GetString() ?? "";
-
-                        if (el.TryGetProperty("appmanifest_path", out var ap))
-                            game.AppmanifestPath = ap.GetString() ?? "";
-
-                        if (el.TryGetProperty("is_accela_install", out var ai))
-                            game.IsAccela = ai.GetBoolean();
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[PluginLibraryService] Note: Failed to enrich from games_cache.json: {ex.Message}");
-        }
-    }
-
+    /// <summary>
+    /// Saves the plugin library dictionary to disk atomically.
+    /// </summary>
     public async Task<bool> SaveLibraryAsync(Dictionary<string, PluginGame> games)
     {
         try
@@ -176,28 +245,36 @@ public class PluginLibraryService : IDisposable
             await using (var stream = File.Create(tempPath))
             {
                 await JsonSerializer.SerializeAsync(stream, games, _jsonOptions);
+                await stream.FlushAsync();
             }
 
             File.Move(tempPath, _dbPath, overwrite: true);
+            PlutoLogger.Info("Library", $"Saved {games.Count} games to {_dbPath}");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[PluginLibraryService] Error saving {_dbPath}: {ex.Message}");
+            PlutoLogger.Error("Library", $"Error saving {_dbPath}", ex);
             return false;
         }
     }
 
+    /// <summary>
+    /// Adds or updates a game record in plugin_library.json.
+    /// </summary>
     public async Task<bool> SaveGameAsync(PluginGame game)
     {
-        var games = await LoadGamesDictionaryAsync();
+        var games = await LoadPluginLibraryDictAsync();
         games[game.AppId] = game;
         return await SaveLibraryAsync(games);
     }
 
+    /// <summary>
+    /// Removes a game record from plugin_library.json.
+    /// </summary>
     public async Task<bool> RemoveGameAsync(string appId)
     {
-        var games = await LoadGamesDictionaryAsync();
+        var games = await LoadPluginLibraryDictAsync();
         if (games.Remove(appId))
         {
             return await SaveLibraryAsync(games);
@@ -205,27 +282,55 @@ public class PluginLibraryService : IDisposable
         return false;
     }
 
-    private async Task<Dictionary<string, PluginGame>> LoadGamesDictionaryAsync()
+    private static string GetStringSafe(JsonElement el, string propName, string defaultVal = "")
     {
-        if (!File.Exists(_dbPath))
+        if (el.TryGetProperty(propName, out var prop))
         {
-            return new Dictionary<string, PluginGame>();
+            if (prop.ValueKind == JsonValueKind.String)
+                return prop.GetString() ?? defaultVal;
+            if (prop.ValueKind == JsonValueKind.Number)
+                return prop.GetRawText();
         }
+        return defaultVal;
+    }
 
-        try
+    private static bool GetBoolSafe(JsonElement el, string propName, bool defaultVal = false)
+    {
+        if (el.TryGetProperty(propName, out var prop))
         {
-            await using var stream = File.OpenRead(_dbPath);
-            var dict = await JsonSerializer.DeserializeAsync<Dictionary<string, PluginGame>>(stream, _jsonOptions);
-            return dict ?? new Dictionary<string, PluginGame>();
+            if (prop.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                return prop.GetBoolean();
+            if (prop.ValueKind == JsonValueKind.String)
+            {
+                var str = prop.GetString();
+                return bool.TryParse(str, out var b) ? b : defaultVal;
+            }
+            if (prop.ValueKind == JsonValueKind.Number)
+            {
+                return prop.TryGetInt64(out var n) && n != 0;
+            }
         }
-        catch
+        return defaultVal;
+    }
+
+    private static long GetLongSafe(JsonElement el, string propName, long defaultVal = 0)
+    {
+        if (el.TryGetProperty(propName, out var prop))
         {
-            return new Dictionary<string, PluginGame>();
+            if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt64(out var numVal))
+                return numVal;
+            if (prop.ValueKind == JsonValueKind.String)
+            {
+                var str = prop.GetString();
+                return long.TryParse(str, out var strVal) ? strVal : defaultVal;
+            }
         }
+        return defaultVal;
     }
 
     public void Dispose()
     {
-        _watcher?.Dispose();
+        _dbWatcher?.Dispose();
+        _cacheWatcher?.Dispose();
     }
 }
