@@ -50,7 +50,7 @@ def query_depot_keys(appid: str) -> Dict[str, str]:
         try:
             conn = sqlite3.connect(str(db_path))
             cur = conn.cursor()
-            cur.execute("SELECT depot_id, decryption_key FROM depot_keys WHERE app_id = ?", (str(appid),))
+            cur.execute("SELECT depot_id, aes_key FROM depot_keys WHERE appid = ?", (str(appid),))
             for did, k in cur.fetchall():
                 if did and k:
                     keys[str(did)] = str(k).strip()
@@ -160,7 +160,6 @@ def cmd_to_atom(args):
         depot_ids=depots,
         decryption_keys=keys,
         depot_names={},
-        source="at0-m",
     )
 
     # Signal reload

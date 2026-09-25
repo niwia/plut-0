@@ -475,11 +475,21 @@ public partial class MainWindow : Window
         {
             if (_selectedGame.IsAccela)
             {
-                await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
+                PlutoLogger.Info("Transition", $"Converting {_selectedGame.AppId} ({_selectedGame.Name}) to AT0-M plugin native");
+                var ok = await _libraryService.Bridge.ConvertToAtomAsync(_selectedGame.AppId, _selectedGame.InstallPath);
+                if (!ok)
+                {
+                    await _transitionService.ConvertToAtomPluginAsync(_selectedGame);
+                }
             }
             else
             {
-                await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
+                PlutoLogger.Info("Transition", $"Reverting {_selectedGame.AppId} ({_selectedGame.Name}) to ACCELA managed mode");
+                var ok = await _libraryService.Bridge.ConvertToAccelaAsync(_selectedGame.AppId, _selectedGame.InstallPath);
+                if (!ok)
+                {
+                    await _transitionService.ConvertToAccelaManagedAsync(_selectedGame);
+                }
             }
             await ReloadLibraryAsync();
             ShowMainList();
