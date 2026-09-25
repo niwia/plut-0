@@ -23,11 +23,26 @@ public class RawgGameMetadata
 
     // Advanced RAWG Metrics
     public int? PlaytimeHours { get; set; }
+    public int? RatingsCount { get; set; }
     public string Developers { get; set; } = string.Empty;
     public string Publishers { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = new();
     public string Verdict { get; set; } = string.Empty;
     public List<string> Screenshots { get; set; } = new();
+
+    public string FormattedReviewsCount
+    {
+        get
+        {
+            if (!RatingsCount.HasValue || RatingsCount.Value <= 0) return string.Empty;
+            int count = RatingsCount.Value;
+            if (count >= 1000)
+            {
+                return $"{count / 1000.0:0.#}k reviews";
+            }
+            return $"{count} reviews";
+        }
+    }
 
     public string CreditsLine
     {
@@ -236,6 +251,12 @@ public class RawgService
                     rating = rt.GetDouble();
                 }
 
+                int? ratingsCount = null;
+                if (first.TryGetProperty("ratings_count", out var rc) && rc.ValueKind == JsonValueKind.Number)
+                {
+                    ratingsCount = rc.GetInt32();
+                }
+
                 // Verdict calculation from ratings
                 string topVerdict = string.Empty;
                 if (first.TryGetProperty("ratings", out var ratingsArr) && ratingsArr.ValueKind == JsonValueKind.Array)
@@ -387,6 +408,7 @@ public class RawgService
                     PlaytimeHours = playtime,
                     MetacriticScore = metacritic,
                     Rating = rating,
+                    RatingsCount = ratingsCount,
                     Verdict = topVerdict,
                     Developers = developers,
                     Publishers = publishers,

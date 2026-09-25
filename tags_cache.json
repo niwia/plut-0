@@ -1,0 +1,2167 @@
+[
+  {
+    "Id": "4166",
+    "Icon": "🌫",
+    "Name": "Atmospheric"
+  },
+  {
+    "Id": "1684",
+    "Icon": "🎭",
+    "Name": "Fantasy"
+  },
+  {
+    "Id": "1654",
+    "Icon": "🧘",
+    "Name": "Relaxing"
+  },
+  {
+    "Id": "4136",
+    "Icon": "😃",
+    "Name": "Funny"
+  },
+  {
+    "Id": "1667",
+    "Icon": "😱",
+    "Name": "Horror"
+  },
+  {
+    "Id": "3942",
+    "Icon": "🚀",
+    "Name": "Sci-fi"
+  },
+  {
+    "Id": "5350",
+    "Icon": "👪",
+    "Name": "Family Friendly"
+  },
+  {
+    "Id": "4004",
+    "Icon": "👾",
+    "Name": "Retro"
+  },
+  {
+    "Id": "4342",
+    "Icon": "😨",
+    "Name": "Dark"
+  },
+  {
+    "Id": "5716",
+    "Icon": "🤫",
+    "Name": "Mystery"
+  },
+  {
+    "Id": "1721",
+    "Icon": "🕴",
+    "Name": "Psychological Horror"
+  },
+  {
+    "Id": "1662",
+    "Icon": "🌲",
+    "Name": "Survival"
+  },
+  {
+    "Id": "1719",
+    "Icon": "🤡",
+    "Name": "Comedy"
+  },
+  {
+    "Id": "12472",
+    "Icon": "💼",
+    "Name": "Management"
+  },
+  {
+    "Id": "4057",
+    "Icon": "🪄",
+    "Name": "Magic"
+  },
+  {
+    "Id": "3916",
+    "Icon": "🕹️",
+    "Name": "Old School"
+  },
+  {
+    "Id": "1643",
+    "Icon": "🏗️",
+    "Name": "Building"
+  },
+  {
+    "Id": "1708",
+    "Icon": "🤔",
+    "Name": "Tactical"
+  },
+  {
+    "Id": "701",
+    "Icon": "🏅",
+    "Name": "Sports"
+  },
+  {
+    "Id": "4172",
+    "Icon": "🏰",
+    "Name": "Medieval"
+  },
+  {
+    "Id": "1702",
+    "Icon": "🔧",
+    "Name": "Crafting"
+  },
+  {
+    "Id": "4604",
+    "Icon": "🧝",
+    "Name": "Dark Fantasy"
+  },
+  {
+    "Id": "5608",
+    "Icon": "💔",
+    "Name": "Emotional"
+  },
+  {
+    "Id": "1755",
+    "Icon": "🌠",
+    "Name": "Space"
+  },
+  {
+    "Id": "4295",
+    "Icon": "🌆",
+    "Name": "Futuristic"
+  },
+  {
+    "Id": "4947",
+    "Icon": "💘",
+    "Name": "Romance"
+  },
+  {
+    "Id": "6129",
+    "Icon": "🧩",
+    "Name": "Logic"
+  },
+  {
+    "Id": "699",
+    "Icon": "🏁",
+    "Name": "Racing"
+  },
+  {
+    "Id": "3978",
+    "Icon": "🎒",
+    "Name": "Survival Horror"
+  },
+  {
+    "Id": "30358",
+    "Icon": "🌿",
+    "Name": "Nature"
+  },
+  {
+    "Id": "6691",
+    "Icon": "📼",
+    "Name": "1990's"
+  },
+  {
+    "Id": "1710",
+    "Icon": "🫠",
+    "Name": "Surreal"
+  },
+  {
+    "Id": "4695",
+    "Icon": "🏦",
+    "Name": "Economy"
+  },
+  {
+    "Id": "1036",
+    "Icon": "🏫",
+    "Name": "Education"
+  },
+  {
+    "Id": "3835",
+    "Icon": "☢️",
+    "Name": "Post-apocalyptic"
+  },
+  {
+    "Id": "3854",
+    "Icon": "📖",
+    "Name": "Lore-Rich"
+  },
+  {
+    "Id": "7743",
+    "Icon": "🎸",
+    "Name": "1980s"
+  },
+  {
+    "Id": "3987",
+    "Icon": "📜",
+    "Name": "Historical"
+  },
+  {
+    "Id": "1678",
+    "Icon": "⚔️",
+    "Name": "War"
+  },
+  {
+    "Id": "8369",
+    "Icon": "🔍",
+    "Name": "Investigation"
+  },
+  {
+    "Id": "5186",
+    "Icon": "🫂",
+    "Name": "Psychological"
+  },
+  {
+    "Id": "1687",
+    "Icon": "🥷",
+    "Name": "Stealth"
+  },
+  {
+    "Id": "4064",
+    "Icon": "🔪",
+    "Name": "Thriller"
+  },
+  {
+    "Id": "1659",
+    "Icon": "🧟",
+    "Name": "Zombies"
+  },
+  {
+    "Id": "44868",
+    "Icon": "🏳️‍🌈",
+    "Name": "LGBTQ+"
+  },
+  {
+    "Id": "97376",
+    "Icon": "🛏️",
+    "Name": "Cozy"
+  },
+  {
+    "Id": "5923",
+    "Icon": "🗿",
+    "Name": "Dark Humor"
+  },
+  {
+    "Id": "4168",
+    "Icon": "🪖",
+    "Name": "Military"
+  },
+  {
+    "Id": "10808",
+    "Icon": "🔮",
+    "Name": "Supernatural"
+  },
+  {
+    "Id": "5613",
+    "Icon": "🕵️",
+    "Name": "Detective"
+  },
+  {
+    "Id": "4115",
+    "Icon": "🔋",
+    "Name": "Cyberpunk"
+  },
+  {
+    "Id": "9541",
+    "Icon": "👿",
+    "Name": "Demons"
+  },
+  {
+    "Id": "1644",
+    "Icon": "🚗",
+    "Name": "Driving"
+  },
+  {
+    "Id": "4236",
+    "Icon": "📦",
+    "Name": "Loot"
+  },
+  {
+    "Id": "1673",
+    "Icon": "👽",
+    "Name": "Aliens"
+  },
+  {
+    "Id": "5752",
+    "Icon": "🤖",
+    "Name": "Robots"
+  },
+  {
+    "Id": "5673",
+    "Icon": "💻",
+    "Name": "Modern"
+  },
+  {
+    "Id": "7926",
+    "Icon": "🤖",
+    "Name": "Artificial Intelligence"
+  },
+  {
+    "Id": "255534",
+    "Icon": "🤖",
+    "Name": "Automation"
+  },
+  {
+    "Id": "5030",
+    "Icon": "⛓",
+    "Name": "Dystopian"
+  },
+  {
+    "Id": "1751",
+    "Icon": "💬",
+    "Name": "Comic Book"
+  },
+  {
+    "Id": "17894",
+    "Icon": "🐱",
+    "Name": "Cats"
+  },
+  {
+    "Id": "1714",
+    "Icon": "🦄",
+    "Name": "Psychedelic"
+  },
+  {
+    "Id": "4046",
+    "Icon": "🐲",
+    "Name": "Dragons"
+  },
+  {
+    "Id": "4845",
+    "Icon": "🤑",
+    "Name": "Capitalism"
+  },
+  {
+    "Id": "15045",
+    "Icon": "✈️",
+    "Name": "Flight"
+  },
+  {
+    "Id": "6378",
+    "Icon": "🚨",
+    "Name": "Crime"
+  },
+  {
+    "Id": "4598",
+    "Icon": "🕰️",
+    "Name": "Alternate History"
+  },
+  {
+    "Id": "16094",
+    "Icon": "👹",
+    "Name": "Mythology"
+  },
+  {
+    "Id": "4036",
+    "Icon": "🧗",
+    "Name": "Parkour"
+  },
+  {
+    "Id": "10397",
+    "Icon": "🤣",
+    "Name": "Memes"
+  },
+  {
+    "Id": "5363",
+    "Icon": "💥",
+    "Name": "Destruction"
+  },
+  {
+    "Id": "13906",
+    "Icon": "🛠️",
+    "Name": "Game Development"
+  },
+  {
+    "Id": "3920",
+    "Icon": "🍲",
+    "Name": "Cooking"
+  },
+  {
+    "Id": "15277",
+    "Icon": "🧙‍♂",
+    "Name": "Philosophical"
+  },
+  {
+    "Id": "19995",
+    "Icon": "🧛🏻",
+    "Name": "Dark Comedy"
+  },
+  {
+    "Id": "552282",
+    "Icon": "🤗",
+    "Name": "Wholesome"
+  },
+  {
+    "Id": "6052",
+    "Icon": "🕵️",
+    "Name": "Noir"
+  },
+  {
+    "Id": "4608",
+    "Icon": "🤺",
+    "Name": "Swordplay"
+  },
+  {
+    "Id": "7432",
+    "Icon": "🐙",
+    "Name": "Lovecraftian"
+  },
+  {
+    "Id": "5794",
+    "Icon": "🔬",
+    "Name": "Science"
+  },
+  {
+    "Id": "5981",
+    "Icon": "⛏️",
+    "Name": "Mining"
+  },
+  {
+    "Id": "5372",
+    "Icon": "👁️",
+    "Name": "Conspiracy"
+  },
+  {
+    "Id": "4878",
+    "Icon": "🥸",
+    "Name": "Parody"
+  },
+  {
+    "Id": "3952",
+    "Icon": "🦇",
+    "Name": "Gothic"
+  },
+  {
+    "Id": "1651",
+    "Icon": "🎭",
+    "Name": "Satire"
+  },
+  {
+    "Id": "21006",
+    "Icon": "🕳️",
+    "Name": "Underground"
+  },
+  {
+    "Id": "22602",
+    "Icon": "🌾",
+    "Name": "Agriculture"
+  },
+  {
+    "Id": "15564",
+    "Icon": "🎣",
+    "Name": "Fishing"
+  },
+  {
+    "Id": "10383",
+    "Icon": "🚌",
+    "Name": "Transportation"
+  },
+  {
+    "Id": "6915",
+    "Icon": "🥋",
+    "Name": "Martial Arts"
+  },
+  {
+    "Id": "16250",
+    "Icon": "🎰",
+    "Name": "Gambling"
+  },
+  {
+    "Id": "4150",
+    "Icon": "🪂",
+    "Name": "World War II"
+  },
+  {
+    "Id": "4821",
+    "Icon": "🤖",
+    "Name": "Mechs"
+  },
+  {
+    "Id": "1688",
+    "Icon": "🥷",
+    "Name": "Ninja"
+  },
+  {
+    "Id": "1616",
+    "Icon": "🚂",
+    "Name": "Trains"
+  },
+  {
+    "Id": "1637",
+    "Icon": "🐕",
+    "Name": "Dogs"
+  },
+  {
+    "Id": "9157",
+    "Icon": "🌊",
+    "Name": "Underwater"
+  },
+  {
+    "Id": "1681",
+    "Icon": "🏴‍☠",
+    "Name": "Pirates"
+  },
+  {
+    "Id": "10679",
+    "Icon": "⏳",
+    "Name": "Time Travel"
+  },
+  {
+    "Id": "1777",
+    "Icon": "🧷",
+    "Name": "Steampunk"
+  },
+  {
+    "Id": "9626",
+    "Icon": "🐾",
+    "Name": "Animals"
+  },
+  {
+    "Id": "12686",
+    "Icon": "🧛",
+    "Name": "Vampires"
+  },
+  {
+    "Id": "13276",
+    "Icon": "🪖",
+    "Name": "Tanks"
+  },
+  {
+    "Id": "5502",
+    "Icon": "🔌",
+    "Name": "Hacking"
+  },
+  {
+    "Id": "3934",
+    "Icon": "🌎",
+    "Name": "Immersive"
+  },
+  {
+    "Id": "9564",
+    "Icon": "🏹",
+    "Name": "Hunting"
+  },
+  {
+    "Id": "5432",
+    "Icon": "💻",
+    "Name": "Programming"
+  },
+  {
+    "Id": "31579",
+    "Icon": "💘",
+    "Name": "Otome"
+  },
+  {
+    "Id": "180368",
+    "Icon": "🙏",
+    "Name": "Faith"
+  },
+  {
+    "Id": "1647",
+    "Icon": "🤠",
+    "Name": "Western"
+  },
+  {
+    "Id": "5160",
+    "Icon": "🦖",
+    "Name": "Dinosaurs"
+  },
+  {
+    "Id": "6310",
+    "Icon": "🤝",
+    "Name": "Diplomacy"
+  },
+  {
+    "Id": "7108",
+    "Icon": "🥳",
+    "Name": "Party"
+  },
+  {
+    "Id": "6910",
+    "Icon": "🚢",
+    "Name": "Naval"
+  },
+  {
+    "Id": "1671",
+    "Icon": "🦸",
+    "Name": "Superhero"
+  },
+  {
+    "Id": "97070",
+    "Icon": "🗡️",
+    "Name": "Assassins"
+  },
+  {
+    "Id": "9803",
+    "Icon": "❄️",
+    "Name": "Snow"
+  },
+  {
+    "Id": "13577",
+    "Icon": "⛵",
+    "Name": "Sailing"
+  },
+  {
+    "Id": "1254546",
+    "Icon": "⚽",
+    "Name": "Football (Soccer)"
+  },
+  {
+    "Id": "1680",
+    "Icon": "💸",
+    "Name": "Heist"
+  },
+  {
+    "Id": "5179",
+    "Icon": "☢️",
+    "Name": "Cold War"
+  },
+  {
+    "Id": "6041",
+    "Icon": "🐎",
+    "Name": "Horses"
+  },
+  {
+    "Id": "13382",
+    "Icon": "🎯",
+    "Name": "Archery"
+  },
+  {
+    "Id": "4137",
+    "Icon": "🧬",
+    "Name": "Transhumanism"
+  },
+  {
+    "Id": "4520",
+    "Icon": "🌾",
+    "Name": "Farming"
+  },
+  {
+    "Id": "7622",
+    "Icon": "🛻",
+    "Name": "Offroad"
+  },
+  {
+    "Id": "14720",
+    "Icon": "🕯️",
+    "Name": "Nostalgia"
+  },
+  {
+    "Id": "1239876",
+    "Icon": "🗂️",
+    "Name": "Organizing"
+  },
+  {
+    "Id": "7423",
+    "Icon": "🏹",
+    "Name": "Sniper"
+  },
+  {
+    "Id": "12190",
+    "Icon": "🥊",
+    "Name": "Boxing"
+  },
+  {
+    "Id": "7038",
+    "Icon": "🏌️",
+    "Name": "Golf"
+  },
+  {
+    "Id": "5727",
+    "Icon": "⚾",
+    "Name": "Baseball"
+  },
+  {
+    "Id": "17015",
+    "Icon": "🐺",
+    "Name": "Werewolves"
+  },
+  {
+    "Id": "6702",
+    "Icon": "🔴",
+    "Name": "Mars"
+  },
+  {
+    "Id": "23491",
+    "Icon": "🧽",
+    "Name": "Cleaning"
+  },
+  {
+    "Id": "889937",
+    "Icon": "🎨",
+    "Name": "Decorating"
+  },
+  {
+    "Id": "198913",
+    "Icon": "🏍️",
+    "Name": "Motorbike"
+  },
+  {
+    "Id": "1746",
+    "Icon": "🏀",
+    "Name": "Basketball"
+  },
+  {
+    "Id": "5382",
+    "Icon": "🎖️",
+    "Name": "World War I"
+  },
+  {
+    "Id": "4535",
+    "Icon": "⛏️",
+    "Name": "Dwarves"
+  },
+  {
+    "Id": "19780",
+    "Icon": "🤿",
+    "Name": "Submarine"
+  },
+  {
+    "Id": "6948",
+    "Icon": "🏛️",
+    "Name": "Rome"
+  },
+  {
+    "Id": "4291",
+    "Icon": "🛰",
+    "Name": "Spaceships"
+  },
+  {
+    "Id": "123332",
+    "Icon": "🚲",
+    "Name": "Bikes"
+  },
+  {
+    "Id": "1753",
+    "Icon": "🛹",
+    "Name": "Skateboarding"
+  },
+  {
+    "Id": "47827",
+    "Icon": "🤼",
+    "Name": "Wrestling"
+  },
+  {
+    "Id": "760247",
+    "Icon": "🐉",
+    "Name": "Xianxia"
+  },
+  {
+    "Id": "22955",
+    "Icon": "⛳",
+    "Name": "Mini Golf"
+  },
+  {
+    "Id": "25959",
+    "Icon": "🥋",
+    "Name": "Wuxia"
+  },
+  {
+    "Id": "4852",
+    "Icon": "🎱",
+    "Name": "Billiards"
+  },
+  {
+    "Id": "1254552",
+    "Icon": "🏈",
+    "Name": "Football (American)"
+  },
+  {
+    "Id": "6054",
+    "Icon": "🧝",
+    "Name": "Elves"
+  },
+  {
+    "Id": "11634",
+    "Icon": "🛶",
+    "Name": "Vikings"
+  },
+  {
+    "Id": "96359",
+    "Icon": "🛹",
+    "Name": "Skating"
+  },
+  {
+    "Id": "52406",
+    "Icon": "🕯️",
+    "Name": "Cult"
+  },
+  {
+    "Id": "19568",
+    "Icon": "🚴",
+    "Name": "Cycling"
+  },
+  {
+    "Id": "5914",
+    "Icon": "🎾",
+    "Name": "Tennis"
+  },
+  {
+    "Id": "15868",
+    "Icon": "🚵🏿",
+    "Name": "Motocross"
+  },
+  {
+    "Id": "6214",
+    "Icon": "🐦",
+    "Name": "Birds"
+  },
+  {
+    "Id": "324176",
+    "Icon": "🏒",
+    "Name": "Hockey"
+  },
+  {
+    "Id": "10617",
+    "Icon": "🗡️",
+    "Name": "Samurai"
+  },
+  {
+    "Id": "7328",
+    "Icon": "🎳",
+    "Name": "Bowling"
+  },
+  {
+    "Id": "7309",
+    "Icon": "⛷",
+    "Name": "Skiing"
+  },
+  {
+    "Id": "507423",
+    "Icon": "🦊",
+    "Name": "Foxes"
+  },
+  {
+    "Id": "28444",
+    "Icon": "🏂",
+    "Name": "Snowboarding"
+  },
+  {
+    "Id": "17337",
+    "Icon": "🐹",
+    "Name": "Lemmings"
+  },
+  {
+    "Id": "252854",
+    "Icon": "🚲",
+    "Name": "BMX"
+  },
+  {
+    "Id": "129761",
+    "Icon": "🛻",
+    "Name": "ATV"
+  },
+  {
+    "Id": "1352486",
+    "Icon": "🦫",
+    "Name": "Capybaras"
+  },
+  {
+    "Id": "20486",
+    "Icon": "🐺",
+    "Name": "Wolves"
+  },
+  {
+    "Id": "46348",
+    "Icon": "🦁",
+    "Name": "Zoo"
+  },
+  {
+    "Id": "847164",
+    "Icon": "🏐",
+    "Name": "Volleyball"
+  },
+  {
+    "Id": "49213",
+    "Icon": "🏉",
+    "Name": "Rugby"
+  },
+  {
+    "Id": "492",
+    "Icon": "🌱",
+    "Name": "Indie"
+  },
+  {
+    "Id": "19",
+    "Icon": "💥",
+    "Name": "Action"
+  },
+  {
+    "Id": "597",
+    "Icon": "😌",
+    "Name": "Casual"
+  },
+  {
+    "Id": "21",
+    "Icon": "🗺️",
+    "Name": "Adventure"
+  },
+  {
+    "Id": "599",
+    "Icon": "🖥️",
+    "Name": "Simulation"
+  },
+  {
+    "Id": "9",
+    "Icon": "💡",
+    "Name": "Strategy"
+  },
+  {
+    "Id": "122",
+    "Icon": "🎲",
+    "Name": "RPG"
+  },
+  {
+    "Id": "4106",
+    "Icon": "🌄",
+    "Name": "Action-Adventure"
+  },
+  {
+    "Id": "8013",
+    "Icon": "💾",
+    "Name": "Software"
+  },
+  {
+    "Id": "1743",
+    "Icon": "🤼",
+    "Name": "Fighting"
+  },
+  {
+    "Id": "3871",
+    "Icon": "🖼️",
+    "Name": "2D"
+  },
+  {
+    "Id": "4191",
+    "Icon": "🧊",
+    "Name": "3D"
+  },
+  {
+    "Id": "4305",
+    "Icon": "🎨",
+    "Name": "Colorful"
+  },
+  {
+    "Id": "3964",
+    "Icon": "👾",
+    "Name": "Pixel Graphics"
+  },
+  {
+    "Id": "4726",
+    "Icon": "🧸",
+    "Name": "Cute"
+  },
+  {
+    "Id": "3839",
+    "Icon": "🙌",
+    "Name": "First-Person"
+  },
+  {
+    "Id": "4252",
+    "Icon": "🎨",
+    "Name": "Stylized"
+  },
+  {
+    "Id": "4085",
+    "Icon": "🌸",
+    "Name": "Anime"
+  },
+  {
+    "Id": "4791",
+    "Icon": "🗺️",
+    "Name": "Top-Down"
+  },
+  {
+    "Id": "1697",
+    "Icon": "👤",
+    "Name": "Third Person"
+  },
+  {
+    "Id": "4175",
+    "Icon": "📷",
+    "Name": "Realistic"
+  },
+  {
+    "Id": "4195",
+    "Icon": "🖍️",
+    "Name": "Cartoony"
+  },
+  {
+    "Id": "6815",
+    "Icon": "🎨",
+    "Name": "Hand-drawn"
+  },
+  {
+    "Id": "4094",
+    "Icon": "☯",
+    "Name": "Minimalist"
+  },
+  {
+    "Id": "4562",
+    "Icon": "🖍️",
+    "Name": "Cartoon"
+  },
+  {
+    "Id": "21978",
+    "Icon": "🥽",
+    "Name": "VR"
+  },
+  {
+    "Id": "31275",
+    "Icon": "📝",
+    "Name": "Text-Based"
+  },
+  {
+    "Id": "4145",
+    "Icon": "🍿",
+    "Name": "Cinematic"
+  },
+  {
+    "Id": "4975",
+    "Icon": "🌓",
+    "Name": "2.5D"
+  },
+  {
+    "Id": "5851",
+    "Icon": "🌆",
+    "Name": "Isometric"
+  },
+  {
+    "Id": "4400",
+    "Icon": "🤯",
+    "Name": "Abstract"
+  },
+  {
+    "Id": "10816",
+    "Icon": "📺",
+    "Name": "Split Screen"
+  },
+  {
+    "Id": "1732",
+    "Icon": "🧊",
+    "Name": "Voxel"
+  },
+  {
+    "Id": "18594",
+    "Icon": "📺",
+    "Name": "FMV"
+  },
+  {
+    "Id": "5411",
+    "Icon": "🦚",
+    "Name": "Beautiful"
+  },
+  {
+    "Id": "776177",
+    "Icon": "🌏",
+    "Name": "360 Video"
+  },
+  {
+    "Id": "1742",
+    "Icon": "📚",
+    "Name": "Story Rich"
+  },
+  {
+    "Id": "3993",
+    "Icon": "⚔️",
+    "Name": "Combat"
+  },
+  {
+    "Id": "7481",
+    "Icon": "🎮",
+    "Name": "Controller"
+  },
+  {
+    "Id": "6426",
+    "Icon": "🧞",
+    "Name": "Choices Matter"
+  },
+  {
+    "Id": "7208",
+    "Icon": "👩",
+    "Name": "Female Protagonist"
+  },
+  {
+    "Id": "6730",
+    "Icon": "🌲",
+    "Name": "PvE"
+  },
+  {
+    "Id": "1775",
+    "Icon": "🥊",
+    "Name": "PvP"
+  },
+  {
+    "Id": "6971",
+    "Icon": "🔚",
+    "Name": "Multiple Endings"
+  },
+  {
+    "Id": "7250",
+    "Icon": "📏",
+    "Name": "Linear"
+  },
+  {
+    "Id": "3968",
+    "Icon": "⚛️",
+    "Name": "Physics"
+  },
+  {
+    "Id": "1695",
+    "Icon": "🌍",
+    "Name": "Open World"
+  },
+  {
+    "Id": "4747",
+    "Icon": "🦹",
+    "Name": "Character Customization"
+  },
+  {
+    "Id": "4325",
+    "Icon": "🛡️",
+    "Name": "Turn-Based Combat"
+  },
+  {
+    "Id": "8945",
+    "Icon": "📊",
+    "Name": "Resource Management"
+  },
+  {
+    "Id": "14139",
+    "Icon": "🎲",
+    "Name": "Turn-Based Tactics"
+  },
+  {
+    "Id": "5125",
+    "Icon": "🔀",
+    "Name": "Procedural Generation"
+  },
+  {
+    "Id": "17389",
+    "Icon": "🃏",
+    "Name": "Tabletop"
+  },
+  {
+    "Id": "1646",
+    "Icon": "🛡️",
+    "Name": "Hack and Slash"
+  },
+  {
+    "Id": "7332",
+    "Icon": "🏠",
+    "Name": "Base Building"
+  },
+  {
+    "Id": "5154",
+    "Icon": "🏅",
+    "Name": "Score Attack"
+  },
+  {
+    "Id": "32322",
+    "Icon": "🎴",
+    "Name": "Deckbuilding"
+  },
+  {
+    "Id": "42152",
+    "Icon": "💬",
+    "Name": "Dialogue Heavy"
+  },
+  {
+    "Id": "6276",
+    "Icon": "📦",
+    "Name": "Inventory Management"
+  },
+  {
+    "Id": "12057",
+    "Icon": "🎓",
+    "Name": "Tutorial"
+  },
+  {
+    "Id": "6869",
+    "Icon": "〰️",
+    "Name": "Nonlinear"
+  },
+  {
+    "Id": "1759",
+    "Icon": "☠️",
+    "Name": "Perma Death"
+  },
+  {
+    "Id": "5711",
+    "Icon": "👥",
+    "Name": "Team-Based"
+  },
+  {
+    "Id": "7569",
+    "Icon": "♟️",
+    "Name": "Grid-Based Movement"
+  },
+  {
+    "Id": "8122",
+    "Icon": "📖",
+    "Name": "Level Editor"
+  },
+  {
+    "Id": "1669",
+    "Icon": "🛠️",
+    "Name": "Moddable"
+  },
+  {
+    "Id": "4155",
+    "Icon": "🎭",
+    "Name": "Class-Based"
+  },
+  {
+    "Id": "4202",
+    "Icon": "💼",
+    "Name": "Trading"
+  },
+  {
+    "Id": "11104",
+    "Icon": "🏎️",
+    "Name": "Vehicular Combat"
+  },
+  {
+    "Id": "5765",
+    "Icon": "🔫",
+    "Name": "Gun Customization"
+  },
+  {
+    "Id": "4559",
+    "Icon": "⚡",
+    "Name": "Quick-Time Events"
+  },
+  {
+    "Id": "7702",
+    "Icon": "📚",
+    "Name": "Narrative"
+  },
+  {
+    "Id": "4835",
+    "Icon": "🚀",
+    "Name": "6DOF"
+  },
+  {
+    "Id": "5796",
+    "Icon": "⏸️",
+    "Name": "Bullet Time"
+  },
+  {
+    "Id": "6625",
+    "Icon": "⏳",
+    "Name": "Time Manipulation"
+  },
+  {
+    "Id": "9592",
+    "Icon": "📚",
+    "Name": "Dynamic Narration"
+  },
+  {
+    "Id": "1717",
+    "Icon": "🔷",
+    "Name": "Hex Grid"
+  },
+  {
+    "Id": "8253",
+    "Icon": "🤖",
+    "Name": "Music-Based Procedural Generation"
+  },
+  {
+    "Id": "4994",
+    "Icon": "🚢",
+    "Name": "Naval Combat"
+  },
+  {
+    "Id": "7556",
+    "Icon": "🎲",
+    "Name": "Dice"
+  },
+  {
+    "Id": "11095",
+    "Icon": "💥",
+    "Name": "Boss Rush"
+  },
+  {
+    "Id": "42089",
+    "Icon": "🔪",
+    "Name": "Jump Scare"
+  },
+  {
+    "Id": "856791",
+    "Icon": "🥽",
+    "Name": "Asymmetric VR"
+  },
+  {
+    "Id": "1664",
+    "Icon": "🧩",
+    "Name": "Puzzle"
+  },
+  {
+    "Id": "1773",
+    "Icon": "🕹",
+    "Name": "Arcade"
+  },
+  {
+    "Id": "1774",
+    "Icon": "🔫",
+    "Name": "Shooter"
+  },
+  {
+    "Id": "3799",
+    "Icon": "📚",
+    "Name": "Visual Novel"
+  },
+  {
+    "Id": "1625",
+    "Icon": "🏗️",
+    "Name": "Platformer"
+  },
+  {
+    "Id": "1716",
+    "Icon": "👻",
+    "Name": "Roguelike"
+  },
+  {
+    "Id": "3810",
+    "Icon": "🧱",
+    "Name": "Sandbox"
+  },
+  {
+    "Id": "1741",
+    "Icon": "🎲",
+    "Name": "Turn-Based Strategy"
+  },
+  {
+    "Id": "1698",
+    "Icon": "🔎",
+    "Name": "Point & Click"
+  },
+  {
+    "Id": "4231",
+    "Icon": "💥",
+    "Name": "Action RPG"
+  },
+  {
+    "Id": "42804",
+    "Icon": "👻",
+    "Name": "Action Roguelike"
+  },
+  {
+    "Id": "11014",
+    "Icon": "📚",
+    "Name": "Interactive Fiction"
+  },
+  {
+    "Id": "17305",
+    "Icon": "🧠",
+    "Name": "Strategy RPG"
+  },
+  {
+    "Id": "1666",
+    "Icon": "🃏",
+    "Name": "Card Game"
+  },
+  {
+    "Id": "5900",
+    "Icon": "🚶",
+    "Name": "Walking Simulator"
+  },
+  {
+    "Id": "9551",
+    "Icon": "💘",
+    "Name": "Dating Sim"
+  },
+  {
+    "Id": "10235",
+    "Icon": "🧫",
+    "Name": "Life Sim"
+  },
+  {
+    "Id": "10695",
+    "Icon": "👥",
+    "Name": "Party-Based RPG"
+  },
+  {
+    "Id": "87",
+    "Icon": "🔧",
+    "Name": "Utilities"
+  },
+  {
+    "Id": "4434",
+    "Icon": "🌸",
+    "Name": "JRPG"
+  },
+  {
+    "Id": "84",
+    "Icon": "🎨",
+    "Name": "Design & Illustration"
+  },
+  {
+    "Id": "1770",
+    "Icon": "🎲",
+    "Name": "Board Game"
+  },
+  {
+    "Id": "1645",
+    "Icon": "🏰",
+    "Name": "Tower Defense"
+  },
+  {
+    "Id": "1676",
+    "Icon": "🌐",
+    "Name": "RTS"
+  },
+  {
+    "Id": "4328",
+    "Icon": "🏙️",
+    "Name": "City Builder"
+  },
+  {
+    "Id": "4158",
+    "Icon": "🥊",
+    "Name": "Beat 'em up"
+  },
+  {
+    "Id": "1084988",
+    "Icon": "⚔️",
+    "Name": "Auto Battler"
+  },
+  {
+    "Id": "7178",
+    "Icon": "🎉",
+    "Name": "Party Game"
+  },
+  {
+    "Id": "1100687",
+    "Icon": "🚗",
+    "Name": "Automobile Sim"
+  },
+  {
+    "Id": "1752",
+    "Icon": "🎶",
+    "Name": "Rhythm"
+  },
+  {
+    "Id": "4736",
+    "Icon": "🤼",
+    "Name": "2D Fighter"
+  },
+  {
+    "Id": "87918",
+    "Icon": "🌽",
+    "Name": "Farming Sim"
+  },
+  {
+    "Id": "6506",
+    "Icon": "🤼",
+    "Name": "3D Fighter"
+  },
+  {
+    "Id": "5055",
+    "Icon": "🏆",
+    "Name": "eSports"
+  },
+  {
+    "Id": "24003",
+    "Icon": "📚",
+    "Name": "Word Game"
+  },
+  {
+    "Id": "220585",
+    "Icon": "🛖",
+    "Name": "Colony Sim"
+  },
+  {
+    "Id": "16598",
+    "Icon": "🚀",
+    "Name": "Space Sim"
+  },
+  {
+    "Id": "4364",
+    "Icon": "🛡️",
+    "Name": "Grand Strategy"
+  },
+  {
+    "Id": "872",
+    "Icon": "📏",
+    "Name": "Animation & Modeling"
+  },
+  {
+    "Id": "1754",
+    "Icon": "🏪",
+    "Name": "MMORPG"
+  },
+  {
+    "Id": "176981",
+    "Icon": "🌪️",
+    "Name": "Battle Royale"
+  },
+  {
+    "Id": "5300",
+    "Icon": "🌌",
+    "Name": "God Game"
+  },
+  {
+    "Id": "1100689",
+    "Icon": "🌎",
+    "Name": "Open World Survival Craft"
+  },
+  {
+    "Id": "1027",
+    "Icon": "🎶",
+    "Name": "Audio Production"
+  },
+  {
+    "Id": "1670",
+    "Icon": "🗺️",
+    "Name": "4X"
+  },
+  {
+    "Id": "784",
+    "Icon": "📽",
+    "Name": "Video Production"
+  },
+  {
+    "Id": "35079",
+    "Icon": "🔧",
+    "Name": "Job Simulator"
+  },
+  {
+    "Id": "1718",
+    "Icon": "💢",
+    "Name": "MOBA"
+  },
+  {
+    "Id": "10437",
+    "Icon": "🤓",
+    "Name": "Trivia"
+  },
+  {
+    "Id": "809",
+    "Icon": "📷",
+    "Name": "Photo Editing"
+  },
+  {
+    "Id": "745697",
+    "Icon": "🠊",
+    "Name": "Social Deduction"
+  },
+  {
+    "Id": "6621",
+    "Icon": "🧲",
+    "Name": "Pinball"
+  },
+  {
+    "Id": "1220528",
+    "Icon": "🌱",
+    "Name": "Hobby Sim"
+  },
+  {
+    "Id": "9204",
+    "Icon": "🌎",
+    "Name": "Immersive Sim"
+  },
+  {
+    "Id": "26921",
+    "Icon": "🏛️",
+    "Name": "Political Sim"
+  },
+  {
+    "Id": "1100686",
+    "Icon": "🦠",
+    "Name": "Outbreak Sim"
+  },
+  {
+    "Id": "1100688",
+    "Icon": "🩺",
+    "Name": "Medical Sim"
+  },
+  {
+    "Id": "3834",
+    "Icon": "🗺",
+    "Name": "Exploration"
+  },
+  {
+    "Id": "5379",
+    "Icon": "📺",
+    "Name": "2D Platformer"
+  },
+  {
+    "Id": "3959",
+    "Icon": "👻",
+    "Name": "Roguelite"
+  },
+  {
+    "Id": "1663",
+    "Icon": "🔫",
+    "Name": "FPS"
+  },
+  {
+    "Id": "5395",
+    "Icon": "🦘",
+    "Name": "3D Platformer"
+  },
+  {
+    "Id": "4486",
+    "Icon": "🧚",
+    "Name": "Choose Your Own Adventure"
+  },
+  {
+    "Id": "560542",
+    "Icon": "📈",
+    "Name": "Incremental"
+  },
+  {
+    "Id": "1738",
+    "Icon": "🔍",
+    "Name": "Hidden Object"
+  },
+  {
+    "Id": "4885",
+    "Icon": "💥",
+    "Name": "Bullet Hell"
+  },
+  {
+    "Id": "3798",
+    "Icon": "📺",
+    "Name": "Side Scroller"
+  },
+  {
+    "Id": "5537",
+    "Icon": "🧩",
+    "Name": "Puzzle Platformer"
+  },
+  {
+    "Id": "4255",
+    "Icon": "🕹",
+    "Name": "Shoot 'Em Up"
+  },
+  {
+    "Id": "1720",
+    "Icon": "🏰",
+    "Name": "Dungeon Crawler"
+  },
+  {
+    "Id": "615955",
+    "Icon": "🕒",
+    "Name": "Idler"
+  },
+  {
+    "Id": "16689",
+    "Icon": "🕒",
+    "Name": "Time Management"
+  },
+  {
+    "Id": "4637",
+    "Icon": "🌟",
+    "Name": "Top-Down Shooter"
+  },
+  {
+    "Id": "5652",
+    "Icon": "📦",
+    "Name": "Collectathon"
+  },
+  {
+    "Id": "21725",
+    "Icon": "🛡️",
+    "Name": "Tactical RPG"
+  },
+  {
+    "Id": "3814",
+    "Icon": "🔫",
+    "Name": "Third-Person Shooter"
+  },
+  {
+    "Id": "3877",
+    "Icon": "🕹",
+    "Name": "Precision Platformer"
+  },
+  {
+    "Id": "3813",
+    "Icon": "▶️",
+    "Name": "Real Time Tactics"
+  },
+  {
+    "Id": "791774",
+    "Icon": "🃏",
+    "Name": "Card Battler"
+  },
+  {
+    "Id": "4474",
+    "Icon": "💻",
+    "Name": "CRPG"
+  },
+  {
+    "Id": "5547",
+    "Icon": "🏟️",
+    "Name": "Arena Shooter"
+  },
+  {
+    "Id": "4684",
+    "Icon": "⚔️",
+    "Name": "Wargame"
+  },
+  {
+    "Id": "916648",
+    "Icon": "🦎",
+    "Name": "Creature Collector"
+  },
+  {
+    "Id": "29482",
+    "Icon": "💥",
+    "Name": "Souls-like"
+  },
+  {
+    "Id": "1628",
+    "Icon": "💨",
+    "Name": "Metroidvania"
+  },
+  {
+    "Id": "8666",
+    "Icon": "🏃",
+    "Name": "Runner"
+  },
+  {
+    "Id": "4758",
+    "Icon": "🕹️",
+    "Name": "Twin Stick Shooter"
+  },
+  {
+    "Id": "1091588",
+    "Icon": "🎴",
+    "Name": "Roguelike Deckbuilder"
+  },
+  {
+    "Id": "91114",
+    "Icon": "🛍️",
+    "Name": "Shop Keeper"
+  },
+  {
+    "Id": "1665",
+    "Icon": "3️⃣",
+    "Name": "Match 3"
+  },
+  {
+    "Id": "198631",
+    "Icon": "🏰",
+    "Name": "Mystery Dungeon"
+  },
+  {
+    "Id": "353880",
+    "Icon": "🎒",
+    "Name": "Looter Shooter"
+  },
+  {
+    "Id": "4777",
+    "Icon": "🤸",
+    "Name": "Spectacle fighter"
+  },
+  {
+    "Id": "13070",
+    "Icon": "♠️",
+    "Name": "Solitaire"
+  },
+  {
+    "Id": "4102",
+    "Icon": "🏎️",
+    "Name": "Combat Racing"
+  },
+  {
+    "Id": "620519",
+    "Icon": "🔫",
+    "Name": "Hero Shooter"
+  },
+  {
+    "Id": "1723",
+    "Icon": "💥",
+    "Name": "Action RTS"
+  },
+  {
+    "Id": "9271",
+    "Icon": "🃏",
+    "Name": "Trading Card Game"
+  },
+  {
+    "Id": "1674",
+    "Icon": "⌨️",
+    "Name": "Typing"
+  },
+  {
+    "Id": "723991",
+    "Icon": "💥",
+    "Name": "Bullet Heaven"
+  },
+  {
+    "Id": "1023537",
+    "Icon": "👴",
+    "Name": "Boomer Shooter"
+  },
+  {
+    "Id": "1730",
+    "Icon": "📦",
+    "Name": "Sokoban"
+  },
+  {
+    "Id": "454187",
+    "Icon": "👻",
+    "Name": "Traditional Roguelike"
+  },
+  {
+    "Id": "769306",
+    "Icon": "🗝️",
+    "Name": "Escape Room"
+  },
+  {
+    "Id": "1320952",
+    "Icon": "🖥️",
+    "Name": "Desktop Companion"
+  },
+  {
+    "Id": "56690",
+    "Icon": "🛤️",
+    "Name": "On-Rails Shooter"
+  },
+  {
+    "Id": "71389",
+    "Icon": "🔤",
+    "Name": "Spelling"
+  },
+  {
+    "Id": "1199779",
+    "Icon": "🔫",
+    "Name": "Extraction Shooter"
+  },
+  {
+    "Id": "37376",
+    "Icon": "🧱",
+    "Name": "Falling Blocks"
+  },
+  {
+    "Id": "1776",
+    "Icon": "🕵️",
+    "Name": "Espionage"
+  },
+  {
+    "Id": "6835",
+    "Icon": "🃏",
+    "Name": "Poker"
+  },
+  {
+    "Id": "33572",
+    "Icon": "🀄",
+    "Name": "Mahjong"
+  },
+  {
+    "Id": "21635",
+    "Icon": "🗣️",
+    "Name": "Language Learning"
+  },
+  {
+    "Id": "323922",
+    "Icon": "🔱",
+    "Name": "Musou"
+  },
+  {
+    "Id": "158638",
+    "Icon": "🏏",
+    "Name": "Cricket"
+  },
+  {
+    "Id": "1003823",
+    "Icon": "🔒",
+    "Name": "Profile Features Limited"
+  },
+  {
+    "Id": "21491",
+    "Icon": "💿",
+    "Name": "Demo Available"
+  },
+  {
+    "Id": "1368160",
+    "Icon": "✨",
+    "Name": "AI Content Disclosed"
+  },
+  {
+    "Id": "113",
+    "Icon": "🆓",
+    "Name": "Free to Play"
+  },
+  {
+    "Id": "493",
+    "Icon": "🐤",
+    "Name": "Early Access"
+  },
+  {
+    "Id": "13782",
+    "Icon": "⚗️",
+    "Name": "Experimental"
+  },
+  {
+    "Id": "8093",
+    "Icon": "🐜",
+    "Name": "Minigames"
+  },
+  {
+    "Id": "1445",
+    "Icon": "📚",
+    "Name": "Software Training"
+  },
+  {
+    "Id": "4242",
+    "Icon": "🔢",
+    "Name": "Episodic"
+  },
+  {
+    "Id": "5708",
+    "Icon": "🔄",
+    "Name": "Remake"
+  },
+  {
+    "Id": "5230",
+    "Icon": "2️⃣",
+    "Name": "Sequel"
+  },
+  {
+    "Id": "150626",
+    "Icon": "🎮",
+    "Name": "Gaming"
+  },
+  {
+    "Id": "5407",
+    "Icon": "📈",
+    "Name": "Benchmark"
+  },
+  {
+    "Id": "5941",
+    "Icon": "⏪",
+    "Name": "Reboot"
+  },
+  {
+    "Id": "4234",
+    "Icon": "🤏",
+    "Name": "Short"
+  },
+  {
+    "Id": "4182",
+    "Icon": "👤",
+    "Name": "Singleplayer"
+  },
+  {
+    "Id": "3859",
+    "Icon": "🕹️",
+    "Name": "Multiplayer"
+  },
+  {
+    "Id": "1685",
+    "Icon": "🤝",
+    "Name": "Co-op"
+  },
+  {
+    "Id": "3843",
+    "Icon": "👥",
+    "Name": "Online Co-Op"
+  },
+  {
+    "Id": "128",
+    "Icon": "🫶",
+    "Name": "Massively Multiplayer"
+  },
+  {
+    "Id": "7368",
+    "Icon": "📺",
+    "Name": "Local Multiplayer"
+  },
+  {
+    "Id": "3841",
+    "Icon": "👥",
+    "Name": "Local Co-Op"
+  },
+  {
+    "Id": "4508",
+    "Icon": "🤝",
+    "Name": "Co-op Campaign"
+  },
+  {
+    "Id": "4840",
+    "Icon": "4️⃣",
+    "Name": "4 Player Local"
+  },
+  {
+    "Id": "17770",
+    "Icon": "🕒",
+    "Name": "Asynchronous Multiplayer"
+  },
+  {
+    "Id": "3796",
+    "Icon": "📔",
+    "Name": "Based On A Novel"
+  },
+  {
+    "Id": "4026",
+    "Icon": "😓",
+    "Name": "Difficult"
+  },
+  {
+    "Id": "3878",
+    "Icon": "🥇",
+    "Name": "Competitive"
+  },
+  {
+    "Id": "1677",
+    "Icon": "🎲",
+    "Name": "Turn-Based"
+  },
+  {
+    "Id": "4711",
+    "Icon": "🔄",
+    "Name": "Replay Value"
+  },
+  {
+    "Id": "1734",
+    "Icon": "⚡",
+    "Name": "Fast-Paced"
+  },
+  {
+    "Id": "5390",
+    "Icon": "⏰",
+    "Name": "Time Attack"
+  },
+  {
+    "Id": "4161",
+    "Icon": "▶️",
+    "Name": "Real-Time"
+  },
+  {
+    "Id": "7107",
+    "Icon": "⏯",
+    "Name": "Real-Time with Pause"
+  },
+  {
+    "Id": "12095",
+    "Icon": "🔞",
+    "Name": "Sexual Content"
+  },
+  {
+    "Id": "6650",
+    "Icon": "🍑",
+    "Name": "Nudity"
+  },
+  {
+    "Id": "65443",
+    "Icon": "🔞",
+    "Name": "Adult Content"
+  },
+  {
+    "Id": "9130",
+    "Icon": "🥵",
+    "Name": "Hentai"
+  },
+  {
+    "Id": "4184",
+    "Icon": "♟️",
+    "Name": "Chess"
+  },
+  {
+    "Id": "3955",
+    "Icon": "⚡",
+    "Name": "Character Action Game"
+  },
+  {
+    "Id": "11333",
+    "Icon": "😈",
+    "Name": "Villain Protagonist"
+  },
+  {
+    "Id": "15954",
+    "Icon": "🔇",
+    "Name": "Silent Protagonist"
+  },
+  {
+    "Id": "11123",
+    "Icon": "🖱️",
+    "Name": "Mouse Only"
+  },
+  {
+    "Id": "25085",
+    "Icon": "👆",
+    "Name": "Touch-Friendly"
+  },
+  {
+    "Id": "14906",
+    "Icon": "😬",
+    "Name": "Intentionally Awkward Controls"
+  },
+  {
+    "Id": "27758",
+    "Icon": "🎙️",
+    "Name": "Voice Control"
+  },
+  {
+    "Id": "4667",
+    "Icon": "👊",
+    "Name": "Violent"
+  },
+  {
+    "Id": "4345",
+    "Icon": "😖",
+    "Name": "Gore"
+  },
+  {
+    "Id": "7948",
+    "Icon": "🎶",
+    "Name": "Soundtrack"
+  },
+  {
+    "Id": "1756",
+    "Icon": "🎶",
+    "Name": "Great Soundtrack"
+  },
+  {
+    "Id": "1621",
+    "Icon": "🎶",
+    "Name": "Music"
+  },
+  {
+    "Id": "61357",
+    "Icon": "🎶",
+    "Name": "Electronic Music"
+  },
+  {
+    "Id": "189941",
+    "Icon": "🎻",
+    "Name": "Instrumental Music"
+  },
+  {
+    "Id": "337964",
+    "Icon": "🤘",
+    "Name": "Rock Music"
+  },
+  {
+    "Id": "117648",
+    "Icon": "👾",
+    "Name": "8-bit Music"
+  },
+  {
+    "Id": "5348",
+    "Icon": "🔧",
+    "Name": "Mod"
+  },
+  {
+    "Id": "1693",
+    "Icon": "🕒",
+    "Name": "Classic"
+  },
+  {
+    "Id": "4190",
+    "Icon": "🫦",
+    "Name": "Addictive"
+  },
+  {
+    "Id": "3965",
+    "Icon": "💎",
+    "Name": "Epic"
+  },
+  {
+    "Id": "8075",
+    "Icon": "📡",
+    "Name": "TrackIR"
+  },
+  {
+    "Id": "603297",
+    "Icon": "💻",
+    "Name": "Hardware"
+  }
+]

@@ -28,6 +28,10 @@ public partial class MainWindow : Window
     private readonly ThemeService _themeService;
     private readonly RawgService _rawgService;
     private readonly SteamGridDbService _sgdbService;
+    private readonly SteamTagService _steamTagService;
+    private readonly DispatcherTimer _screenshotAutoRotateTimer;
+    private bool _settingAutoRotateScreenshots = true;
+    private int _settingAutoRotateIntervalSec = 6;
     private CancellationTokenSource? _detailCts;
 
     private List<string> _currentScreenshots = new();
@@ -99,6 +103,10 @@ public partial class MainWindow : Window
         _themeService = new ThemeService(_configService);
         _rawgService = new RawgService(_configService);
         _sgdbService = new SteamGridDbService(_configService);
+        _steamTagService = new SteamTagService();
+
+        _screenshotAutoRotateTimer = new DispatcherTimer();
+        _screenshotAutoRotateTimer.Tick += OnScreenshotTimerTick;
 
         ApplyThemeColors();
 
@@ -146,6 +154,7 @@ public partial class MainWindow : Window
         {
             _liveSearchTimer.Stop();
             _placeholderTimer.Stop();
+            _screenshotAutoRotateTimer.Stop();
             _searchCts?.Cancel();
             _gamepadService.Dispose();
             _libraryService.Dispose();
@@ -353,6 +362,7 @@ public partial class MainWindow : Window
         SettingsPanel.IsVisible = false;
 
         _detailCts?.Cancel();
+        _screenshotAutoRotateTimer.Stop();
 
         if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
         {
@@ -370,13 +380,15 @@ public partial class MainWindow : Window
         _selectedSearchResult = null;
         _currentView = ActiveView.GameDetail;
 
-        // Reset detail header and gallery state
+        // Reset detail header, rating card and gallery state
         _currentScreenshots.Clear();
         _currentScreenshotIndex = 0;
+        _screenshotAutoRotateTimer.Stop();
         if (DetailGameLogo != null) { DetailGameLogo.Source = null; DetailGameLogo.IsVisible = false; }
         if (DetailGameTitle != null) { DetailGameTitle.Text = game.Name; DetailGameTitle.IsVisible = true; }
         if (DetailGameSubtitle != null) DetailGameSubtitle.Text = $"{game.AppId}  •  {(game.IsAccela ? "assella" : "native")}";
         if (DetailGameCredits != null) { DetailGameCredits.Text = string.Empty; DetailGameCredits.IsVisible = false; }
+        if (DetailRatingCard != null) DetailRatingCard.IsVisible = false;
         if (DetailRawgMeta != null) { DetailRawgMeta.Text = string.Empty; DetailRawgMeta.IsVisible = false; }
         if (DetailTagsPanel != null) { DetailTagsPanel.Children.Clear(); DetailTagsPanel.IsVisible = false; }
         if (DetailGalleryControls != null) DetailGalleryControls.IsVisible = false;
@@ -430,13 +442,15 @@ public partial class MainWindow : Window
         _selectedGame = null;
         _currentView = ActiveView.GameDetail;
 
-        // Reset detail header and gallery state
+        // Reset detail header, rating card and gallery state
         _currentScreenshots.Clear();
         _currentScreenshotIndex = 0;
+        _screenshotAutoRotateTimer.Stop();
         if (DetailGameLogo != null) { DetailGameLogo.Source = null; DetailGameLogo.IsVisible = false; }
         if (DetailGameTitle != null) { DetailGameTitle.Text = item.Name; DetailGameTitle.IsVisible = true; }
         if (DetailGameSubtitle != null) DetailGameSubtitle.Text = $"{item.AppId}  •  online";
         if (DetailGameCredits != null) { DetailGameCredits.Text = string.Empty; DetailGameCredits.IsVisible = false; }
+        if (DetailRatingCard != null) DetailRatingCard.IsVisible = false;
         if (DetailRawgMeta != null) { DetailRawgMeta.Text = string.Empty; DetailRawgMeta.IsVisible = false; }
         if (DetailTagsPanel != null) { DetailTagsPanel.Children.Clear(); DetailTagsPanel.IsVisible = false; }
         if (DetailGalleryControls != null) DetailGalleryControls.IsVisible = false;
@@ -568,20 +582,38 @@ public partial class MainWindow : Window
                                 DetailGameCredits.IsVisible = true;
                             }
 
-                            if (!string.IsNullOrEmpty(meta.SummaryLine) && DetailRawgMeta != null)
+                            // Modern Rating Card: Score + Star Icon + Reviews count / Verdict
+                            if (meta.Rating.HasValue && meta.Rating.Value > 0 && DetailRatingCard != null)
                             {
-                                DetailRawgMeta.Text = meta.SummaryLine;
+                                DetailRatingScoreText.Text = $"{meta.Rating.Value:0.0} / 5";
+                                var subParts = new List<string>();
+                                if (!string.IsNullOrEmpty(meta.FormattedReviewsCount)) subParts.Add(meta.FormattedReviewsCount);
+                                if (!string.IsNullOrEmpty(meta.Verdict)) subParts.Add(meta.Verdict);
+                                DetailRatingSubText.Text = subParts.Count > 0 ? string.Join("  •  ", subParts) : "community rating";
+                                DetailRatingCard.IsVisible = true;
+                            }
+
+                            // Secondary Info: Release Year, Average Playtime & Metacritic
+                            var metaParts = new List<string>();
+                            if (!string.IsNullOrEmpty(meta.ReleaseYear)) metaParts.Add(meta.ReleaseYear);
+                            if (meta.PlaytimeHours.HasValue && meta.PlaytimeHours.Value > 0) metaParts.Add($"~{meta.PlaytimeHours.Value} hrs avg");
+                            if (meta.MetacriticScore.HasValue && meta.MetacriticScore.Value > 0) metaParts.Add($"{meta.MetacriticScore.Value} metacritic");
+
+                            if (metaParts.Count > 0 && DetailRawgMeta != null)
+                            {
+                                DetailRawgMeta.Text = string.Join("  •  ", metaParts);
                                 DetailRawgMeta.IsVisible = true;
                             }
 
-                            // Populate clean tag pills
+                            // Populate clean tag pills with SteamDB icons
                             if (meta.Tags != null && meta.Tags.Count > 0 && DetailTagsPanel != null)
                             {
                                 DetailTagsPanel.Children.Clear();
                                 foreach (var tag in meta.Tags)
                                 {
+                                    var formatted = _steamTagService.FormatTagWithIcon(tag);
                                     var border = new Border { Classes = { "tagPill" } };
-                                    border.Child = new TextBlock { Text = tag, Classes = { "tagPillText" } };
+                                    border.Child = new TextBlock { Text = formatted, Classes = { "tagPillText" } };
                                     DetailTagsPanel.Children.Add(border);
                                 }
                                 DetailTagsPanel.IsVisible = true;
@@ -599,6 +631,12 @@ public partial class MainWindow : Window
                                 if (DetailGalleryControls != null)
                                 {
                                     DetailGalleryControls.IsVisible = _currentScreenshots.Count > 1;
+                                }
+
+                                if (_settingAutoRotateScreenshots && _currentScreenshots.Count > 1)
+                                {
+                                    _screenshotAutoRotateTimer.Interval = TimeSpan.FromSeconds(Math.Max(2, _settingAutoRotateIntervalSec));
+                                    _screenshotAutoRotateTimer.Start();
                                 }
 
                                 // If no hero backdrop was loaded yet, load the first screenshot
@@ -629,6 +667,11 @@ public partial class MainWindow : Window
         if (_currentScreenshots.Count <= 1) return;
         _currentScreenshotIndex = (_currentScreenshotIndex - 1 + _currentScreenshots.Count) % _currentScreenshots.Count;
         _ = ShowScreenshotAtIndexAsync(_currentScreenshotIndex);
+        if (_settingAutoRotateScreenshots && _currentScreenshots.Count > 1)
+        {
+            _screenshotAutoRotateTimer.Stop();
+            _screenshotAutoRotateTimer.Start();
+        }
     }
 
     private void OnNextScreenshotClicked(object? sender, RoutedEventArgs e)
@@ -636,6 +679,11 @@ public partial class MainWindow : Window
         if (_currentScreenshots.Count <= 1) return;
         _currentScreenshotIndex = (_currentScreenshotIndex + 1) % _currentScreenshots.Count;
         _ = ShowScreenshotAtIndexAsync(_currentScreenshotIndex);
+        if (_settingAutoRotateScreenshots && _currentScreenshots.Count > 1)
+        {
+            _screenshotAutoRotateTimer.Stop();
+            _screenshotAutoRotateTimer.Start();
+        }
     }
 
     private async Task ShowScreenshotAtIndexAsync(int index)
@@ -659,9 +707,19 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnScreenshotTimerTick(object? sender, EventArgs e)
+    {
+        if (_currentView == ActiveView.GameDetail && _currentScreenshots.Count > 1)
+        {
+            _currentScreenshotIndex = (_currentScreenshotIndex + 1) % _currentScreenshots.Count;
+            _ = ShowScreenshotAtIndexAsync(_currentScreenshotIndex);
+        }
+    }
+
     private void OpenSettingsPage()
     {
         _currentView = ActiveView.Settings;
+        _screenshotAutoRotateTimer.Stop();
 
         UpdateGameCountsText();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
@@ -1317,8 +1375,11 @@ public partial class MainWindow : Window
             _settingVaporEnabled = _configService.GetBool("enable_vapor", true) || _configService.GetBool("enable_at0m", true);
             _settingDownloadAction = _configService.GetValue("vapor_default_download_action", "native");
             _settingDisableUpdates = _configService.GetBool("vapor_disable_updates", false) || _configService.GetBool("at0m_disable_updates", false);
+            _settingAutoRotateScreenshots = _configService.GetBool("screenshot_autorotate_enabled", true);
+            _settingAutoRotateIntervalSec = _configService.GetInt("screenshot_autorotate_interval_sec", 6);
+            if (_settingAutoRotateIntervalSec < 2) _settingAutoRotateIntervalSec = 6;
             UpdateSettingsUi();
-            PlutoLogger.Info("Pluto", $"Settings loaded: vapor={_settingVaporEnabled}, downloadAction={_settingDownloadAction}, disableUpdates={_settingDisableUpdates}");
+            PlutoLogger.Info("Pluto", $"Settings loaded: vapor={_settingVaporEnabled}, downloadAction={_settingDownloadAction}, disableUpdates={_settingDisableUpdates}, autoRotate={_settingAutoRotateScreenshots} ({_settingAutoRotateIntervalSec}s)");
         }
         catch (Exception ex)
         {
@@ -1345,6 +1406,49 @@ public partial class MainWindow : Window
         {
             ToggleUpdatesBtn.Content = _settingDisableUpdates ? "disabled" : "normal (updates allowed)";
         }
+
+        if (ToggleAutoRotateBtn != null)
+        {
+            ToggleAutoRotateBtn.Content = _settingAutoRotateScreenshots ? "enabled" : "disabled";
+            ToggleAutoRotateBtn.Foreground = _settingAutoRotateScreenshots
+                ? Avalonia.Media.Brushes.MediumSpringGreen
+                : Avalonia.Media.Brushes.Gray;
+        }
+
+        if (ToggleAutoRotateIntervalBtn != null)
+        {
+            ToggleAutoRotateIntervalBtn.Content = $"{_settingAutoRotateIntervalSec} seconds";
+        }
+    }
+
+    private void OnToggleAutoRotateClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingAutoRotateScreenshots = !_settingAutoRotateScreenshots;
+        UpdateSettingsUi();
+        _configService.SetBool("screenshot_autorotate_enabled", _settingAutoRotateScreenshots);
+        if (!_settingAutoRotateScreenshots)
+        {
+            _screenshotAutoRotateTimer.Stop();
+        }
+        else if (_currentView == ActiveView.GameDetail && _currentScreenshots.Count > 1)
+        {
+            _screenshotAutoRotateTimer.Interval = TimeSpan.FromSeconds(Math.Max(2, _settingAutoRotateIntervalSec));
+            _screenshotAutoRotateTimer.Start();
+        }
+    }
+
+    private void OnToggleAutoRotateIntervalClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingAutoRotateIntervalSec = _settingAutoRotateIntervalSec switch
+        {
+            <= 3 => 6,
+            <= 6 => 10,
+            <= 10 => 15,
+            _ => 3
+        };
+        UpdateSettingsUi();
+        _configService.SetInt("screenshot_autorotate_interval_sec", _settingAutoRotateIntervalSec);
+        _screenshotAutoRotateTimer.Interval = TimeSpan.FromSeconds(Math.Max(2, _settingAutoRotateIntervalSec));
     }
 
     private void OnToggleVaporClicked(object? sender, RoutedEventArgs e)

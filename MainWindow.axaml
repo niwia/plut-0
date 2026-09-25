@@ -375,6 +375,37 @@
                                Foreground="#999999"
                                IsVisible="False" />
 
+                    <!-- Rating Card (score + gold star + reviews count / verdict) -->
+                    <Border x:Name="DetailRatingCard"
+                            Background="#18FFFFFF"
+                            CornerRadius="8"
+                            Padding="14, 10"
+                            HorizontalAlignment="Left"
+                            Margin="0, 4, 0, 4"
+                            IsVisible="False">
+                        <StackPanel Spacing="3">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Path Data="M 12 2 L 15.09 8.26 L 22 9.27 L 17 14.14 L 18.18 21.02 L 12 17.77 L 5.82 21.02 L 7 14.14 L 2 9.27 L 8.91 8.26 Z"
+                                      Fill="#FBBF24"
+                                      Width="16" Height="16"
+                                      Stretch="Uniform"
+                                      VerticalAlignment="Center" />
+                                <TextBlock x:Name="DetailRatingScoreText"
+                                           Text="4.2 / 5"
+                                           FontSize="19"
+                                           FontWeight="Normal"
+                                           Foreground="#FBBF24"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock x:Name="DetailRatingSubText"
+                                       Text="2.4k reviews • exceptional"
+                                       FontSize="12"
+                                       FontWeight="Normal"
+                                       Foreground="#888888" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Other metrics: Playtime & Metacritic -->
                     <TextBlock x:Name="DetailRawgMeta"
                                Text=""
                                FontSize="13"
@@ -382,11 +413,11 @@
                                Foreground="#60A5FA"
                                IsVisible="False" />
 
-                    <!-- Tags Row -->
-                    <StackPanel x:Name="DetailTagsPanel"
-                                Orientation="Horizontal"
-                                Margin="0,4,0,0"
-                                IsVisible="False" />
+                    <!-- Tags Row with SteamDB Icons -->
+                    <WrapPanel x:Name="DetailTagsPanel"
+                               Orientation="Horizontal"
+                               Margin="0,4,0,0"
+                               IsVisible="False" />
                 </StackPanel>
 
                 <!-- Row 2: Bottom Section (Left Actions, Right Screenshot Gallery) -->
@@ -553,6 +584,27 @@
                                 Foreground="#4ADE80"
                                 Click="OnToggleHubcapApiClicked" />
                         <TextBlock Text="saved in ACCELA.conf (morrenus_api_key)" FontSize="11" Foreground="#444444" />
+                    </StackPanel>
+
+                    <!-- Screenshot Auto-Rotate Settings -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="gallery auto-rotation" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleAutoRotateBtn"
+                                Classes="minimalTextBtn"
+                                Content="enabled"
+                                FontSize="16"
+                                Foreground="#38BDF8"
+                                Click="OnToggleAutoRotateClicked" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="auto-rotation speed" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleAutoRotateIntervalBtn"
+                                Classes="minimalTextBtn"
+                                Content="6 seconds"
+                                FontSize="16"
+                                Foreground="#38BDF8"
+                                Click="OnToggleAutoRotateIntervalClicked" />
                     </StackPanel>
 
                     <!-- Toggle: Plugin Engine (enable_vapor) -->

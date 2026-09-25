@@ -78,6 +78,23 @@ public class AccelaConfigService
     }
 
     /// <summary>
+    /// Reads an integer setting from the [General] section of ACCELA.conf.
+    /// </summary>
+    public int GetInt(string key, int defaultValue = 0)
+    {
+        var val = GetValue(key, defaultValue.ToString());
+        return int.TryParse(val, out int res) ? res : defaultValue;
+    }
+
+    /// <summary>
+    /// Writes an integer setting into the [General] section.
+    /// </summary>
+    public bool SetInt(string key, int value)
+    {
+        return SetValue(key, value.ToString());
+    }
+
+    /// <summary>
     /// Writes a setting into the [General] section of ACCELA.conf safely and in-place.
     /// Preserves all other sections, comments, and Qt @Variant binary strings untouched.
     /// </summary>
