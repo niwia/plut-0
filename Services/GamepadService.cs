@@ -153,12 +153,12 @@ public class GamepadService : IDisposable
                             loaded++;
                         }
                     }
-                    Console.WriteLine($"[GamepadService] Loaded {loaded} controller mappings from {path}");
+                    PlutoLogger.Info("Gamepad", $"Loaded {loaded} controller mappings from {path}");
                     break;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[GamepadService] Error loading controller db: {ex.Message}");
+                    PlutoLogger.Error("Gamepad", $"Error loading controller db: {ex.Message}");
                 }
             }
         }
@@ -183,6 +183,7 @@ public class GamepadService : IDisposable
                     string name = SDL.SDL_GameControllerName(controller) ?? $"Controller #{i + 1}";
                     if (string.IsNullOrEmpty(firstName)) firstName = name;
                     anyFound = true;
+                    PlutoLogger.Info("Gamepad", $"Opened GameController: {name} (Device Index {i}, Instance {instanceId})");
                 }
             }
             else
@@ -196,6 +197,7 @@ public class GamepadService : IDisposable
                     string name = SDL.SDL_JoystickName(joy) ?? $"Joystick #{i + 1}";
                     if (string.IsNullOrEmpty(firstName)) firstName = name;
                     anyFound = true;
+                    PlutoLogger.Info("Gamepad", $"Opened Generic Joystick: {name} (Device Index {i}, Instance {instanceId})");
                 }
             }
         }

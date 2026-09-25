@@ -76,6 +76,7 @@ public class SlsSteamService
 
             // 4. In-place write to keep existing inode
             await WriteInPlaceAsync(SlsConfigPath, content);
+            PlutoLogger.Info("SLS", $"In-place updated config.yaml for game {game.AppId} ({game.Name})");
 
             // 5. Notify SLSsteam via API pipe
             NotifyReload();
@@ -83,7 +84,7 @@ public class SlsSteamService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SlsSteamService] Error syncing game {game.AppId}: {ex.Message}");
+            PlutoLogger.Error("SLS", $"Error syncing game {game.AppId}", ex);
             return false;
         }
     }
@@ -123,12 +124,13 @@ public class SlsSteamService
             }
 
             await WriteInPlaceAsync(SlsConfigPath, content);
+            PlutoLogger.Info("SLS", $"In-place removed game {game.AppId} ({game.Name}) from config.yaml");
             NotifyReload();
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SlsSteamService] Error removing game {game.AppId}: {ex.Message}");
+            PlutoLogger.Error("SLS", $"Error removing game {game.AppId}", ex);
             return false;
         }
     }
@@ -140,10 +142,18 @@ public class SlsSteamService
             if (File.Exists(SlsApiPipe))
             {
                 File.WriteAllText(SlsApiPipe, "reloadlua\n");
+                PlutoLogger.Info("SLS", $"Sent 'reloadlua' to {SlsApiPipe}");
                 return true;
             }
+            else
+            {
+                PlutoLogger.Warn("SLS", $"API pipe {SlsApiPipe} does not exist");
+            }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("SLS", "Failed to write reloadlua to API pipe", ex);
+        }
         return false;
     }
 
@@ -154,10 +164,14 @@ public class SlsSteamService
             if (File.Exists(SlsApiPipe))
             {
                 File.WriteAllText(SlsApiPipe, $"install|{appId}|{libraryIndex}\n");
+                PlutoLogger.Info("SLS", $"Sent install command for {appId} (lib: {libraryIndex}) to {SlsApiPipe}");
                 return true;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("SLS", $"Failed to send install command for {appId}", ex);
+        }
         return false;
     }
 
@@ -165,6 +179,7 @@ public class SlsSteamService
     {
         try
         {
+            PlutoLogger.Info("Launcher", $"Launching steam://rungameid/{appId}");
             var psi = new ProcessStartInfo
             {
                 FileName = "xdg-open",
@@ -177,7 +192,7 @@ public class SlsSteamService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[SlsSteamService] Failed to launch steam://rungameid/{appId}: {ex.Message}");
+            PlutoLogger.Error("Launcher", $"Failed to launch steam://rungameid/{appId}", ex);
             return false;
         }
     }

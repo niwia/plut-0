@@ -76,6 +76,7 @@ public partial class MainWindow : Window
 
     private async void OnWindowLoaded(object? sender, RoutedEventArgs e)
     {
+        PlutoLogger.Info("Pluto", "Starting PLUT-0");
         _gamepadService.Start();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
         await ReloadLibraryAsync();
@@ -94,6 +95,7 @@ public partial class MainWindow : Window
         _allGames = games;
         ApplyFilter(SearchBox?.Text);
         UpdateGameCountsText();
+        PlutoLogger.Info("Library", $"Library updated: {_allGames.Count} total games ({_allGames.Count(g => !g.IsAccela)} at0-m, {_allGames.Count(g => g.IsAccela)} accela)");
     }
 
     private void ApplyFilter(string? query)
@@ -256,6 +258,11 @@ public partial class MainWindow : Window
 
         UpdateGameCountsText();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
+
+        if (SettingsLogPathText != null)
+        {
+            SettingsLogPathText.Text = PlutoLogger.LogFilePath;
+        }
 
         MainListPanel.IsVisible = false;
         GameDetailPanel.IsVisible = false;

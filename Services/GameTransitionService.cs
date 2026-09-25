@@ -56,11 +56,12 @@ public class GameTransitionService
 
             // 4. Reload SLSsteam
             _slsService.NotifyReload();
+            PlutoLogger.Info("Transition", $"Successfully converted {game.AppId} ({game.Name}) to AT0-M plugin native");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[GameTransitionService] Error converting {game.AppId} to AT0-M: {ex.Message}");
+            PlutoLogger.Error("Transition", $"Error converting {game.AppId} to AT0-M", ex);
             return false;
         }
     }
@@ -93,11 +94,12 @@ public class GameTransitionService
 
             // 4. Reload SLSsteam
             _slsService.NotifyReload();
+            PlutoLogger.Info("Transition", $"Successfully reverted {game.AppId} ({game.Name}) to ACCELA managed mode");
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[GameTransitionService] Error converting {game.AppId} to ACCELA: {ex.Message}");
+            PlutoLogger.Error("Transition", $"Error converting {game.AppId} to ACCELA", ex);
             return false;
         }
     }

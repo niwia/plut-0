@@ -351,6 +351,11 @@
                         <TextBlock Text="controller" FontSize="13" Foreground="#666666" />
                         <TextBlock x:Name="SettingsControllerText" Text="no controller detected" FontSize="14" Foreground="#AAAAAA" />
                     </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="pluto log" FontSize="13" Foreground="#666666" />
+                        <TextBlock x:Name="SettingsLogPathText" Text="~/.local/share/pluto/pluto.log" FontSize="14" Foreground="#AAAAAA" />
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>
