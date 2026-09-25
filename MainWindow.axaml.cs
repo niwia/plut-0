@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Pluto.Models;
 using Pluto.Services;
@@ -23,6 +25,9 @@ public partial class MainWindow : Window
     private readonly GameTransitionService _transitionService;
     private readonly GamepadService _gamepadService;
     private readonly HubcapSearchService _hubcapSearchService;
+    private readonly ThemeService _themeService;
+    private readonly RawgService _rawgService;
+    private CancellationTokenSource? _detailCts;
 
     private List<PluginGame> _allGames = new();
     private ObservableCollection<PluginGame> _displayedGames = new();
@@ -87,9 +92,23 @@ public partial class MainWindow : Window
         _gamepadService = new GamepadService();
         _steamlessService = new SteamlessService();
         _hubcapSearchService = new HubcapSearchService(_configService, _depotKeyService);
+        _themeService = new ThemeService(_configService);
+        _rawgService = new RawgService(_configService);
+
+        ApplyThemeColors();
 
         GamesListBox.ItemsSource = _displayedGames;
         SearchResultsListBox.ItemsSource = _searchResults;
+
+        // Dynamic gliding gap: mark accessed on focus, unmark when focus is lost
+        GamesListBox.GotFocus += (_, _) => GamesListBox.Classes.Set("accessed", true);
+        GamesListBox.LostFocus += (_, _) =>
+        {
+            if (!GamesListBox.IsFocused && !GamesListBox.IsKeyboardFocusWithin)
+            {
+                GamesListBox.Classes.Set("accessed", false);
+            }
+        };
 
         // Debounce timer for live search suggestions (400ms)
         _liveSearchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
@@ -312,6 +331,8 @@ public partial class MainWindow : Window
         GameDetailPanel.IsVisible = false;
         SettingsPanel.IsVisible = false;
 
+        _detailCts?.Cancel();
+
         if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
         {
             SearchResultsListBox.Focus();
@@ -357,29 +378,8 @@ public partial class MainWindow : Window
         DetailSteamlessBtn.Content = "apply steamless";
         DetailSteamlessStatus.IsVisible = false;
 
-        // Load Thumbnail Artwork with gradient opacity mask from ACCELA cache
-        var imageCachePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".local", "share", "ACCELA", "image_cache", $"{game.AppId}.jpg");
-
-        if (File.Exists(imageCachePath))
-        {
-            try
-            {
-                DetailGameBackdrop.Source = new Avalonia.Media.Imaging.Bitmap(imageCachePath);
-                DetailGameBackdrop.IsVisible = true;
-            }
-            catch
-            {
-                DetailGameBackdrop.Source = null;
-                DetailGameBackdrop.IsVisible = false;
-            }
-        }
-        else
-        {
-            DetailGameBackdrop.Source = null;
-            DetailGameBackdrop.IsVisible = false;
-        }
+        // Load Artwork and RAWG metadata on-demand
+        _ = LoadGameArtworkAndMetadataAsync(game.AppId, game.Name);
 
         MainListPanel.IsVisible = false;
         GameDetailPanel.IsVisible = true;
@@ -412,41 +412,121 @@ public partial class MainWindow : Window
         if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = false;
         if (DetailSteamlessRow != null) DetailSteamlessRow.IsVisible = false;
 
-        // Use loaded thumbnail or cached image
-        if (item.Thumbnail != null)
-        {
-            DetailGameBackdrop.Source = item.Thumbnail;
-            DetailGameBackdrop.IsVisible = true;
-        }
-        else
-        {
-            var imageCachePath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".local", "share", "ACCELA", "image_cache", $"{item.AppId}.jpg");
-
-            if (File.Exists(imageCachePath))
-            {
-                try
-                {
-                    DetailGameBackdrop.Source = new Avalonia.Media.Imaging.Bitmap(imageCachePath);
-                    DetailGameBackdrop.IsVisible = true;
-                }
-                catch
-                {
-                    DetailGameBackdrop.Source = null;
-                    DetailGameBackdrop.IsVisible = false;
-                }
-            }
-            else
-            {
-                DetailGameBackdrop.Source = null;
-                DetailGameBackdrop.IsVisible = false;
-            }
-        }
+        // Load Artwork and RAWG metadata on-demand
+        _ = LoadGameArtworkAndMetadataAsync(item.AppId, item.Name);
 
         MainListPanel.IsVisible = false;
         GameDetailPanel.IsVisible = true;
         SettingsPanel.IsVisible = false;
+    }
+
+    private async Task LoadGameArtworkAndMetadataAsync(string appId, string gameName)
+    {
+        _detailCts?.Cancel();
+        _detailCts = new CancellationTokenSource();
+        var ct = _detailCts.Token;
+
+        // Reset RAWG text info
+        if (DetailRawgMeta != null)
+        {
+            DetailRawgMeta.Text = string.Empty;
+            DetailRawgMeta.IsVisible = false;
+        }
+        if (DetailRawgSynopsis != null)
+        {
+            DetailRawgSynopsis.Text = string.Empty;
+            DetailRawgSynopsis.IsVisible = false;
+        }
+
+        // 1. Check local image cache
+        var imageCachePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".local", "share", "ACCELA", "image_cache", $"{appId}.jpg");
+
+        bool imageLoaded = false;
+        if (File.Exists(imageCachePath))
+        {
+            try
+            {
+                DetailGameBackdrop.Source = new Bitmap(imageCachePath);
+                DetailGameBackdrop.IsVisible = true;
+                imageLoaded = true;
+            }
+            catch
+            {
+                // Fall through to on-demand fetch
+            }
+        }
+
+        // 2. If no local image, on-demand fetch steam header asynchronously
+        if (!imageLoaded)
+        {
+            DetailGameBackdrop.Source = null;
+            DetailGameBackdrop.IsVisible = false;
+
+            _ = Task.Run(async () =>
+            {
+                var bmp = await _hubcapSearchService.FetchAndCacheGameThumbnailAsync(appId, null, ct);
+                if (bmp != null && !ct.IsCancellationRequested)
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (!ct.IsCancellationRequested && (_selectedGame?.AppId == appId || _selectedSearchResult?.AppId == appId))
+                        {
+                            DetailGameBackdrop.Source = bmp;
+                            DetailGameBackdrop.IsVisible = true;
+                        }
+                    });
+                }
+            }, ct);
+        }
+
+        // 3. Query RAWG API in background for enriched metadata and high-res art
+        if (_rawgService.HasApiKey)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var meta = await _rawgService.FetchMetadataAsync(gameName, ct);
+                    if (meta != null && !ct.IsCancellationRequested)
+                    {
+                        Dispatcher.UIThread.Post(async () =>
+                        {
+                            if (ct.IsCancellationRequested || (_selectedGame?.AppId != appId && _selectedSearchResult?.AppId != appId))
+                                return;
+
+                            if (!string.IsNullOrEmpty(meta.SummaryLine) && DetailRawgMeta != null)
+                            {
+                                DetailRawgMeta.Text = meta.SummaryLine;
+                                DetailRawgMeta.IsVisible = true;
+                            }
+
+                            if (!string.IsNullOrEmpty(meta.DescriptionSnippet) && DetailRawgSynopsis != null)
+                            {
+                                DetailRawgSynopsis.Text = meta.DescriptionSnippet;
+                                DetailRawgSynopsis.IsVisible = true;
+                            }
+
+                            // If RAWG provides a background image, fetch and update backdrop with high-res art
+                            if (!string.IsNullOrEmpty(meta.BackgroundImageUrl))
+                            {
+                                var rawgBmp = await _rawgService.FetchBackdropBitmapAsync(meta.BackgroundImageUrl, appId, ct);
+                                if (rawgBmp != null && !ct.IsCancellationRequested)
+                                {
+                                    DetailGameBackdrop.Source = rawgBmp;
+                                    DetailGameBackdrop.IsVisible = true;
+                                }
+                            }
+                        });
+                    }
+                }
+                catch
+                {
+                    // Gracefully continue
+                }
+            }, ct);
+        }
     }
 
     private void OpenSettingsPage()
@@ -474,19 +554,47 @@ public partial class MainWindow : Window
                 if (_currentView == ActiveView.MainList)
                 {
                     if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
-                        NavigateSearchResults(-1);
+                    {
+                        if (SearchResultsListBox.SelectedIndex <= 0)
+                        {
+                            SearchBox.Focus();
+                        }
+                        else
+                        {
+                            NavigateSearchResults(-1);
+                        }
+                    }
                     else
+                    {
                         NavigateList(-1);
+                    }
                 }
                 break;
 
             case GamepadAction.NavigateDown:
                 if (_currentView == ActiveView.MainList)
                 {
-                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                    if (SearchBox.IsFocused)
+                    {
+                        if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                        {
+                            SearchResultsListBox.SelectedIndex = 0;
+                            SearchResultsListBox.Focus();
+                        }
+                        else
+                        {
+                            GamesListBox.Focus();
+                            NavigateList(0);
+                        }
+                    }
+                    else if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                    {
                         NavigateSearchResults(1);
+                    }
                     else
+                    {
                         NavigateList(1);
+                    }
                 }
                 break;
 
@@ -513,14 +621,19 @@ public partial class MainWindow : Window
             case GamepadAction.Confirm:
                 if (_currentView == ActiveView.MainList)
                 {
-                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && SearchResultsListBox.SelectedItem is SearchResultItem searchItem)
+                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
                     {
+                        var searchItem = SearchResultsListBox.SelectedItem as SearchResultItem ?? _searchResults[0];
                         OpenSearchResultDetailPage(searchItem);
                     }
                     else if (GamesListBox.SelectedItem is PluginGame selected)
                     {
                         OpenGameDetailPage(selected);
                     }
+                }
+                else if (_currentView == ActiveView.GameDetail)
+                {
+                    OnToggleModeClicked(null, new RoutedEventArgs());
                 }
                 break;
 
@@ -746,6 +859,11 @@ public partial class MainWindow : Window
             ApplyFilter(null);
             GamesListBox.Focus();
         }
+    }
+
+    private void OnSearchBoxGotFocus(object? sender, RoutedEventArgs e)
+    {
+        GamesListBox?.Classes.Set("accessed", false);
     }
 
     private async void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
@@ -1112,5 +1230,69 @@ public partial class MainWindow : Window
         UpdateSettingsUi();
         _configService.SetBool("vapor_disable_updates", _settingDisableUpdates);
         _configService.SetBool("at0m_disable_updates", _settingDisableUpdates);
+    }
+
+    // Theme Submenu & Color Configuration
+    private void ApplyThemeColors()
+    {
+        var native = _themeService.CurrentNative;
+        var accela = _themeService.CurrentAccela;
+
+        if (Color.TryParse(native.HighlightHex, out var nCol))
+        {
+            Resources["NativeGameColor"] = new SolidColorBrush(nCol);
+            Resources["NativeGameHoverColor"] = new SolidColorBrush(Color.FromArgb(200, nCol.R, nCol.G, nCol.B));
+        }
+        if (Color.TryParse(native.DimmedHex, out var nDim))
+        {
+            Resources["NativeGameUnselectedColor"] = new SolidColorBrush(nDim);
+        }
+
+        if (Color.TryParse(accela.HighlightHex, out var aCol))
+        {
+            Resources["AccelaGameColor"] = new SolidColorBrush(aCol);
+            Resources["AccelaGameHoverColor"] = new SolidColorBrush(Color.FromArgb(200, aCol.R, aCol.G, aCol.B));
+        }
+        if (Color.TryParse(accela.DimmedHex, out var aDim))
+        {
+            Resources["AccelaGameUnselectedColor"] = new SolidColorBrush(aDim);
+        }
+
+        if (ToggleNativeThemeBtn != null)
+        {
+            ToggleNativeThemeBtn.Content = native.Name;
+            ToggleNativeThemeBtn.Foreground = new SolidColorBrush(nCol);
+        }
+
+        if (ToggleAccelaThemeBtn != null)
+        {
+            ToggleAccelaThemeBtn.Content = accela.Name;
+            ToggleAccelaThemeBtn.Foreground = new SolidColorBrush(aCol);
+        }
+
+        if (ToggleRawgBtn != null)
+        {
+            bool hasKey = _rawgService.HasApiKey;
+            ToggleRawgBtn.Content = hasKey ? "api active" : "key missing (add to ~/.config/pluto/rawg_api.txt)";
+            ToggleRawgBtn.Foreground = hasKey ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+    }
+
+    private void OnToggleNativeThemeClicked(object? sender, RoutedEventArgs e)
+    {
+        _themeService.CycleNextNative();
+        ApplyThemeColors();
+    }
+
+    private void OnToggleAccelaThemeClicked(object? sender, RoutedEventArgs e)
+    {
+        _themeService.CycleNextAccela();
+        ApplyThemeColors();
+    }
+
+    private void OnToggleRawgClicked(object? sender, RoutedEventArgs e)
+    {
+        // Re-read and refresh RAWG status
+        ApplyThemeColors();
     }
 }

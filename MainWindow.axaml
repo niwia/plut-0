@@ -12,6 +12,15 @@
         Background="#000000"
         FontFamily="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
 
+    <Window.Resources>
+        <SolidColorBrush x:Key="NativeGameColor" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="NativeGameHoverColor" Color="#CCCCCC" />
+        <SolidColorBrush x:Key="NativeGameUnselectedColor" Color="#555555" />
+        <SolidColorBrush x:Key="AccelaGameColor" Color="#60A5FA" />
+        <SolidColorBrush x:Key="AccelaGameHoverColor" Color="#93C5FD" />
+        <SolidColorBrush x:Key="AccelaGameUnselectedColor" Color="#385473" />
+    </Window.Resources>
+
     <Window.Styles>
         <!-- Pure clean ListBox with hidden scrollbars -->
         <Style Selector="ListBox">
@@ -47,7 +56,7 @@
         <Style Selector="ListBoxItem TextBlock.gameTitle">
             <Setter Property="FontSize" Value="20" />
             <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="#444444" />
+            <Setter Property="Foreground" Value="{DynamicResource NativeGameUnselectedColor}" />
             <Setter Property="HorizontalAlignment" Value="Left" />
             <Setter Property="Transitions">
                 <Transitions>
@@ -58,7 +67,7 @@
         </Style>
 
         <Style Selector="ListBoxItem:pointerover TextBlock.gameTitle">
-            <Setter Property="Foreground" Value="#888888" />
+            <Setter Property="Foreground" Value="{DynamicResource NativeGameHoverColor}" />
             <Setter Property="FontSize" Value="25" />
             <Setter Property="FontWeight" Value="Normal" />
         </Style>
@@ -66,16 +75,16 @@
         <Style Selector="ListBoxItem:selected TextBlock.gameTitle">
             <Setter Property="FontSize" Value="32" />
             <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="{DynamicResource NativeGameColor}" />
         </Style>
 
-        <!-- ACCELA Installed Games: Refined Dark Blue with matched visual weight -->
+        <!-- ACCELA Installed Games: Refined theme color -->
         <Style Selector="ListBoxItem TextBlock.accela">
-            <Setter Property="Foreground" Value="#385473" />
+            <Setter Property="Foreground" Value="{DynamicResource AccelaGameUnselectedColor}" />
         </Style>
 
         <Style Selector="ListBoxItem:pointerover TextBlock.accela">
-            <Setter Property="Foreground" Value="#5278A3" />
+            <Setter Property="Foreground" Value="{DynamicResource AccelaGameHoverColor}" />
             <Setter Property="FontSize" Value="25" />
             <Setter Property="FontWeight" Value="Normal" />
         </Style>
@@ -83,7 +92,26 @@
         <Style Selector="ListBoxItem:selected TextBlock.accela">
             <Setter Property="FontSize" Value="32" />
             <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="#60A5FA" />
+            <Setter Property="Foreground" Value="{DynamicResource AccelaGameColor}" />
+        </Style>
+
+        <!-- Dynamic gap: Starts with generous gap (85px), glides up when accessed/focused -->
+        <Style Selector="ListBox#GamesListBox">
+            <Setter Property="RenderTransform" Value="translateY(85px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox#GamesListBox.accessed">
+            <Setter Property="RenderTransform" Value="translateY(0px)" />
+        </Style>
+        <Style Selector="ListBox#GamesListBox:focus-within">
+            <Setter Property="RenderTransform" Value="translateY(0px)" />
+        </Style>
+        <Style Selector="ListBox#GamesListBox:pointerover">
+            <Setter Property="RenderTransform" Value="translateY(0px)" />
         </Style>
 
         <!-- Minimal Search Box: Low opacity, no bold, no emojis -->
@@ -140,7 +168,7 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
-        <!-- Search Results Card Styles: Clean, no bold, subtle dark translucency -->
+        <!-- Search Results Item Styles: Clean, fast, no bold, subtle dark translucency -->
         <Style Selector="ListBox#SearchResultsListBox ListBoxItem">
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0, 2" />
@@ -177,13 +205,14 @@
               Margin="64,48,64,36"
               IsVisible="True">
             
-            <!-- Top: Minimal Search Box (with generous spacing below) -->
-            <StackPanel Grid.Row="0" Margin="0,0,0,32" HorizontalAlignment="Left" Spacing="6">
+            <!-- Top: Minimal Search Box -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,0" HorizontalAlignment="Left" Spacing="6">
                 <TextBox x:Name="SearchBox"
                          Classes="minimalSearch"
                          PlaceholderText="search games..."
                          TextChanged="OnSearchTextChanged"
-                         KeyDown="OnSearchBoxKeyDown" />
+                         KeyDown="OnSearchBoxKeyDown"
+                         GotFocus="OnSearchBoxGotFocus" />
                 <TextBlock x:Name="SearchStatusText"
                            FontSize="13"
                            FontWeight="Normal"
@@ -192,8 +221,8 @@
             </StackPanel>
 
             <!-- Bottom: Waterfall List of Games / Search Results -->
-            <Grid Grid.Row="1">
-                <!-- 1A: Normal Installed Games Waterfall -->
+            <Grid Grid.Row="1" Margin="0, 16, 0, 0">
+                <!-- 1A: Normal Installed Games Waterfall (glides up when accessed) -->
                 <ListBox x:Name="GamesListBox"
                          SelectionMode="Single"
                          DoubleTapped="OnGameDoubleTapped"
@@ -209,7 +238,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <!-- 1B: Online & Cached Search Results Cards -->
+                <!-- 1B: Online & Cached Search Results (Clean, fast, no bulk images) -->
                 <ListBox x:Name="SearchResultsListBox"
                          SelectionMode="Single"
                          DoubleTapped="OnSearchResultDoubleTapped"
@@ -219,47 +248,23 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="models:SearchResultItem">
                             <Border Background="Transparent"
-                                    CornerRadius="8"
-                                    Padding="8, 6"
-                                    Margin="0, 3">
-                                <Grid ColumnDefinitions="Auto,*" Margin="0">
-                                    <!-- Left: Thumbnail Artwork -->
-                                    <Border Grid.Column="0"
-                                            Width="140" Height="65"
-                                            CornerRadius="6"
-                                            ClipToBounds="True"
-                                            Background="#141414">
-                                        <Panel>
-                                            <TextBlock Text="{Binding AppId}"
-                                                       FontSize="11"
-                                                       Foreground="#2A2A2A"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center" />
-                                            <Image Source="{Binding Thumbnail}"
-                                                   Stretch="UniformToFill"
-                                                   IsVisible="{Binding HasThumbnail}" />
-                                        </Panel>
-                                    </Border>
-
-                                    <!-- Right: Game Info -->
-                                    <StackPanel Grid.Column="1"
-                                                Margin="18,0,0,0"
-                                                VerticalAlignment="Center"
-                                                Spacing="4">
-                                        <TextBlock Text="{Binding Name}"
-                                                   FontSize="18"
-                                                   FontWeight="Normal"
-                                                   Foreground="{Binding TitleColorHex}" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
-                                                       FontSize="12"
-                                                       Foreground="#555555" />
-                                            <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
-                                                       FontSize="12"
-                                                       Foreground="{Binding StatusColorHex}" />
-                                        </StackPanel>
+                                    CornerRadius="6"
+                                    Padding="10, 8"
+                                    Margin="0, 2">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="18"
+                                               FontWeight="Normal"
+                                               Foreground="{Binding TitleColorHex}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
+                                                   FontSize="12"
+                                                   Foreground="#555555" />
+                                        <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
+                                                   FontSize="12"
+                                                   Foreground="{Binding StatusColorHex}" />
                                     </StackPanel>
-                                </Grid>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -298,14 +303,20 @@
                    HorizontalAlignment="Right"
                    VerticalAlignment="Stretch"
                    Stretch="UniformToFill"
-                   Width="650"
-                   Opacity="0.25"
+                   Width="850"
+                   Opacity="0.55"
                    IsHitTestVisible="False">
+                <Image.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.35" Easing="CubicEaseOut" />
+                    </Transitions>
+                </Image.Transitions>
                 <Image.OpacityMask>
                     <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
                         <GradientStop Color="#00000000" Offset="0.0" />
-                        <GradientStop Color="#00000000" Offset="0.30" />
-                        <GradientStop Color="#FFFFFFFF" Offset="1.0" />
+                        <GradientStop Color="#22000000" Offset="0.18" />
+                        <GradientStop Color="#88000000" Offset="0.45" />
+                        <GradientStop Color="#FFFFFFFF" Offset="0.85" />
                     </LinearGradientBrush>
                 </Image.OpacityMask>
             </Image>
@@ -321,18 +332,32 @@
                         Margin="0,0,0,24"
                         Click="OnBackToMainClicked" />
 
-                <!-- Game Title & Clean Subtitle (Name, AppID • native/assella) -->
-                <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,36">
+                <!-- Game Title & Clean Subtitle (Name, AppID • native/assella, RAWG Info) -->
+                <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,32">
                     <TextBlock x:Name="DetailGameTitle"
                                Text="Game Title"
-                               FontSize="32"
+                               FontSize="34"
                                FontWeight="Normal"
                                Foreground="#FFFFFF" />
                     <TextBlock x:Name="DetailGameSubtitle"
                                Text="3473250  •  native"
                                FontSize="15"
                                FontWeight="Normal"
-                               Foreground="#666666" />
+                               Foreground="#888888" />
+                    <TextBlock x:Name="DetailRawgMeta"
+                               Text=""
+                               FontSize="13"
+                               FontWeight="Normal"
+                               Foreground="#60A5FA"
+                               IsVisible="False" />
+                    <TextBlock x:Name="DetailRawgSynopsis"
+                               Text=""
+                               FontSize="12"
+                               FontWeight="Normal"
+                               Foreground="#777777"
+                               TextWrapping="Wrap"
+                               MaxWidth="520"
+                               IsVisible="False" />
                 </StackPanel>
 
                 <!-- Game Page Actions & Toggles -->
@@ -383,7 +408,7 @@
             </Grid>
         </Grid>
 
-        <!-- 3. SETTINGS PAGE VIEW (Interactive Toggles & System Control) -->
+        <!-- 3. SETTINGS PAGE VIEW (Interactive Toggles, System Control & Theme) -->
         <Grid x:Name="SettingsPanel"
               RowDefinitions="Auto,Auto,*"
               Margin="64,48,64,36"
@@ -402,15 +427,47 @@
                            FontSize="30"
                            FontWeight="Normal"
                            Foreground="#FFFFFF" />
-                <TextBlock Text="system &amp; at0-m configuration"
+                <TextBlock Text="system, themes &amp; configuration"
                            FontSize="14"
                            FontWeight="Normal"
                            Foreground="#555555" />
             </StackPanel>
 
-            <!-- Settings Content: Interactive Toggles & Actions -->
+            <!-- Settings Content: Interactive Toggles, Themes & Actions -->
             <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
                 <StackPanel Spacing="24">
+                    <!-- Theme Settings (Colors for Native & Assella games) -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="theme: native games color" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleNativeThemeBtn"
+                                Classes="minimalTextBtn"
+                                Content="classic white"
+                                FontSize="16"
+                                Foreground="#FFFFFF"
+                                Click="OnToggleNativeThemeClicked" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="theme: assella games color" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleAccelaThemeBtn"
+                                Classes="minimalTextBtn"
+                                Content="slate blue"
+                                FontSize="16"
+                                Foreground="#60A5FA"
+                                Click="OnToggleAccelaThemeClicked" />
+                    </StackPanel>
+
+                    <!-- RAWG API Integration Status -->
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="rawg api metadata" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleRawgBtn"
+                                Classes="minimalTextBtn"
+                                Content="api configured"
+                                FontSize="16"
+                                Foreground="#4ADE80"
+                                Click="OnToggleRawgClicked" />
+                    </StackPanel>
+
                     <!-- Toggle: Plugin Engine (enable_vapor) -->
                     <StackPanel Spacing="4">
                         <TextBlock Text="at0-m plugin engine" FontSize="13" Foreground="#666666" />

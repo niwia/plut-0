@@ -8,3 +8,6 @@ obj/
 
 __pycache__/
 *.pyc
+*rawg_api*.txt
+rawg_api.txt
+*.key

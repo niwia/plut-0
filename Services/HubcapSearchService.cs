@@ -149,12 +149,6 @@ public class HubcapSearchService
             item.IsCached = _depotKeyService.GetKeysForApp(item.AppId).Count > 0;
         }
 
-        // Start background thumbnail loading
-        foreach (var item in ranked)
-        {
-            _ = LoadThumbnailAsync(item, ct);
-        }
-
         return ranked;
     }
 
@@ -277,40 +271,39 @@ public class HubcapSearchService
     }
 
     /// <summary>
-    /// Loads thumbnail bitmap from local ACCELA image cache or downloads from Steam CDN.
+    /// Fetches and caches thumbnail bitmap on-demand only when a game is selected from the list.
     /// </summary>
-    private async Task LoadThumbnailAsync(SearchResultItem item, CancellationToken ct)
+    public async Task<Bitmap?> FetchAndCacheGameThumbnailAsync(string appId, string? fallbackUrl = null, CancellationToken ct = default)
     {
         try
         {
             Directory.CreateDirectory(ImageCacheDir);
-            var localFile = Path.Combine(ImageCacheDir, $"{item.AppId}.jpg");
+            var localFile = Path.Combine(ImageCacheDir, $"{appId}.jpg");
 
             if (File.Exists(localFile))
             {
                 using var fs = File.OpenRead(localFile);
-                var bitmap = new Bitmap(fs);
-                await Dispatcher.UIThread.InvokeAsync(() => item.Thumbnail = bitmap);
-                return;
+                return new Bitmap(fs);
             }
 
-            // Download from CDN
-            if (!string.IsNullOrEmpty(item.HeaderImageUrl))
+            var url = !string.IsNullOrEmpty(fallbackUrl)
+                ? fallbackUrl
+                : $"https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/{appId}/header.jpg";
+
+            var bytes = await _httpClient.GetByteArrayAsync(url, ct);
+            if (bytes.Length > 0)
             {
-                var bytes = await _httpClient.GetByteArrayAsync(item.HeaderImageUrl, ct);
-                if (bytes.Length > 0)
-                {
-                    await File.WriteAllBytesAsync(localFile, bytes, ct);
-                    using var ms = new MemoryStream(bytes);
-                    var bitmap = new Bitmap(ms);
-                    await Dispatcher.UIThread.InvokeAsync(() => item.Thumbnail = bitmap);
-                }
+                await File.WriteAllBytesAsync(localFile, bytes, ct);
+                using var ms = new MemoryStream(bytes);
+                return new Bitmap(ms);
             }
         }
         catch
         {
-            // Silently ignore thumbnail fetch errors to keep list fluid
+            // Silently return null on network error
         }
+
+        return null;
     }
 
     /// <summary>
