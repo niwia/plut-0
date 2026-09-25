@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -21,10 +22,42 @@ public partial class MainWindow : Window
     private readonly AccelaConfigService _configService;
     private readonly GameTransitionService _transitionService;
     private readonly GamepadService _gamepadService;
+    private readonly HubcapSearchService _hubcapSearchService;
 
     private List<PluginGame> _allGames = new();
     private ObservableCollection<PluginGame> _displayedGames = new();
+    private ObservableCollection<SearchResultItem> _searchResults = new();
     private PluginGame? _selectedGame;
+    private SearchResultItem? _selectedSearchResult;
+
+    // Dynamic rotating search placeholders matching ASSella fetchmanifest.py
+    private static readonly string[] SearchPlaceholders =
+    {
+        "search: cyberpunk 2077...",
+        "search: 1091500...",
+        "search: elden ring...",
+        "search: 1245620...",
+        "search: baldur's gate 3...",
+        "search: 1086940...",
+        "search: rimworld...",
+        "search: 294100...",
+        "search: black myth: wukong...",
+        "search: 2358720...",
+        "search: vampire survivors...",
+        "search: 1794680...",
+        "search: hollow knight...",
+        "search: 367520...",
+        "search: hades ii...",
+        "search: 1145350...",
+        "search: palworld...",
+        "search: 1623730...",
+        "search by game name or appid..."
+    };
+
+    private readonly DispatcherTimer _liveSearchTimer;
+    private readonly DispatcherTimer _placeholderTimer;
+    private CancellationTokenSource? _searchCts;
+    private int _placeholderIndex = 0;
 
     // Cached Settings
     private bool _settingVaporEnabled = true;
@@ -53,8 +86,19 @@ public partial class MainWindow : Window
         _transitionService = new GameTransitionService(_slsService, _libraryService, _depotKeyService);
         _gamepadService = new GamepadService();
         _steamlessService = new SteamlessService();
+        _hubcapSearchService = new HubcapSearchService(_configService, _depotKeyService);
 
         GamesListBox.ItemsSource = _displayedGames;
+        SearchResultsListBox.ItemsSource = _searchResults;
+
+        // Debounce timer for live search suggestions (400ms)
+        _liveSearchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _liveSearchTimer.Tick += OnLiveSearchTimerTick;
+
+        // Dynamic placeholder rotation timer (3500ms)
+        _placeholderTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(3500) };
+        _placeholderTimer.Tick += OnPlaceholderTimerTick;
+        _placeholderTimer.Start();
 
         // Auto-refresh when plugin_library.json or games_cache.json changes on disk
         _libraryService.LibraryChanged += () =>
@@ -76,6 +120,9 @@ public partial class MainWindow : Window
         Loaded += OnWindowLoaded;
         Closing += (_, _) =>
         {
+            _liveSearchTimer.Stop();
+            _placeholderTimer.Stop();
+            _searchCts?.Cancel();
             _gamepadService.Dispose();
             _libraryService.Dispose();
         };
@@ -176,28 +223,64 @@ public partial class MainWindow : Window
         {
             if (e.Key == Key.Up && !SearchBox.IsFocused)
             {
-                NavigateList(-1);
+                if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                {
+                    NavigateSearchResults(-1);
+                }
+                else
+                {
+                    NavigateList(-1);
+                }
                 e.Handled = true;
             }
             else if (e.Key == Key.Down && !SearchBox.IsFocused)
             {
-                NavigateList(1);
+                if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                {
+                    NavigateSearchResults(1);
+                }
+                else
+                {
+                    NavigateList(1);
+                }
                 e.Handled = true;
             }
             else if (e.Key == Key.PageUp && !SearchBox.IsFocused)
             {
-                NavigateList(-5);
+                if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                {
+                    NavigateSearchResults(-5);
+                }
+                else
+                {
+                    NavigateList(-5);
+                }
                 e.Handled = true;
             }
             else if (e.Key == Key.PageDown && !SearchBox.IsFocused)
             {
-                NavigateList(5);
+                if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                {
+                    NavigateSearchResults(5);
+                }
+                else
+                {
+                    NavigateList(5);
+                }
                 e.Handled = true;
             }
-            else if (e.Key == Key.Enter && !SearchBox.IsFocused && GamesListBox.SelectedItem is PluginGame selected)
+            else if (e.Key == Key.Enter && !SearchBox.IsFocused)
             {
-                OpenGameDetailPage(selected);
-                e.Handled = true;
+                if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && SearchResultsListBox.SelectedItem is SearchResultItem searchItem)
+                {
+                    OpenSearchResultDetailPage(searchItem);
+                    e.Handled = true;
+                }
+                else if (GamesListBox.SelectedItem is PluginGame selected)
+                {
+                    OpenGameDetailPage(selected);
+                    e.Handled = true;
+                }
             }
             else if (e.Key == Key.Tab || e.Key == Key.F1)
             {
@@ -206,11 +289,7 @@ public partial class MainWindow : Window
             }
             else if (e.Key == Key.Escape)
             {
-                if (!string.IsNullOrEmpty(SearchBox.Text))
-                {
-                    SearchBox.Text = string.Empty;
-                }
-                GamesListBox.Focus();
+                ClearSearchAndReset();
                 e.Handled = true;
             }
         }
@@ -232,12 +311,21 @@ public partial class MainWindow : Window
         MainListPanel.IsVisible = true;
         GameDetailPanel.IsVisible = false;
         SettingsPanel.IsVisible = false;
-        GamesListBox.Focus();
+
+        if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+        {
+            SearchResultsListBox.Focus();
+        }
+        else
+        {
+            GamesListBox.Focus();
+        }
     }
 
     private void OpenGameDetailPage(PluginGame game)
     {
         _selectedGame = game;
+        _selectedSearchResult = null;
         _currentView = ActiveView.GameDetail;
 
         DetailGameTitle.Text = game.Name;
@@ -253,6 +341,11 @@ public partial class MainWindow : Window
             DetailSwitchModeBtn.Content = "move to assella";
             DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.LightSkyBlue;
         }
+        DetailSwitchModeBtn.IsEnabled = true;
+
+        if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
+        if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = true;
+        if (DetailSteamlessRow != null) DetailSteamlessRow.IsVisible = true;
 
         // SLSonline & Netsock status
         bool isOnline = _slsService.IsSlsOnline(game.AppId);
@@ -293,6 +386,69 @@ public partial class MainWindow : Window
         SettingsPanel.IsVisible = false;
     }
 
+    private void OpenSearchResultDetailPage(SearchResultItem item)
+    {
+        // 1. If game already exists in library, open as standard game
+        var localGame = _allGames.FirstOrDefault(g => g.AppId == item.AppId);
+        if (localGame != null)
+        {
+            OpenGameDetailPage(localGame);
+            return;
+        }
+
+        // 2. Open details for uninstalled online game
+        _selectedSearchResult = item;
+        _selectedGame = null;
+        _currentView = ActiveView.GameDetail;
+
+        DetailGameTitle.Text = item.Name;
+        DetailGameSubtitle.Text = $"{item.AppId}  •  online";
+
+        DetailSwitchModeBtn.Content = "add to plugin";
+        DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
+        DetailSwitchModeBtn.IsEnabled = true;
+
+        if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
+        if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = false;
+        if (DetailSteamlessRow != null) DetailSteamlessRow.IsVisible = false;
+
+        // Use loaded thumbnail or cached image
+        if (item.Thumbnail != null)
+        {
+            DetailGameBackdrop.Source = item.Thumbnail;
+            DetailGameBackdrop.IsVisible = true;
+        }
+        else
+        {
+            var imageCachePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".local", "share", "ACCELA", "image_cache", $"{item.AppId}.jpg");
+
+            if (File.Exists(imageCachePath))
+            {
+                try
+                {
+                    DetailGameBackdrop.Source = new Avalonia.Media.Imaging.Bitmap(imageCachePath);
+                    DetailGameBackdrop.IsVisible = true;
+                }
+                catch
+                {
+                    DetailGameBackdrop.Source = null;
+                    DetailGameBackdrop.IsVisible = false;
+                }
+            }
+            else
+            {
+                DetailGameBackdrop.Source = null;
+                DetailGameBackdrop.IsVisible = false;
+            }
+        }
+
+        MainListPanel.IsVisible = false;
+        GameDetailPanel.IsVisible = true;
+        SettingsPanel.IsVisible = false;
+    }
+
     private void OpenSettingsPage()
     {
         _currentView = ActiveView.Settings;
@@ -315,25 +471,56 @@ public partial class MainWindow : Window
         switch (action)
         {
             case GamepadAction.NavigateUp:
-                if (_currentView == ActiveView.MainList) NavigateList(-1);
+                if (_currentView == ActiveView.MainList)
+                {
+                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                        NavigateSearchResults(-1);
+                    else
+                        NavigateList(-1);
+                }
                 break;
 
             case GamepadAction.NavigateDown:
-                if (_currentView == ActiveView.MainList) NavigateList(1);
+                if (_currentView == ActiveView.MainList)
+                {
+                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                        NavigateSearchResults(1);
+                    else
+                        NavigateList(1);
+                }
                 break;
 
             case GamepadAction.PageUp:
-                if (_currentView == ActiveView.MainList) NavigateList(-5);
+                if (_currentView == ActiveView.MainList)
+                {
+                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                        NavigateSearchResults(-5);
+                    else
+                        NavigateList(-5);
+                }
                 break;
 
             case GamepadAction.PageDown:
-                if (_currentView == ActiveView.MainList) NavigateList(5);
+                if (_currentView == ActiveView.MainList)
+                {
+                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+                        NavigateSearchResults(5);
+                    else
+                        NavigateList(5);
+                }
                 break;
 
             case GamepadAction.Confirm:
-                if (_currentView == ActiveView.MainList && GamesListBox.SelectedItem is PluginGame selected)
+                if (_currentView == ActiveView.MainList)
                 {
-                    OpenGameDetailPage(selected);
+                    if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && SearchResultsListBox.SelectedItem is SearchResultItem searchItem)
+                    {
+                        OpenSearchResultDetailPage(searchItem);
+                    }
+                    else if (GamesListBox.SelectedItem is PluginGame selected)
+                    {
+                        OpenGameDetailPage(selected);
+                    }
                 }
                 break;
 
@@ -350,14 +537,9 @@ public partial class MainWindow : Window
                 {
                     ShowMainList();
                 }
-                else if (!string.IsNullOrEmpty(SearchBox.Text))
-                {
-                    SearchBox.Text = string.Empty;
-                    GamesListBox.Focus();
-                }
                 else
                 {
-                    GamesListBox.Focus();
+                    ClearSearchAndReset();
                 }
                 break;
 
@@ -396,6 +578,22 @@ public partial class MainWindow : Window
         }
     }
 
+    private void NavigateSearchResults(int offset)
+    {
+        if (_searchResults.Count == 0 || SearchResultsListBox == null) return;
+
+        int currentIndex = SearchResultsListBox.SelectedIndex;
+        if (currentIndex < 0) currentIndex = 0;
+
+        int newIndex = Math.Clamp(currentIndex + offset, 0, _searchResults.Count - 1);
+        SearchResultsListBox.SelectedIndex = newIndex;
+        var item = SearchResultsListBox.SelectedItem;
+        if (item != null)
+        {
+            SearchResultsListBox.ScrollIntoView(item);
+        }
+    }
+
     private async void SyncAllGames()
     {
         PlutoLogger.Info("Pluto", "Syncing all plugin games into config.yaml...");
@@ -405,32 +603,222 @@ public partial class MainWindow : Window
         }
     }
 
+    // Dynamic rotating placeholder timer tick
+    private void OnPlaceholderTimerTick(object? sender, EventArgs e)
+    {
+        if (SearchBox != null && !SearchBox.IsFocused && string.IsNullOrEmpty(SearchBox.Text))
+        {
+            _placeholderIndex = (_placeholderIndex + 1) % SearchPlaceholders.Length;
+            SearchBox.PlaceholderText = SearchPlaceholders[_placeholderIndex];
+        }
+    }
+
     // UI Event Handlers
     private void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
-        ApplyFilter(SearchBox.Text);
+        var text = SearchBox?.Text;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _liveSearchTimer.Stop();
+            _searchCts?.Cancel();
+            if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+            if (SearchStatusText != null) SearchStatusText.IsVisible = false;
+            if (GamesListBox != null) GamesListBox.IsVisible = true;
+            ApplyFilter(null);
+            return;
+        }
+
+        // 1. Immediately filter local library games
+        ApplyFilter(text);
+
+        // 2. Schedule live search if query >= 2 chars
+        if (text.Trim().Length >= 2)
+        {
+            if (SearchStatusText != null)
+            {
+                SearchStatusText.Text = $"searching for \"{text.Trim()}\"...";
+                SearchStatusText.IsVisible = true;
+            }
+            _liveSearchTimer.Stop();
+            _liveSearchTimer.Start();
+        }
     }
 
-    private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
+    private async void OnLiveSearchTimerTick(object? sender, EventArgs e)
+    {
+        _liveSearchTimer.Stop();
+        await ExecuteSearchAsync(SearchBox?.Text);
+    }
+
+    private async Task ExecuteSearchAsync(string? query)
+    {
+        var trimmed = query?.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 2)
+        {
+            return;
+        }
+
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var ct = _searchCts.Token;
+
+        if (SearchStatusText != null)
+        {
+            SearchStatusText.Text = $"searching online for \"{trimmed}\"...";
+            SearchStatusText.IsVisible = true;
+        }
+
+        try
+        {
+            var results = await _hubcapSearchService.SearchAsync(trimmed, _allGames, ct);
+            if (ct.IsCancellationRequested) return;
+
+            _searchResults.Clear();
+            foreach (var r in results)
+            {
+                _searchResults.Add(r);
+            }
+
+            if (results.Count > 0)
+            {
+                if (SearchResultsListBox != null)
+                {
+                    SearchResultsListBox.IsVisible = true;
+                    SearchResultsListBox.SelectedIndex = 0;
+                }
+                if (GamesListBox != null) GamesListBox.IsVisible = false;
+                if (EmptyStateText != null) EmptyStateText.IsVisible = false;
+                if (SearchStatusText != null)
+                {
+                    SearchStatusText.Text = $"found {results.Count} games";
+                    SearchStatusText.IsVisible = true;
+                }
+            }
+            else
+            {
+                if (_displayedGames.Count > 0)
+                {
+                    if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+                    if (GamesListBox != null) GamesListBox.IsVisible = true;
+                    if (SearchStatusText != null)
+                    {
+                        SearchStatusText.Text = "no online matches (showing local library)";
+                        SearchStatusText.IsVisible = true;
+                    }
+                }
+                else
+                {
+                    if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+                    if (GamesListBox != null) GamesListBox.IsVisible = false;
+                    if (EmptyStateText != null)
+                    {
+                        EmptyStateText.Text = $"no games found for \"{trimmed}\"";
+                        EmptyStateText.IsVisible = true;
+                    }
+                    if (SearchStatusText != null) SearchStatusText.IsVisible = false;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Discard superseded search
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("Search", $"Search failed: {ex.Message}");
+            if (SearchStatusText != null)
+            {
+                SearchStatusText.Text = "search error • press enter to retry";
+            }
+        }
+    }
+
+    private void ClearSearchAndReset()
+    {
+        _liveSearchTimer.Stop();
+        _searchCts?.Cancel();
+        SearchBox.Text = string.Empty;
+        if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+        if (SearchStatusText != null) SearchStatusText.IsVisible = false;
+        if (GamesListBox != null)
+        {
+            GamesListBox.IsVisible = true;
+            ApplyFilter(null);
+            GamesListBox.Focus();
+        }
+    }
+
+    private async void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Down)
         {
-            NavigateList(1);
-            GamesListBox.Focus();
+            if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
+            {
+                SearchResultsListBox.SelectedIndex = 0;
+                SearchResultsListBox.Focus();
+            }
+            else
+            {
+                NavigateList(1);
+                GamesListBox.Focus();
+            }
             e.Handled = true;
         }
         else if (e.Key == Key.Enter)
         {
-            if (GamesListBox.SelectedItem is PluginGame selected)
+            _liveSearchTimer.Stop();
+            if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && SearchResultsListBox.SelectedItem is SearchResultItem selectedResult)
             {
-                OpenGameDetailPage(selected);
+                OpenSearchResultDetailPage(selectedResult);
+            }
+            else if (!string.IsNullOrWhiteSpace(SearchBox.Text))
+            {
+                await ExecuteSearchAsync(SearchBox.Text);
+            }
+            else if (GamesListBox.SelectedItem is PluginGame selectedLocal)
+            {
+                OpenGameDetailPage(selectedLocal);
             }
             e.Handled = true;
         }
         else if (e.Key == Key.Escape)
         {
-            SearchBox.Text = string.Empty;
-            GamesListBox.Focus();
+            ClearSearchAndReset();
+            e.Handled = true;
+        }
+    }
+
+    private void OnSearchResultDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (SearchResultsListBox.SelectedItem is SearchResultItem selected)
+        {
+            OpenSearchResultDetailPage(selected);
+        }
+    }
+
+    private void OnSearchResultSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (SearchResultsListBox.SelectedItem != null)
+        {
+            SearchResultsListBox.ScrollIntoView(SearchResultsListBox.SelectedItem);
+        }
+    }
+
+    private void OnSearchResultsKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && SearchResultsListBox.SelectedItem is SearchResultItem selected)
+        {
+            OpenSearchResultDetailPage(selected);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Up && SearchResultsListBox.SelectedIndex == 0)
+        {
+            SearchBox.Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            ClearSearchAndReset();
             e.Handled = true;
         }
     }
@@ -493,6 +881,84 @@ public partial class MainWindow : Window
 
     private async void OnToggleModeClicked(object? sender, RoutedEventArgs e)
     {
+        // 1. Adding an uninstalled game from search results
+        if (_selectedSearchResult != null && _selectedGame == null)
+        {
+            var appId = _selectedSearchResult.AppId;
+            var name = _selectedSearchResult.Name;
+
+            DetailSwitchModeBtn.IsEnabled = false;
+            if (DetailActionStatus != null)
+            {
+                DetailActionStatus.Text = "fetching keys and configuring slssteam...";
+                DetailActionStatus.IsVisible = true;
+            }
+            PlutoLogger.Info("Search", $"Adding search result {name} ({appId}) to plugin native...");
+
+            try
+            {
+                var keys = await _hubcapSearchService.FetchAndCacheManifestKeysAsync(appId);
+                var depots = keys.Keys.ToList();
+
+                var newGame = new PluginGame
+                {
+                    AppId = appId,
+                    Name = name,
+                    InstallDir = name,
+                    IsAtom = true,
+                    IsAccela = false,
+                    Mode = "at0m",
+                    Source = "plugin_native",
+                    Depots = depots,
+                    Keys = keys,
+                    UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+                };
+
+                // Sync directly to SLSsteam config.yaml preserving file inode
+                await _slsService.SyncGameToConfigAsync(newGame);
+
+                // Save to plugin_library.json
+                await _libraryService.SaveGameAsync(newGame);
+
+                // Refresh library
+                await ReloadLibraryAsync();
+
+                _selectedGame = newGame;
+                _selectedSearchResult.IsInstalled = true;
+                _selectedSearchResult.InstallMode = "native";
+
+                DetailGameSubtitle.Text = $"{appId}  •  native";
+                DetailSwitchModeBtn.Content = "move to assella";
+                DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.LightSkyBlue;
+                DetailSwitchModeBtn.IsEnabled = true;
+
+                if (DetailActionStatus != null)
+                {
+                    DetailActionStatus.Text = "added to slssteam plugin";
+                }
+
+                if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = true;
+                if (DetailSteamlessRow != null) DetailSteamlessRow.IsVisible = true;
+
+                bool isOnline = _slsService.IsSlsOnline(appId);
+                bool isNetsock = _slsService.IsNetsock(appId);
+                UpdateOnlineTogglesUi(isOnline, isNetsock);
+
+                PlutoLogger.Info("Search", $"Successfully added {name} ({appId}) to SLSsteam config and library.");
+            }
+            catch (Exception ex)
+            {
+                PlutoLogger.Error("Search", $"Failed to add {name} ({appId}) to plugin", ex);
+                if (DetailActionStatus != null)
+                {
+                    DetailActionStatus.Text = $"failed: {ex.Message}";
+                }
+                DetailSwitchModeBtn.IsEnabled = true;
+            }
+            return;
+        }
+
+        // 2. Existing toggle between native and assella for installed games
         if (_selectedGame != null)
         {
             if (_selectedGame.IsAccela)

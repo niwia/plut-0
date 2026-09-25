@@ -139,6 +139,23 @@
         <Style Selector="Button.minimalTextBtn:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
         </Style>
+
+        <!-- Search Results Card Styles: Clean, no bold, subtle dark translucency -->
+        <Style Selector="ListBox#SearchResultsListBox ListBoxItem">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0, 2" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <Style Selector="ListBox#SearchResultsListBox ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#0DFFFFFF" />
+        </Style>
+
+        <Style Selector="ListBox#SearchResultsListBox ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1AFFFFFF" />
+        </Style>
     </Window.Styles>
 
     <!-- Root Container -->
@@ -161,16 +178,22 @@
               IsVisible="True">
             
             <!-- Top: Minimal Search Box (with generous spacing below) -->
-            <Grid Grid.Row="0" Margin="0,0,0,60" HorizontalAlignment="Left">
+            <StackPanel Grid.Row="0" Margin="0,0,0,32" HorizontalAlignment="Left" Spacing="6">
                 <TextBox x:Name="SearchBox"
                          Classes="minimalSearch"
                          PlaceholderText="search games..."
                          TextChanged="OnSearchTextChanged"
                          KeyDown="OnSearchBoxKeyDown" />
-            </Grid>
+                <TextBlock x:Name="SearchStatusText"
+                           FontSize="13"
+                           FontWeight="Normal"
+                           Foreground="#666666"
+                           IsVisible="False" />
+            </StackPanel>
 
-            <!-- Bottom: Waterfall List of Games -->
+            <!-- Bottom: Waterfall List of Games / Search Results -->
             <Grid Grid.Row="1">
+                <!-- 1A: Normal Installed Games Waterfall -->
                 <ListBox x:Name="GamesListBox"
                          SelectionMode="Single"
                          DoubleTapped="OnGameDoubleTapped"
@@ -182,6 +205,62 @@
                                        Classes.accela="{Binding IsAccela}"
                                        Text="{Binding Name}"
                                        VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- 1B: Online & Cached Search Results Cards -->
+                <ListBox x:Name="SearchResultsListBox"
+                         SelectionMode="Single"
+                         DoubleTapped="OnSearchResultDoubleTapped"
+                         SelectionChanged="OnSearchResultSelectionChanged"
+                         KeyDown="OnSearchResultsKeyDown"
+                         IsVisible="False">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:SearchResultItem">
+                            <Border Background="Transparent"
+                                    CornerRadius="8"
+                                    Padding="8, 6"
+                                    Margin="0, 3">
+                                <Grid ColumnDefinitions="Auto,*" Margin="0">
+                                    <!-- Left: Thumbnail Artwork -->
+                                    <Border Grid.Column="0"
+                                            Width="140" Height="65"
+                                            CornerRadius="6"
+                                            ClipToBounds="True"
+                                            Background="#141414">
+                                        <Panel>
+                                            <TextBlock Text="{Binding AppId}"
+                                                       FontSize="11"
+                                                       Foreground="#2A2A2A"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center" />
+                                            <Image Source="{Binding Thumbnail}"
+                                                   Stretch="UniformToFill"
+                                                   IsVisible="{Binding HasThumbnail}" />
+                                        </Panel>
+                                    </Border>
+
+                                    <!-- Right: Game Info -->
+                                    <StackPanel Grid.Column="1"
+                                                Margin="18,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Spacing="4">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="18"
+                                                   FontWeight="Normal"
+                                                   Foreground="{Binding TitleColorHex}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
+                                                       FontSize="12"
+                                                       Foreground="#555555" />
+                                            <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
+                                                       FontSize="12"
+                                                       Foreground="{Binding StatusColorHex}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
@@ -259,15 +338,21 @@
                 <!-- Game Page Actions & Toggles -->
                 <StackPanel Grid.Row="2" Spacing="24" HorizontalAlignment="Left">
                     <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" -->
-                    <Button x:Name="DetailSwitchModeBtn"
-                            Classes="minimalTextBtn"
-                            Content="add to plugin"
-                            FontSize="17"
-                            Foreground="#4ADE80"
-                            Click="OnToggleModeClicked" />
+                    <StackPanel Spacing="6">
+                        <Button x:Name="DetailSwitchModeBtn"
+                                Classes="minimalTextBtn"
+                                Content="add to plugin"
+                                FontSize="17"
+                                Foreground="#4ADE80"
+                                Click="OnToggleModeClicked" />
+                        <TextBlock x:Name="DetailActionStatus"
+                                   FontSize="12"
+                                   Foreground="#777777"
+                                   IsVisible="False" />
+                    </StackPanel>
 
                     <!-- Online Toggles Row: SLSonline & Netsock Proxy -->
-                    <StackPanel Orientation="Horizontal" Spacing="32">
+                    <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="32">
                         <Button x:Name="DetailSlsOnlineBtn"
                                 Classes="minimalTextBtn"
                                 Content="enable slsonline"
@@ -283,7 +368,7 @@
                     </StackPanel>
 
                     <!-- Steamless Action -->
-                    <StackPanel Spacing="6" Margin="0,4,0,0">
+                    <StackPanel x:Name="DetailSteamlessRow" Spacing="6" Margin="0,4,0,0">
                         <Button x:Name="DetailSteamlessBtn"
                                 Classes="minimalTextBtn"
                                 Content="apply steamless"
