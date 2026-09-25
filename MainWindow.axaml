@@ -197,10 +197,49 @@
             <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="#777777" />
         </Style>
+        <Style Selector="Button.settingsTabBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0, 4" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#555555" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.settingsTabBtn:pointerover">
+            <Setter Property="Foreground" Value="#CCCCCC" />
+        </Style>
+        <Style Selector="Button.settingsTabBtn.active">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+
+        <Style Selector="Button.actionBtnFocused">
+            <Setter Property="Background" Value="#20FFFFFF" />
+            <Setter Property="BorderBrush" Value="#4ADE80" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
     </Window.Styles>
 
     <!-- Root Container -->
     <Grid>
+        <!-- Dynamic Rotating Background for Main Page -->
+        <Image x:Name="MainBackdropImage"
+               Stretch="UniformToFill"
+               Opacity="0.18"
+               IsHitTestVisible="False">
+            <Image.Transitions>
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.6" Easing="CubicEaseOut" />
+                </Transitions>
+            </Image.Transitions>
+        </Image>
+
         <!-- Non-clickable brand watermark in top-right -->
         <TextBlock Text="plut-0"
                    FontSize="16"
@@ -251,7 +290,7 @@
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <!-- 1B: Online & Cached Search Results (Clean, fast, no bulk images) -->
+                <!-- 1B: Online & Cached Search Results with in-memory Capsule Thumbnails -->
                 <ListBox x:Name="SearchResultsListBox"
                          SelectionMode="Single"
                          DoubleTapped="OnSearchResultDoubleTapped"
@@ -262,22 +301,37 @@
                         <DataTemplate x:DataType="models:SearchResultItem">
                             <Border Background="Transparent"
                                     CornerRadius="6"
-                                    Padding="10, 8"
+                                    Padding="8, 6"
                                     Margin="0, 2">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="{Binding Name}"
-                                               FontSize="18"
-                                               FontWeight="Normal"
-                                               Foreground="{Binding TitleColorHex}" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
-                                                   FontSize="12"
-                                                   Foreground="#555555" />
-                                        <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
-                                                   FontSize="12"
-                                                   Foreground="{Binding StatusColorHex}" />
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                    <!-- In-memory game thumbnail (clean capsule) -->
+                                    <Border Grid.Column="0"
+                                            Width="110"
+                                            Height="50"
+                                            CornerRadius="4"
+                                            ClipToBounds="True"
+                                            Background="#0FFFFFFF">
+                                        <Image Source="{Binding Thumbnail}"
+                                               Stretch="UniformToFill"
+                                               IsVisible="{Binding HasThumbnail}" />
+                                    </Border>
+
+                                    <!-- Game Details -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="17"
+                                                   FontWeight="Normal"
+                                                   Foreground="{Binding TitleColorHex}" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
+                                                       FontSize="12"
+                                                       Foreground="#555555" />
+                                            <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
+                                                       FontSize="12"
+                                                       Foreground="{Binding StatusColorHex}" />
+                                        </StackPanel>
                                     </StackPanel>
-                                </StackPanel>
+                                </Grid>
                             </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -345,8 +399,8 @@
                         Margin="0,0,0,20"
                         Click="OnBackToMainClicked" />
 
-                <!-- Row 1: Top Section: Logo / Title, Subtitle, Studio/Publisher, RAWG Metrics, Tags -->
-                <StackPanel Grid.Row="1" Spacing="6" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <!-- Row 1: Header (Left Margin) & Indented Details (Right Offset) -->
+                <StackPanel Grid.Row="1" Spacing="4" HorizontalAlignment="Left" VerticalAlignment="Top">
                     <!-- SteamGridDB Transparent Logo (falls back cleanly to Title text) -->
                     <Image x:Name="DetailGameLogo"
                            MaxHeight="75"
@@ -368,62 +422,56 @@
                                FontWeight="Normal"
                                Foreground="#777777" />
 
-                    <TextBlock x:Name="DetailGameCredits"
-                               Text=""
-                               FontSize="13"
-                               FontWeight="Normal"
-                               Foreground="#999999"
-                               IsVisible="False" />
+                    <!-- Indented details section (offset slightly to the right) -->
+                    <StackPanel Margin="36, 12, 0, 0" Spacing="10">
+                        <TextBlock x:Name="DetailGameCredits"
+                                   Text=""
+                                   FontSize="13"
+                                   FontWeight="Normal"
+                                   Foreground="#999999"
+                                   IsVisible="False" />
 
-                    <!-- Rating Card (score + gold star + reviews count / verdict) -->
-                    <Border x:Name="DetailRatingCard"
-                            Background="#18FFFFFF"
-                            CornerRadius="8"
-                            Padding="14, 10"
-                            HorizontalAlignment="Left"
-                            Margin="0, 4, 0, 4"
-                            IsVisible="False">
-                        <StackPanel Spacing="3">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <Path Data="M 12 2 L 15.09 8.26 L 22 9.27 L 17 14.14 L 18.18 21.02 L 12 17.77 L 5.82 21.02 L 7 14.14 L 2 9.27 L 8.91 8.26 Z"
-                                      Fill="#FBBF24"
-                                      Width="16" Height="16"
-                                      Stretch="Uniform"
-                                      VerticalAlignment="Center" />
-                                <TextBlock x:Name="DetailRatingScoreText"
-                                           Text="4.2 / 5"
-                                           FontSize="19"
-                                           FontWeight="Normal"
-                                           Foreground="#FBBF24"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
+                        <!-- Simple Rating Row matching the rest of the text -->
+                        <StackPanel x:Name="DetailRatingRow"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    VerticalAlignment="Center"
+                                    IsVisible="False">
+                            <TextBlock Text="★" FontSize="14" Foreground="#FBBF24" VerticalAlignment="Center" />
+                            <TextBlock x:Name="DetailRatingScoreText"
+                                       Text="4.2 / 5"
+                                       FontSize="13"
+                                       FontWeight="Normal"
+                                       Foreground="#FFFFFF"
+                                       VerticalAlignment="Center" />
                             <TextBlock x:Name="DetailRatingSubText"
                                        Text="2.4k reviews • exceptional"
-                                       FontSize="12"
+                                       FontSize="13"
                                        FontWeight="Normal"
-                                       Foreground="#888888" />
+                                       Foreground="#888888"
+                                       VerticalAlignment="Center" />
                         </StackPanel>
-                    </Border>
 
-                    <!-- Other metrics: Playtime & Metacritic -->
-                    <TextBlock x:Name="DetailRawgMeta"
-                               Text=""
-                               FontSize="13"
-                               FontWeight="Normal"
-                               Foreground="#60A5FA"
-                               IsVisible="False" />
+                        <!-- Other metrics: Playtime & Metacritic -->
+                        <TextBlock x:Name="DetailRawgMeta"
+                                   Text=""
+                                   FontSize="13"
+                                   FontWeight="Normal"
+                                   Foreground="#60A5FA"
+                                   IsVisible="False" />
 
-                    <!-- Tags Row with SteamDB Icons -->
-                    <WrapPanel x:Name="DetailTagsPanel"
-                               Orientation="Horizontal"
-                               Margin="0,4,0,0"
-                               IsVisible="False" />
+                        <!-- Top 3 Tags Row with SteamDB Icons -->
+                        <WrapPanel x:Name="DetailTagsPanel"
+                                   Orientation="Horizontal"
+                                   Margin="0,2,0,0"
+                                   IsVisible="False" />
+                    </StackPanel>
                 </StackPanel>
 
-                <!-- Row 2: Bottom Section (Left Actions, Right Screenshot Gallery) -->
+                <!-- Row 2: Bottom Section (Left Actions Indented, Right Screenshot Gallery) -->
                 <Grid Grid.Row="2" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
-                    <!-- Bottom-Left: All Actions & Toggles -->
-                    <StackPanel Grid.Column="0" Spacing="16" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                    <!-- Bottom-Left: All Actions & Toggles (Indented to match details) -->
+                    <StackPanel Grid.Column="0" Margin="36,0,0,0" Spacing="16" HorizontalAlignment="Left" VerticalAlignment="Bottom">
                         <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" -->
                         <StackPanel Spacing="4">
                             <Button x:Name="DetailSwitchModeBtn"
@@ -438,8 +486,8 @@
                                        IsVisible="False" />
                         </StackPanel>
 
-                        <!-- Online Toggles Row: SLSonline & Netsock Proxy -->
-                        <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="28">
+                        <!-- Online Toggles Row: SLSonline, Netsock Proxy & EOS Proxy -->
+                        <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="24">
                             <Button x:Name="DetailSlsOnlineBtn"
                                     Classes="minimalTextBtn"
                                     Content="enable slsonline"
@@ -452,6 +500,13 @@
                                     FontSize="14"
                                     IsVisible="False"
                                     Click="OnToggleNetsockClicked" />
+
+                            <Button x:Name="DetailEosProxyBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enable eos proxy"
+                                    FontSize="14"
+                                    IsVisible="False"
+                                    Click="OnToggleEosProxyClicked" />
                         </StackPanel>
 
                         <!-- Steamless Action -->
@@ -503,21 +558,21 @@
             </Grid>
         </Grid>
 
-        <!-- 3. SETTINGS PAGE VIEW (Interactive Toggles, System Control & Theme) -->
+        <!-- 3. SETTINGS PAGE VIEW WITH SUBMENUS (Theme, API, SLS Config, Visuals) -->
         <Grid x:Name="SettingsPanel"
-              RowDefinitions="Auto,Auto,*"
+              RowDefinitions="Auto,Auto,Auto,*"
               Margin="64,48,64,36"
               IsVisible="False">
             
-            <!-- Back Button -->
+            <!-- Row 0: Back Button -->
             <Button Grid.Row="0"
                     Classes="minimalTextBtn"
                     Content="back"
-                    Margin="0,0,0,24"
+                    Margin="0,0,0,20"
                     Click="OnBackToMainClicked" />
 
-            <!-- Settings Title -->
-            <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,36">
+            <!-- Row 1: Settings Title -->
+            <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,24">
                 <TextBlock Text="settings"
                            FontSize="30"
                            FontWeight="Normal"
@@ -528,154 +583,211 @@
                            Foreground="#555555" />
             </StackPanel>
 
-            <!-- Settings Content: Interactive Toggles, Themes, APIs & Actions -->
-            <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
-                <StackPanel Spacing="24">
-                    <!-- Theme Settings (Colors for Native & Assella games) -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="theme: native games color" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleNativeThemeBtn"
-                                Classes="minimalTextBtn"
-                                Content="classic white"
-                                FontSize="16"
-                                Foreground="#FFFFFF"
-                                Click="OnToggleNativeThemeClicked" />
+            <!-- Row 2: Submenu Tab Navigation Bar -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="28" Margin="0,0,0,28">
+                <Button x:Name="SettingsTabThemeBtn"
+                        Classes="settingsTabBtn active"
+                        Content="theme"
+                        Click="OnSettingsTabThemeClicked" />
+                <Button x:Name="SettingsTabApiBtn"
+                        Classes="settingsTabBtn"
+                        Content="api"
+                        Click="OnSettingsTabApiClicked" />
+                <Button x:Name="SettingsTabSlsBtn"
+                        Classes="settingsTabBtn"
+                        Content="sls config"
+                        Click="OnSettingsTabSlsClicked" />
+                <Button x:Name="SettingsTabVisualsBtn"
+                        Classes="settingsTabBtn"
+                        Content="visuals &amp; gallery"
+                        Click="OnSettingsTabVisualsClicked" />
+            </StackPanel>
+
+            <!-- Row 3: Submenu Content Panels -->
+            <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
+                <Grid>
+                    <!-- 3A: THEME SUBMENU -->
+                    <StackPanel x:Name="SettingsThemePanel" Spacing="24" IsVisible="True">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="native games color" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleNativeThemeBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="classic white"
+                                    FontSize="16"
+                                    Foreground="#FFFFFF"
+                                    Click="OnToggleNativeThemeClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="assella games color" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleAccelaThemeBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="slate blue"
+                                    FontSize="16"
+                                    Foreground="#60A5FA"
+                                    Click="OnToggleAccelaThemeClicked" />
+                        </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="theme: assella games color" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleAccelaThemeBtn"
-                                Classes="minimalTextBtn"
-                                Content="slate blue"
-                                FontSize="16"
-                                Foreground="#60A5FA"
-                                Click="OnToggleAccelaThemeClicked" />
+                    <!-- 3B: API SUBMENU -->
+                    <StackPanel x:Name="SettingsApiPanel" Spacing="24" IsVisible="False">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="steamgriddb (official logos &amp; heroes)" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleSgdbApiBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="api active"
+                                    FontSize="16"
+                                    Foreground="#4ADE80"
+                                    Click="OnToggleSgdbApiClicked" />
+                            <TextBlock Text="saved in ~/.config/pluto/steamgriddb_api.txt" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="rawg (metadata, tags &amp; gallery)" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleRawgBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="api active"
+                                    FontSize="16"
+                                    Foreground="#4ADE80"
+                                    Click="OnToggleRawgClicked" />
+                            <TextBlock Text="saved in ~/.config/pluto/rawg_api.txt" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="hubcap / morrenus (keys &amp; manifests)" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleHubcapApiBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="api configured"
+                                    FontSize="16"
+                                    Foreground="#4ADE80"
+                                    Click="OnToggleHubcapApiClicked" />
+                            <TextBlock Text="saved in ACCELA.conf (morrenus_api_key)" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
                     </StackPanel>
 
-                    <!-- API Integrations & Keys Section -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="api: steamgriddb (official logos &amp; heroes)" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleSgdbApiBtn"
-                                Classes="minimalTextBtn"
-                                Content="api active"
-                                FontSize="16"
-                                Foreground="#4ADE80"
-                                Click="OnToggleSgdbApiClicked" />
-                        <TextBlock Text="saved in ~/.config/pluto/steamgriddb_api.txt" FontSize="11" Foreground="#444444" />
+                    <!-- 3C: SLS CONFIG SUBMENU -->
+                    <StackPanel x:Name="SettingsSlsPanel" Spacing="24" IsVisible="False">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="at0-m plugin engine" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleVaporBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enabled"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleVaporClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="download provider" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleDownloadActionBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="native steam"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleDownloadActionClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="steam updates" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleUpdatesBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="normal (updates allowed)"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleUpdatesClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="slssteam synchronization" FontSize="13" Foreground="#666666" />
+                            <Button Classes="minimalTextBtn"
+                                    Content="sync all games into config.yaml"
+                                    FontSize="16"
+                                    Foreground="#818CF8"
+                                    Click="OnSyncAllClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="slssteam api pipe" FontSize="13" Foreground="#666666" />
+                            <Button Classes="minimalTextBtn"
+                                    Content="reload slssteam plugins (reloadlua)"
+                                    FontSize="16"
+                                    Foreground="#818CF8"
+                                    Click="OnReloadSlsClicked" />
+                        </StackPanel>
                     </StackPanel>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="api: rawg (metadata, tags &amp; gallery)" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleRawgBtn"
-                                Classes="minimalTextBtn"
-                                Content="api active"
-                                FontSize="16"
-                                Foreground="#4ADE80"
-                                Click="OnToggleRawgClicked" />
-                        <TextBlock Text="saved in ~/.config/pluto/rawg_api.txt" FontSize="11" Foreground="#444444" />
-                    </StackPanel>
+                    <!-- 3D: VISUALS & GALLERY SUBMENU -->
+                    <StackPanel x:Name="SettingsVisualsPanel" Spacing="24" IsVisible="False">
+                        <!-- Main Page Dynamic Rotating Backdrop -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="main page dynamic backdrop" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleMainBackdropBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enabled"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleMainBackdropClicked" />
+                        </StackPanel>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="api: hubcap / morrenus (keys &amp; manifests)" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleHubcapApiBtn"
-                                Classes="minimalTextBtn"
-                                Content="api configured"
-                                FontSize="16"
-                                Foreground="#4ADE80"
-                                Click="OnToggleHubcapApiClicked" />
-                        <TextBlock Text="saved in ACCELA.conf (morrenus_api_key)" FontSize="11" Foreground="#444444" />
-                    </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="main backdrop rotation speed" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleMainBackdropIntervalBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="15 seconds"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleMainBackdropIntervalClicked" />
+                        </StackPanel>
 
-                    <!-- Screenshot Auto-Rotate Settings -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="gallery auto-rotation" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleAutoRotateBtn"
-                                Classes="minimalTextBtn"
-                                Content="enabled"
-                                FontSize="16"
-                                Foreground="#38BDF8"
-                                Click="OnToggleAutoRotateClicked" />
-                    </StackPanel>
+                        <!-- Search Thumbnails Toggle -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="search results thumbnails" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleSearchThumbnailsBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enabled"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleSearchThumbnailsClicked" />
+                        </StackPanel>
 
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="auto-rotation speed" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleAutoRotateIntervalBtn"
-                                Classes="minimalTextBtn"
-                                Content="6 seconds"
-                                FontSize="16"
-                                Foreground="#38BDF8"
-                                Click="OnToggleAutoRotateIntervalClicked" />
-                    </StackPanel>
+                        <!-- Screenshot Gallery Auto-Rotate Settings -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="detail gallery auto-rotation" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleAutoRotateBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enabled"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleAutoRotateClicked" />
+                        </StackPanel>
 
-                    <!-- Toggle: Plugin Engine (enable_vapor) -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="at0-m plugin engine" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleVaporBtn"
-                                Classes="minimalTextBtn"
-                                Content="enabled"
-                                FontSize="16"
-                                Foreground="#38BDF8"
-                                Click="OnToggleVaporClicked" />
-                    </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="detail gallery rotation speed" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleAutoRotateIntervalBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="6 seconds"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleAutoRotateIntervalClicked" />
+                        </StackPanel>
 
-                    <!-- Toggle: Default Download Action (vapor_default_download_action) -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="download provider" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleDownloadActionBtn"
-                                Classes="minimalTextBtn"
-                                Content="native steam"
-                                FontSize="16"
-                                Foreground="#38BDF8"
-                                Click="OnToggleDownloadActionClicked" />
-                    </StackPanel>
+                        <!-- System Information -->
+                        <StackPanel Spacing="4" Margin="0, 12, 0, 0">
+                            <TextBlock Text="library summary" FontSize="13" Foreground="#666666" />
+                            <TextBlock x:Name="SettingsGameCountsText" Text="loading..." FontSize="14" Foreground="#AAAAAA" />
+                        </StackPanel>
 
-                    <!-- Toggle: Disable Updates (vapor_disable_updates) -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="steam updates" FontSize="13" Foreground="#666666" />
-                        <Button x:Name="ToggleUpdatesBtn"
-                                Classes="minimalTextBtn"
-                                Content="normal (updates allowed)"
-                                FontSize="16"
-                                Foreground="#38BDF8"
-                                Click="OnToggleUpdatesClicked" />
-                    </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="controller" FontSize="13" Foreground="#666666" />
+                            <TextBlock x:Name="SettingsControllerText" Text="no controller detected" FontSize="14" Foreground="#AAAAAA" />
+                        </StackPanel>
 
-                    <!-- Action: Sync All Games to SLS -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="slssteam synchronization" FontSize="13" Foreground="#666666" />
-                        <Button Classes="minimalTextBtn"
-                                Content="sync all games into config.yaml"
-                                FontSize="16"
-                                Foreground="#818CF8"
-                                Click="OnSyncAllClicked" />
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="pluto log" FontSize="13" Foreground="#666666" />
+                            <TextBlock x:Name="SettingsLogPathText" Text="~/.local/share/pluto/pluto.log" FontSize="14" Foreground="#AAAAAA" />
+                        </StackPanel>
                     </StackPanel>
-
-                    <!-- Action: Reload SLSsteam -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="slssteam api pipe" FontSize="13" Foreground="#666666" />
-                        <Button Classes="minimalTextBtn"
-                                Content="reload slssteam plugins (reloadlua)"
-                                FontSize="16"
-                                Foreground="#818CF8"
-                                Click="OnReloadSlsClicked" />
-                    </StackPanel>
-
-                    <!-- Informational: Library Counts & Paths -->
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="library summary" FontSize="13" Foreground="#666666" />
-                        <TextBlock x:Name="SettingsGameCountsText" Text="loading..." FontSize="14" Foreground="#AAAAAA" />
-                    </StackPanel>
-
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="controller" FontSize="13" Foreground="#666666" />
-                        <TextBlock x:Name="SettingsControllerText" Text="no controller detected" FontSize="14" Foreground="#AAAAAA" />
-                    </StackPanel>
-
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="pluto log" FontSize="13" Foreground="#666666" />
-                        <TextBlock x:Name="SettingsLogPathText" Text="~/.local/share/pluto/pluto.log" FontSize="14" Foreground="#AAAAAA" />
-                    </StackPanel>
-                </StackPanel>
+                </Grid>
             </ScrollViewer>
         </Grid>
     </Grid>

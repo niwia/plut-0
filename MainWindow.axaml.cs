@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -29,9 +30,31 @@ public partial class MainWindow : Window
     private readonly RawgService _rawgService;
     private readonly SteamGridDbService _sgdbService;
     private readonly SteamTagService _steamTagService;
+    private readonly EosProxyService _eosProxyService;
     private readonly DispatcherTimer _screenshotAutoRotateTimer;
+    private readonly DispatcherTimer _mainBackdropTimer;
     private bool _settingAutoRotateScreenshots = true;
     private int _settingAutoRotateIntervalSec = 6;
+    private bool _settingDynamicMainBackdrop = true;
+    private int _settingMainBackdropIntervalSec = 15;
+    private bool _settingSearchThumbnailsEnabled = true;
+
+    private List<string> _mainBackdropPool = new();
+    private int _mainBackdropIndex = 0;
+
+    private int _detailActionIndex = 0;
+
+    private enum SettingsTab
+    {
+        Theme,
+        Api,
+        Sls,
+        Visuals
+    }
+
+    private SettingsTab _activeSettingsTab = SettingsTab.Theme;
+    private int _settingsOptionIndex = 0;
+
     private CancellationTokenSource? _detailCts;
 
     private List<string> _currentScreenshots = new();
@@ -104,9 +127,13 @@ public partial class MainWindow : Window
         _rawgService = new RawgService(_configService);
         _sgdbService = new SteamGridDbService(_configService);
         _steamTagService = new SteamTagService();
+        _eosProxyService = new EosProxyService();
 
         _screenshotAutoRotateTimer = new DispatcherTimer();
         _screenshotAutoRotateTimer.Tick += OnScreenshotTimerTick;
+
+        _mainBackdropTimer = new DispatcherTimer();
+        _mainBackdropTimer.Tick += OnMainBackdropTimerTick;
 
         ApplyThemeColors();
 
@@ -155,6 +182,7 @@ public partial class MainWindow : Window
             _liveSearchTimer.Stop();
             _placeholderTimer.Stop();
             _screenshotAutoRotateTimer.Stop();
+            _mainBackdropTimer.Stop();
             _searchCts?.Cancel();
             _gamepadService.Dispose();
             _libraryService.Dispose();
@@ -180,6 +208,14 @@ public partial class MainWindow : Window
         }
 
         _allGames = games;
+        _mainBackdropPool = _allGames.Select(g => g.AppId).Distinct().ToList();
+        if (_settingDynamicMainBackdrop && _currentView == ActiveView.MainList && _mainBackdropPool.Count > 0 && !_mainBackdropTimer.IsEnabled)
+        {
+            _mainBackdropTimer.Interval = TimeSpan.FromSeconds(Math.Max(5, _settingMainBackdropIntervalSec));
+            _mainBackdropTimer.Start();
+            TriggerNextMainBackdrop();
+        }
+
         ApplyFilter(SearchBox?.Text);
         UpdateGameCountsText();
         PlutoLogger.Info("Library", $"Library updated: {_allGames.Count} total games ({_allGames.Count(g => !g.IsAccela)} at0-m, {_allGames.Count(g => g.IsAccela)} accela)");
@@ -364,6 +400,12 @@ public partial class MainWindow : Window
         _detailCts?.Cancel();
         _screenshotAutoRotateTimer.Stop();
 
+        if (_settingDynamicMainBackdrop && _mainBackdropPool.Count > 0)
+        {
+            _mainBackdropTimer.Interval = TimeSpan.FromSeconds(Math.Max(5, _settingMainBackdropIntervalSec));
+            _mainBackdropTimer.Start();
+        }
+
         if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
         {
             SearchResultsListBox.Focus();
@@ -380,15 +422,17 @@ public partial class MainWindow : Window
         _selectedSearchResult = null;
         _currentView = ActiveView.GameDetail;
 
-        // Reset detail header, rating card and gallery state
+        // Reset detail header, rating and gallery state
         _currentScreenshots.Clear();
         _currentScreenshotIndex = 0;
         _screenshotAutoRotateTimer.Stop();
+        _mainBackdropTimer.Stop();
+
         if (DetailGameLogo != null) { DetailGameLogo.Source = null; DetailGameLogo.IsVisible = false; }
         if (DetailGameTitle != null) { DetailGameTitle.Text = game.Name; DetailGameTitle.IsVisible = true; }
         if (DetailGameSubtitle != null) DetailGameSubtitle.Text = $"{game.AppId}  •  {(game.IsAccela ? "assella" : "native")}";
         if (DetailGameCredits != null) { DetailGameCredits.Text = string.Empty; DetailGameCredits.IsVisible = false; }
-        if (DetailRatingCard != null) DetailRatingCard.IsVisible = false;
+        if (DetailRatingRow != null) DetailRatingRow.IsVisible = false;
         if (DetailRawgMeta != null) { DetailRawgMeta.Text = string.Empty; DetailRawgMeta.IsVisible = false; }
         if (DetailTagsPanel != null) { DetailTagsPanel.Children.Clear(); DetailTagsPanel.IsVisible = false; }
         if (DetailGalleryControls != null) DetailGalleryControls.IsVisible = false;
@@ -409,15 +453,19 @@ public partial class MainWindow : Window
         if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = true;
         if (DetailSteamlessRow != null) DetailSteamlessRow.IsVisible = true;
 
-        // SLSonline & Netsock status
+        // SLSonline, Netsock & EOS Proxy status
         bool isOnline = _slsService.IsSlsOnline(game.AppId);
         bool isNetsock = _slsService.IsNetsock(game.AppId);
         UpdateOnlineTogglesUi(isOnline, isNetsock);
+        UpdateEosProxyUi();
 
         // Reset Steamless UI state
         DetailSteamlessBtn.IsEnabled = true;
         DetailSteamlessBtn.Content = "apply steamless";
         DetailSteamlessStatus.IsVisible = false;
+
+        _detailActionIndex = 0;
+        UpdateDetailActionHighlight();
 
         // Load Artwork, SteamGridDB Logo & Hero, and RAWG metadata on-demand
         _ = LoadGameArtworkAndMetadataAsync(game.AppId, game.Name);
@@ -442,15 +490,17 @@ public partial class MainWindow : Window
         _selectedGame = null;
         _currentView = ActiveView.GameDetail;
 
-        // Reset detail header, rating card and gallery state
+        // Reset detail header, rating and gallery state
         _currentScreenshots.Clear();
         _currentScreenshotIndex = 0;
         _screenshotAutoRotateTimer.Stop();
+        _mainBackdropTimer.Stop();
+
         if (DetailGameLogo != null) { DetailGameLogo.Source = null; DetailGameLogo.IsVisible = false; }
         if (DetailGameTitle != null) { DetailGameTitle.Text = item.Name; DetailGameTitle.IsVisible = true; }
         if (DetailGameSubtitle != null) DetailGameSubtitle.Text = $"{item.AppId}  •  online";
         if (DetailGameCredits != null) { DetailGameCredits.Text = string.Empty; DetailGameCredits.IsVisible = false; }
-        if (DetailRatingCard != null) DetailRatingCard.IsVisible = false;
+        if (DetailRatingRow != null) DetailRatingRow.IsVisible = false;
         if (DetailRawgMeta != null) { DetailRawgMeta.Text = string.Empty; DetailRawgMeta.IsVisible = false; }
         if (DetailTagsPanel != null) { DetailTagsPanel.Children.Clear(); DetailTagsPanel.IsVisible = false; }
         if (DetailGalleryControls != null) DetailGalleryControls.IsVisible = false;
@@ -462,6 +512,9 @@ public partial class MainWindow : Window
         if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
         if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = false;
         if (DetailSteamlessRow != null) DetailSteamlessRow.IsVisible = false;
+
+        _detailActionIndex = 0;
+        UpdateDetailActionHighlight();
 
         // Load Artwork, SteamGridDB Logo & Hero, and RAWG metadata on-demand
         _ = LoadGameArtworkAndMetadataAsync(item.AppId, item.Name);
@@ -583,14 +636,15 @@ public partial class MainWindow : Window
                             }
 
                             // Modern Rating Card: Score + Star Icon + Reviews count / Verdict
-                            if (meta.Rating.HasValue && meta.Rating.Value > 0 && DetailRatingCard != null)
+                            // Simple inline rating row matching other metadata
+                            if (meta.Rating.HasValue && meta.Rating.Value > 0 && DetailRatingRow != null)
                             {
                                 DetailRatingScoreText.Text = $"{meta.Rating.Value:0.0} / 5";
                                 var subParts = new List<string>();
                                 if (!string.IsNullOrEmpty(meta.FormattedReviewsCount)) subParts.Add(meta.FormattedReviewsCount);
                                 if (!string.IsNullOrEmpty(meta.Verdict)) subParts.Add(meta.Verdict);
-                                DetailRatingSubText.Text = subParts.Count > 0 ? string.Join("  •  ", subParts) : "community rating";
-                                DetailRatingCard.IsVisible = true;
+                                DetailRatingSubText.Text = subParts.Count > 0 ? string.Join("  •  ", subParts) : "";
+                                DetailRatingRow.IsVisible = true;
                             }
 
                             // Secondary Info: Release Year, Average Playtime & Metacritic
@@ -605,11 +659,11 @@ public partial class MainWindow : Window
                                 DetailRawgMeta.IsVisible = true;
                             }
 
-                            // Populate clean tag pills with SteamDB icons
+                            // Populate clean tag pills with SteamDB icons (limit to top 3 tags)
                             if (meta.Tags != null && meta.Tags.Count > 0 && DetailTagsPanel != null)
                             {
                                 DetailTagsPanel.Children.Clear();
-                                foreach (var tag in meta.Tags)
+                                foreach (var tag in meta.Tags.Take(3))
                                 {
                                     var formatted = _steamTagService.FormatTagWithIcon(tag);
                                     var border = new Border { Classes = { "tagPill" } };
@@ -720,7 +774,9 @@ public partial class MainWindow : Window
     {
         _currentView = ActiveView.Settings;
         _screenshotAutoRotateTimer.Stop();
+        _mainBackdropTimer.Stop();
 
+        SetActiveSettingsTab(_activeSettingsTab);
         UpdateGameCountsText();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
 
@@ -743,7 +799,7 @@ public partial class MainWindow : Window
                 {
                     if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
                     {
-                        if (SearchResultsListBox.SelectedIndex <= 0)
+                        if (SearchResultsListBox.SelectedIndex == 0)
                         {
                             SearchBox.Focus();
                         }
@@ -756,6 +812,14 @@ public partial class MainWindow : Window
                     {
                         NavigateList(-1);
                     }
+                }
+                else if (_currentView == ActiveView.GameDetail)
+                {
+                    NavigateDetailActions(-1);
+                }
+                else if (_currentView == ActiveView.Settings)
+                {
+                    NavigateSettingsOptions(-1);
                 }
                 break;
 
@@ -784,6 +848,14 @@ public partial class MainWindow : Window
                         NavigateList(1);
                     }
                 }
+                else if (_currentView == ActiveView.GameDetail)
+                {
+                    NavigateDetailActions(1);
+                }
+                else if (_currentView == ActiveView.Settings)
+                {
+                    NavigateSettingsOptions(1);
+                }
                 break;
 
             case GamepadAction.PageUp:
@@ -798,6 +870,10 @@ public partial class MainWindow : Window
                 {
                     OnPrevScreenshotClicked(null, new RoutedEventArgs());
                 }
+                else if (_currentView == ActiveView.Settings)
+                {
+                    CycleSettingsTab(-1);
+                }
                 break;
 
             case GamepadAction.PageDown:
@@ -811,6 +887,10 @@ public partial class MainWindow : Window
                 else if (_currentView == ActiveView.GameDetail)
                 {
                     OnNextScreenshotClicked(null, new RoutedEventArgs());
+                }
+                else if (_currentView == ActiveView.Settings)
+                {
+                    CycleSettingsTab(1);
                 }
                 break;
 
@@ -829,7 +909,11 @@ public partial class MainWindow : Window
                 }
                 else if (_currentView == ActiveView.GameDetail)
                 {
-                    OnToggleModeClicked(null, new RoutedEventArgs());
+                    TriggerDetailAction();
+                }
+                else if (_currentView == ActiveView.Settings)
+                {
+                    TriggerSettingsOption();
                 }
                 break;
 
@@ -986,6 +1070,32 @@ public partial class MainWindow : Window
             foreach (var r in results)
             {
                 _searchResults.Add(r);
+            }
+
+            // In-memory capsule thumbnail fetching for search results (without writing disk files)
+            if (_settingSearchThumbnailsEnabled)
+            {
+                foreach (var r in results)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var thumbUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{r.AppId}/header.jpg";
+                            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+                            var bytes = await http.GetByteArrayAsync(thumbUrl, ct);
+                            if (bytes.Length > 0 && !ct.IsCancellationRequested)
+                            {
+                                await Dispatcher.UIThread.InvokeAsync(() =>
+                                {
+                                    using var ms = new MemoryStream(bytes);
+                                    r.Thumbnail = new Bitmap(ms);
+                                });
+                            }
+                        }
+                        catch { }
+                    }, ct);
+                }
             }
 
             if (results.Count > 0)
@@ -1378,8 +1488,15 @@ public partial class MainWindow : Window
             _settingAutoRotateScreenshots = _configService.GetBool("screenshot_autorotate_enabled", true);
             _settingAutoRotateIntervalSec = _configService.GetInt("screenshot_autorotate_interval_sec", 6);
             if (_settingAutoRotateIntervalSec < 2) _settingAutoRotateIntervalSec = 6;
+
+            _settingDynamicMainBackdrop = _configService.GetBool("main_dynamic_backdrop_enabled", true);
+            _settingMainBackdropIntervalSec = _configService.GetInt("main_dynamic_backdrop_interval_sec", 15);
+            if (_settingMainBackdropIntervalSec < 5) _settingMainBackdropIntervalSec = 15;
+
+            _settingSearchThumbnailsEnabled = _configService.GetBool("search_thumbnails_enabled", true);
+
             UpdateSettingsUi();
-            PlutoLogger.Info("Pluto", $"Settings loaded: vapor={_settingVaporEnabled}, downloadAction={_settingDownloadAction}, disableUpdates={_settingDisableUpdates}, autoRotate={_settingAutoRotateScreenshots} ({_settingAutoRotateIntervalSec}s)");
+            PlutoLogger.Info("Pluto", $"Settings loaded: vapor={_settingVaporEnabled}, downloadAction={_settingDownloadAction}, disableUpdates={_settingDisableUpdates}, autoRotate={_settingAutoRotateScreenshots} ({_settingAutoRotateIntervalSec}s), mainBackdrop={_settingDynamicMainBackdrop} ({_settingMainBackdropIntervalSec}s), searchThumbnails={_settingSearchThumbnailsEnabled}");
         }
         catch (Exception ex)
         {
@@ -1419,7 +1536,51 @@ public partial class MainWindow : Window
         {
             ToggleAutoRotateIntervalBtn.Content = $"{_settingAutoRotateIntervalSec} seconds";
         }
+
+        if (ToggleMainBackdropBtn != null)
+        {
+            ToggleMainBackdropBtn.Content = _settingDynamicMainBackdrop ? "enabled" : "disabled";
+            ToggleMainBackdropBtn.Foreground = _settingDynamicMainBackdrop
+                ? Avalonia.Media.Brushes.MediumSpringGreen
+                : Avalonia.Media.Brushes.Gray;
+        }
+
+        if (ToggleMainBackdropIntervalBtn != null)
+        {
+            ToggleMainBackdropIntervalBtn.Content = $"{_settingMainBackdropIntervalSec} seconds";
+        }
+
+        if (ToggleSearchThumbnailsBtn != null)
+        {
+            ToggleSearchThumbnailsBtn.Content = _settingSearchThumbnailsEnabled ? "enabled" : "disabled";
+            ToggleSearchThumbnailsBtn.Foreground = _settingSearchThumbnailsEnabled
+                ? Avalonia.Media.Brushes.MediumSpringGreen
+                : Avalonia.Media.Brushes.Gray;
+        }
     }
+
+    private void SetActiveSettingsTab(SettingsTab tab)
+    {
+        _activeSettingsTab = tab;
+
+        if (SettingsTabThemeBtn != null) SettingsTabThemeBtn.Classes.Set("active", tab == SettingsTab.Theme);
+        if (SettingsTabApiBtn != null) SettingsTabApiBtn.Classes.Set("active", tab == SettingsTab.Api);
+        if (SettingsTabSlsBtn != null) SettingsTabSlsBtn.Classes.Set("active", tab == SettingsTab.Sls);
+        if (SettingsTabVisualsBtn != null) SettingsTabVisualsBtn.Classes.Set("active", tab == SettingsTab.Visuals);
+
+        if (SettingsThemePanel != null) SettingsThemePanel.IsVisible = tab == SettingsTab.Theme;
+        if (SettingsApiPanel != null) SettingsApiPanel.IsVisible = tab == SettingsTab.Api;
+        if (SettingsSlsPanel != null) SettingsSlsPanel.IsVisible = tab == SettingsTab.Sls;
+        if (SettingsVisualsPanel != null) SettingsVisualsPanel.IsVisible = tab == SettingsTab.Visuals;
+
+        _settingsOptionIndex = 0;
+        UpdateSettingsOptionHighlight();
+    }
+
+    private void OnSettingsTabThemeClicked(object? sender, RoutedEventArgs e) => SetActiveSettingsTab(SettingsTab.Theme);
+    private void OnSettingsTabApiClicked(object? sender, RoutedEventArgs e) => SetActiveSettingsTab(SettingsTab.Api);
+    private void OnSettingsTabSlsClicked(object? sender, RoutedEventArgs e) => SetActiveSettingsTab(SettingsTab.Sls);
+    private void OnSettingsTabVisualsClicked(object? sender, RoutedEventArgs e) => SetActiveSettingsTab(SettingsTab.Visuals);
 
     private void OnToggleAutoRotateClicked(object? sender, RoutedEventArgs e)
     {
@@ -1451,6 +1612,45 @@ public partial class MainWindow : Window
         _screenshotAutoRotateTimer.Interval = TimeSpan.FromSeconds(Math.Max(2, _settingAutoRotateIntervalSec));
     }
 
+    private void OnToggleMainBackdropClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDynamicMainBackdrop = !_settingDynamicMainBackdrop;
+        UpdateSettingsUi();
+        _configService.SetBool("main_dynamic_backdrop_enabled", _settingDynamicMainBackdrop);
+        if (!_settingDynamicMainBackdrop)
+        {
+            _mainBackdropTimer.Stop();
+            if (MainBackdropImage != null) MainBackdropImage.Source = null;
+        }
+        else
+        {
+            _mainBackdropTimer.Interval = TimeSpan.FromSeconds(Math.Max(5, _settingMainBackdropIntervalSec));
+            _mainBackdropTimer.Start();
+            TriggerNextMainBackdrop();
+        }
+    }
+
+    private void OnToggleMainBackdropIntervalClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingMainBackdropIntervalSec = _settingMainBackdropIntervalSec switch
+        {
+            <= 5 => 10,
+            <= 10 => 15,
+            <= 15 => 30,
+            _ => 5
+        };
+        UpdateSettingsUi();
+        _configService.SetInt("main_dynamic_backdrop_interval_sec", _settingMainBackdropIntervalSec);
+        _mainBackdropTimer.Interval = TimeSpan.FromSeconds(_settingMainBackdropIntervalSec);
+    }
+
+    private void OnToggleSearchThumbnailsClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingSearchThumbnailsEnabled = !_settingSearchThumbnailsEnabled;
+        UpdateSettingsUi();
+        _configService.SetBool("search_thumbnails_enabled", _settingSearchThumbnailsEnabled);
+    }
+
     private void OnToggleVaporClicked(object? sender, RoutedEventArgs e)
     {
         _settingVaporEnabled = !_settingVaporEnabled;
@@ -1472,6 +1672,201 @@ public partial class MainWindow : Window
         UpdateSettingsUi();
         _configService.SetBool("vapor_disable_updates", _settingDisableUpdates);
         _configService.SetBool("at0m_disable_updates", _settingDisableUpdates);
+    }
+
+    // Dynamic Main Page Backdrop Rotation
+    private void OnMainBackdropTimerTick(object? sender, EventArgs e)
+    {
+        if (_currentView == ActiveView.MainList && _settingDynamicMainBackdrop && _mainBackdropPool.Count > 0)
+        {
+            TriggerNextMainBackdrop();
+        }
+    }
+
+    private async void TriggerNextMainBackdrop()
+    {
+        if (_mainBackdropPool.Count == 0) return;
+        _mainBackdropIndex = (_mainBackdropIndex + 1) % _mainBackdropPool.Count;
+        var appId = _mainBackdropPool[_mainBackdropIndex];
+
+        try
+        {
+            var bmp = await _sgdbService.FetchHeroBitmapAsync(appId);
+            if (bmp == null)
+            {
+                var heroUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_hero.jpg";
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+                var bytes = await http.GetByteArrayAsync(heroUrl);
+                if (bytes.Length > 0)
+                {
+                    using var ms = new MemoryStream(bytes);
+                    bmp = new Bitmap(ms);
+                }
+            }
+
+            if (bmp != null && _currentView == ActiveView.MainList && MainBackdropImage != null)
+            {
+                MainBackdropImage.Source = bmp;
+            }
+        }
+        catch
+        {
+            // Fall through gracefully on network error
+        }
+    }
+
+    // EOS Proxy State & Handlers
+    private void UpdateEosProxyUi()
+    {
+        if (DetailEosProxyBtn == null) return;
+        if (_selectedGame == null || string.IsNullOrWhiteSpace(_selectedGame.InstallPath))
+        {
+            DetailEosProxyBtn.IsVisible = false;
+            return;
+        }
+
+        var status = _eosProxyService.GetProxyStatus(_selectedGame.InstallPath);
+        switch (status)
+        {
+            case EosProxyStatus.Active:
+                DetailEosProxyBtn.IsVisible = true;
+                DetailEosProxyBtn.Content = "eos proxy: active";
+                DetailEosProxyBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
+                break;
+            case EosProxyStatus.Inactive:
+                DetailEosProxyBtn.IsVisible = true;
+                DetailEosProxyBtn.Content = "enable eos proxy";
+                DetailEosProxyBtn.Foreground = Avalonia.Media.Brushes.Gray;
+                break;
+            case EosProxyStatus.Stale:
+                DetailEosProxyBtn.IsVisible = true;
+                DetailEosProxyBtn.Content = "reapply eos proxy";
+                DetailEosProxyBtn.Foreground = Avalonia.Media.Brushes.Goldenrod;
+                break;
+            case EosProxyStatus.None:
+            default:
+                DetailEosProxyBtn.IsVisible = false;
+                break;
+        }
+    }
+
+    private async void OnToggleEosProxyClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_selectedGame == null || string.IsNullOrWhiteSpace(_selectedGame.InstallPath)) return;
+        var status = _eosProxyService.GetProxyStatus(_selectedGame.InstallPath);
+        if (status == EosProxyStatus.Active)
+        {
+            await _eosProxyService.RemoveProxyAsync(_selectedGame.InstallPath);
+        }
+        else
+        {
+            await _eosProxyService.ApplyProxyAsync(_selectedGame.InstallPath);
+        }
+        UpdateEosProxyUi();
+    }
+
+    // Gamepad Controller Navigation for Detail Actions
+    private List<Button> GetVisibleDetailActionButtons()
+    {
+        var list = new List<Button>();
+        if (DetailSwitchModeBtn != null && DetailSwitchModeBtn.IsVisible && DetailSwitchModeBtn.IsEnabled) list.Add(DetailSwitchModeBtn);
+        if (DetailSlsOnlineBtn != null && DetailSlsOnlineBtn.IsVisible && DetailSlsOnlineBtn.IsEnabled) list.Add(DetailSlsOnlineBtn);
+        if (DetailNetsockBtn != null && DetailNetsockBtn.IsVisible && DetailNetsockBtn.IsEnabled) list.Add(DetailNetsockBtn);
+        if (DetailEosProxyBtn != null && DetailEosProxyBtn.IsVisible && DetailEosProxyBtn.IsEnabled) list.Add(DetailEosProxyBtn);
+        if (DetailSteamlessBtn != null && DetailSteamlessBtn.IsVisible && DetailSteamlessBtn.IsEnabled) list.Add(DetailSteamlessBtn);
+        return list;
+    }
+
+    private void NavigateDetailActions(int offset)
+    {
+        var buttons = GetVisibleDetailActionButtons();
+        if (buttons.Count == 0) return;
+
+        _detailActionIndex = Math.Clamp(_detailActionIndex + offset, 0, buttons.Count - 1);
+        UpdateDetailActionHighlight();
+    }
+
+    private void TriggerDetailAction()
+    {
+        var buttons = GetVisibleDetailActionButtons();
+        if (_detailActionIndex >= 0 && _detailActionIndex < buttons.Count)
+        {
+            buttons[_detailActionIndex].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }
+    }
+
+    private void UpdateDetailActionHighlight()
+    {
+        var buttons = GetVisibleDetailActionButtons();
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            buttons[i].Classes.Set("actionBtnFocused", i == _detailActionIndex);
+        }
+    }
+
+    // Gamepad Controller Navigation for Settings Options
+    private List<Button> GetVisibleSettingsButtons()
+    {
+        var list = new List<Button>();
+        switch (_activeSettingsTab)
+        {
+            case SettingsTab.Theme:
+                if (ToggleNativeThemeBtn != null && ToggleNativeThemeBtn.IsVisible) list.Add(ToggleNativeThemeBtn);
+                if (ToggleAccelaThemeBtn != null && ToggleAccelaThemeBtn.IsVisible) list.Add(ToggleAccelaThemeBtn);
+                break;
+            case SettingsTab.Api:
+                if (ToggleSgdbApiBtn != null && ToggleSgdbApiBtn.IsVisible) list.Add(ToggleSgdbApiBtn);
+                if (ToggleRawgBtn != null && ToggleRawgBtn.IsVisible) list.Add(ToggleRawgBtn);
+                if (ToggleHubcapApiBtn != null && ToggleHubcapApiBtn.IsVisible) list.Add(ToggleHubcapApiBtn);
+                break;
+            case SettingsTab.Sls:
+                if (ToggleVaporBtn != null && ToggleVaporBtn.IsVisible) list.Add(ToggleVaporBtn);
+                if (ToggleDownloadActionBtn != null && ToggleDownloadActionBtn.IsVisible) list.Add(ToggleDownloadActionBtn);
+                if (ToggleUpdatesBtn != null && ToggleUpdatesBtn.IsVisible) list.Add(ToggleUpdatesBtn);
+                break;
+            case SettingsTab.Visuals:
+                if (ToggleMainBackdropBtn != null && ToggleMainBackdropBtn.IsVisible) list.Add(ToggleMainBackdropBtn);
+                if (ToggleMainBackdropIntervalBtn != null && ToggleMainBackdropIntervalBtn.IsVisible) list.Add(ToggleMainBackdropIntervalBtn);
+                if (ToggleSearchThumbnailsBtn != null && ToggleSearchThumbnailsBtn.IsVisible) list.Add(ToggleSearchThumbnailsBtn);
+                if (ToggleAutoRotateBtn != null && ToggleAutoRotateBtn.IsVisible) list.Add(ToggleAutoRotateBtn);
+                if (ToggleAutoRotateIntervalBtn != null && ToggleAutoRotateIntervalBtn.IsVisible) list.Add(ToggleAutoRotateIntervalBtn);
+                break;
+        }
+        return list;
+    }
+
+    private void CycleSettingsTab(int offset)
+    {
+        int count = 4;
+        int next = (((int)_activeSettingsTab + offset) % count + count) % count;
+        SetActiveSettingsTab((SettingsTab)next);
+    }
+
+    private void NavigateSettingsOptions(int offset)
+    {
+        var buttons = GetVisibleSettingsButtons();
+        if (buttons.Count == 0) return;
+
+        _settingsOptionIndex = Math.Clamp(_settingsOptionIndex + offset, 0, buttons.Count - 1);
+        UpdateSettingsOptionHighlight();
+    }
+
+    private void TriggerSettingsOption()
+    {
+        var buttons = GetVisibleSettingsButtons();
+        if (_settingsOptionIndex >= 0 && _settingsOptionIndex < buttons.Count)
+        {
+            buttons[_settingsOptionIndex].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        }
+    }
+
+    private void UpdateSettingsOptionHighlight()
+    {
+        var buttons = GetVisibleSettingsButtons();
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            buttons[i].Classes.Set("actionBtnFocused", i == _settingsOptionIndex);
+        }
     }
 
     // Theme Submenu & Color Configuration

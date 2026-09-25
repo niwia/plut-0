@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -414,6 +415,75 @@ public class SlsSteamService
     }
 
     /// <summary>
+    /// Ensures that netsock.so is present in ~/.config/SLSsteam/tools/netsock/netsock.so,
+    /// copying from existing ACCELA candidates or downloading from upstream GitHub release.
+    /// </summary>
+    public static async Task<bool> EnsureNetsockBinaryAsync()
+    {
+        var targetPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".config", "SLSsteam", "tools", "netsock", "netsock.so");
+
+        if (File.Exists(targetPath) && new FileInfo(targetPath).Length > 0)
+        {
+            return true;
+        }
+
+        // Check local candidate paths
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        string[] candidates =
+        {
+            Path.Combine(home, ".local", "share", "SLSsteam", "tools", "netsock", "netsock.so"),
+            Path.Combine(home, ".local", "share", "ACCELA", "tools", "netsock", "netsock.so"),
+            Path.Combine(home, ".local", "share", "ACCELA", "squashfs-root", "bin", "src", "tools", "netsock", "netsock.so"),
+            Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".config", "SLSsteam", "tools", "netsock", "netsock.so")
+        };
+
+        foreach (var cand in candidates)
+        {
+            if (File.Exists(cand) && new FileInfo(cand).Length > 0)
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(targetPath);
+                    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                    File.Copy(cand, targetPath, true);
+                    PlutoLogger.Info("SLS", $"Copied netsock.so from candidate {cand} to {targetPath}");
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    PlutoLogger.Warn("SLS", $"Could not copy candidate netsock.so: {ex.Message}");
+                }
+            }
+        }
+
+        // If still missing, download from GitHub releases
+        try
+        {
+            var dir = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Pluto/1.0");
+            var url = "https://github.com/yesyes0649/steamnetsock-patch/releases/download/latest/fix.so";
+            var bytes = await http.GetByteArrayAsync(url);
+            if (bytes.Length > 0)
+            {
+                await File.WriteAllBytesAsync(targetPath, bytes);
+                PlutoLogger.Info("SLS", $"Downloaded latest netsock.so ({bytes.Length} bytes) to {targetPath}");
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("SLS", "Failed to download netsock.so from GitHub", ex);
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Toggles Netsock LD_AUDIT multiplayer proxy in LaunchOptions in config.yaml and reloads SLSsteam.
     /// </summary>
     public async Task<bool> SetNetsockAsync(string appId, bool enable)
@@ -424,6 +494,7 @@ public class SlsSteamService
             var content = await File.ReadAllTextAsync(SlsConfigPath);
             if (enable)
             {
+                await EnsureNetsockBinaryAsync();
                 var netsockPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "SLSsteam", "tools", "netsock", "netsock.so");
                 var cmd = $"\"env LD_AUDIT=\\\"{netsockPath}\\\" %command%\"";
                 content = EnsureLaunchOption(content, appId, cmd);

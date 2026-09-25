@@ -250,6 +250,14 @@ public class GamepadService : IDisposable
                 ActionTriggered?.Invoke(GamepadAction.NavigateDown);
                 break;
 
+            case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+                ActionTriggered?.Invoke(GamepadAction.PageUp);
+                break;
+
+            case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+                ActionTriggered?.Invoke(GamepadAction.PageDown);
+                break;
+
             case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
                 ActionTriggered?.Invoke(GamepadAction.PageUp);
                 break;
