@@ -149,12 +149,15 @@ public partial class MainWindow
         if (DetailGalleryControls  != null) DetailGalleryControls.IsVisible = false;
         if (DetailGameBackdrop     != null) DetailGameBackdrop.IsVisible = false;
 
+        if (PreDownloadPanel       != null) PreDownloadPanel.IsVisible = false;
+
         // Reset all action buttons to hidden — they'll be explicitly shown as needed
-        if (DetailSwitchModeBtn  != null) { DetailSwitchModeBtn.IsVisible  = false; DetailSwitchModeBtn.Opacity  = 1.0; DetailSwitchModeBtn.FontSize = 17; }
-        if (DetailSlsOnlineBtn   != null) { DetailSlsOnlineBtn.IsVisible   = false; DetailSlsOnlineBtn.Opacity   = 1.0; DetailSlsOnlineBtn.FontSize = 14; }
-        if (DetailNetsockBtn     != null) { DetailNetsockBtn.IsVisible     = false; DetailNetsockBtn.Opacity     = 1.0; DetailNetsockBtn.FontSize = 14; }
-        if (DetailEosProxyBtn    != null) { DetailEosProxyBtn.IsVisible    = false; DetailEosProxyBtn.Opacity    = 1.0; DetailEosProxyBtn.FontSize = 14; }
-        if (DetailSteamlessBtn   != null) { DetailSteamlessBtn.IsVisible   = false; DetailSteamlessBtn.Opacity   = 1.0; DetailSteamlessBtn.FontSize = 14; }
+        if (DetailSwitchModeBtn  != null) { DetailSwitchModeBtn.IsVisible  = false; DetailSwitchModeBtn.Opacity  = 1.0; DetailSwitchModeBtn.FontSize = 14; }
+        if (DetailDownloadBtn    != null) { DetailDownloadBtn.IsVisible    = false; DetailDownloadBtn.Opacity    = 1.0; DetailDownloadBtn.FontSize = 14; }
+        if (DetailSlsOnlineBtn   != null) { DetailSlsOnlineBtn.IsVisible   = false; DetailSlsOnlineBtn.Opacity   = 1.0; DetailSlsOnlineBtn.FontSize = 13; }
+        if (DetailNetsockBtn     != null) { DetailNetsockBtn.IsVisible     = false; DetailNetsockBtn.Opacity     = 1.0; DetailNetsockBtn.FontSize = 13; }
+        if (DetailEosProxyBtn    != null) { DetailEosProxyBtn.IsVisible    = false; DetailEosProxyBtn.Opacity    = 1.0; DetailEosProxyBtn.FontSize = 13; }
+        if (DetailSteamlessBtn   != null) { DetailSteamlessBtn.IsVisible   = false; DetailSteamlessBtn.Opacity   = 1.0; DetailSteamlessBtn.FontSize = 13; }
     }
 
     // ── Artwork + metadata loading ────────────────────────────────────────────
@@ -732,17 +735,20 @@ public partial class MainWindow
                 depotItems[0].IsSelected = true;
             }
 
+            // Enrich depot names (ASSella heuristic + Steam Store DLC API + local DB)
+            await DepotNameResolver.EnrichDepotNamesAsync(appId, name, depotItems);
+
             _currentPreDownloadConfig = new PreDownloadConfig
             {
                 AppId = appId,
                 GameName = name,
                 SelectedLibrarySteamappsDir = _availableLibraries[0].SteamappsPath,
+                SelectedLibraryIndex = _availableLibraries[0].Index,
                 SelectedBranch = "public",
                 Depots = depotItems
             };
 
-            // Populate UI Modal
-            if (PreDownloadGameTitleText != null) PreDownloadGameTitleText.Text = name;
+            // Populate Dynamic In-Window UI
             if (PreDownloadStorageBtn != null) PreDownloadStorageBtn.Content = _availableLibraries[0].Label;
             if (PreDownloadBranchBtn != null) PreDownloadBranchBtn.Content = "public";
             if (PreDownloadDepotsItemsControl != null) PreDownloadDepotsItemsControl.ItemsSource = depotItems;
@@ -773,6 +779,7 @@ public partial class MainWindow
         var chosen = _availableLibraries[_selectedLibraryIndex];
         if (PreDownloadStorageBtn != null) PreDownloadStorageBtn.Content = chosen.Label;
         _currentPreDownloadConfig.SelectedLibrarySteamappsDir = chosen.SteamappsPath;
+        _currentPreDownloadConfig.SelectedLibraryIndex = chosen.Index;
     }
 
     private void OnPreDownloadBranchCycleClicked(object? sender, RoutedEventArgs e)
@@ -799,8 +806,9 @@ public partial class MainWindow
         var targetSteamappsDir = _currentPreDownloadConfig.SelectedLibrarySteamappsDir;
         var branch = _currentPreDownloadConfig.SelectedBranch;
         var selectedDepots = _currentPreDownloadConfig.GetSelectedDepotIds();
+        var libraryIndex = _currentPreDownloadConfig.SelectedLibraryIndex;
 
-        // 1. Move or insert this game to the very top (index 0) of the game list with [— New] tag
+        // 1. Move or insert this game to the very top (index 0) of the game list with [New] tag
         var targetGame = _allGames.FirstOrDefault(g => g.AppId == appId.ToString());
         if (targetGame == null)
         {
@@ -829,12 +837,9 @@ public partial class MainWindow
         foreach (var g in _allGames) _displayedGames.Add(g);
         if (GamesListBox != null) GamesListBox.SelectedIndex = 0;
 
-        // 2. Activate persistent global bottom progress bar
+        // 2. Activate minimal floating bottom progress bar (White bar with light opacity background)
         if (GlobalDownloadBar != null) GlobalDownloadBar.IsVisible = true;
         if (GlobalDlGameTitle != null) GlobalDlGameTitle.Text = name;
-        if (GlobalDlStepText != null) GlobalDlStepText.Text = "Initializing download...";
-        if (GlobalDlSpeedText != null) GlobalDlSpeedText.Text = "0.0 MB/s";
-        if (GlobalDlPercentText != null) GlobalDlPercentText.Text = "0%";
         if (GlobalDlProgressBar != null) GlobalDlProgressBar.Value = 0;
 
         if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = false;
@@ -847,13 +852,10 @@ public partial class MainWindow
         {
             Dispatcher.UIThread.Post(() =>
             {
-                // Update persistent bottom bar
+                // Update minimal bottom bar
                 if (GlobalDlProgressBar != null) GlobalDlProgressBar.Value = p.OverallPercentage;
-                if (GlobalDlPercentText != null) GlobalDlPercentText.Text = $"{p.OverallPercentage:0}%";
-                if (GlobalDlSpeedText != null) GlobalDlSpeedText.Text = p.SpeedMbPerSec > 0 ? $"{p.SpeedMbPerSec:0.1} MB/s" : "";
-                if (GlobalDlStepText != null) GlobalDlStepText.Text = p.Step;
 
-                // Update game list item at index 0
+                // Update game list item at index 0 (OpacityMask reflects DownloadPercentage)
                 targetGame.DownloadPercentage = p.OverallPercentage;
                 targetGame.DownloadStatusText = p.SpeedMbPerSec > 0
                     ? $"{p.OverallPercentage:0}% ({p.SpeedMbPerSec:0.1} MB/s)"
@@ -877,7 +879,8 @@ public partial class MainWindow
                 branch: branch,
                 selectedDepotIds: selectedDepots,
                 progress: progress,
-                cancellationToken: _downloadCts.Token);
+                cancellationToken: _downloadCts.Token,
+                libraryIndex: libraryIndex);
 
             targetGame.IsDownloading = false;
             targetGame.DownloadStatusText = string.Empty;

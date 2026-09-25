@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Pluto.Engine.DepotDownloader;
@@ -52,6 +53,7 @@ public sealed class GameInstallService
     public async Task<bool> InstallGameAsync(
         uint appId,
         string? targetSteamappsDir = null,
+        int libraryIndex = 0,
         string branch = "public",
         List<string>? selectedDepotIds = null,
         IProgress<InstallStepProgress>? progress = null,
@@ -255,8 +257,8 @@ public sealed class GameInstallService
         // 8. Copy manifests to Steam's central depotcache for native SLS ACF creation
         CopyManifestsToSteamDepotcache(installedDepotsMap);
 
-        // 9. Register in SLS config.yaml & notify SLSsteam API pipe
-        progress?.Report(new InstallStepProgress("Configuring SLSsteam", 90, 100, 0, "Registering in SLS config & notifying Steam via pipe..."));
+        // 9. Register in SLS config.yaml in-place
+        progress?.Report(new InstallStepProgress("Configuring SLSsteam", 90, 100, 0, "Registering in SLS config & unlocking license..."));
         var pluginGame = new PluginGame
         {
             AppId = appId.ToString(),
@@ -265,28 +267,18 @@ public sealed class GameInstallService
         };
         await _slsService.SyncGameToConfigAsync(pluginGame);
 
-        // Notify /tmp/SLSsteam.API with install command (install|appid|0)
-        bool pipeSent = NotifySlsInstallPipe(appId);
-
-        // 9. Smart ACF Verification: Wait for Steam to create the authentic ACF natively
-        var acfPath = Path.Combine(steamapps, $"appmanifest_{appId}.acf");
-        bool steamCreatedAcf = false;
-
-        if (pipeSent)
+        // 10. Wait for SLS license & notify Steam via API pipe (matching ASSella flow, no manual ACF writing)
+        if (File.Exists("/tmp/SLSsteam.API"))
         {
-            progress?.Report(new InstallStepProgress("Waiting for Steam ACF", 95, 100, 0, "Waiting for Steam to create authentic appmanifest natively..."));
-            steamCreatedAcf = await WaitForNativeSteamAcfAsync(acfPath, timeoutSeconds: 6, cancellationToken);
+            progress?.Report(new InstallStepProgress("Unlocking License", 95, 100, 0, "Waiting for SLSsteam to unlock license..."));
+            await WaitForSlsLicenseUnlockAsync(appId, cancellationToken);
+
+            progress?.Report(new InstallStepProgress("Registering with Steam", 98, 100, 0, "Notifying Steam via pipe..."));
+            NotifySlsInstallPipe(appId, libraryIndex);
         }
-
-        // 10. Fallback: If Steam is offline or watcher is inactive, write fallback ACF
-        if (!steamCreatedAcf && !File.Exists(acfPath))
+        else
         {
-            PlutoLogger.Info("GameInstallService", $"Steam did not create ACF natively (Steam may be closed). Writing fallback manifest to {acfPath}...");
-            await SteamAcfWriter.WriteAcfManifestAsync(steamapps, appId, appInfo.Name, appInfo.InstallDir, appInfo.BuildId, sizeOnDisk, installedDepotsMap);
-        }
-        else if (steamCreatedAcf)
-        {
-            PlutoLogger.Info("GameInstallService", $"Confirmed: Steam natively created authentic ACF manifest at {acfPath}");
+            PlutoLogger.Info("GameInstallService", $"SLSsteam pipe not present (Steam closed). Game {appId} registered in config.yaml and will be initialized on Steam start.");
         }
 
         progress?.Report(new InstallStepProgress("Complete", 100, 100, 0, $"Successfully installed {appInfo.Name}!"));
@@ -294,16 +286,78 @@ public sealed class GameInstallService
         return true;
     }
 
-    private static bool NotifySlsInstallPipe(uint appId)
+    private static async Task WaitForSlsLicenseUnlockAsync(uint appId, CancellationToken ct)
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var nativeLog = Path.Combine(home, ".SLSsteam.log");
+        var flatpakLog = Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".SLSsteam.log");
+        var logPath = File.Exists(nativeLog) ? nativeLog : (File.Exists(flatpakLog) ? flatpakLog : null);
+
+        if (logPath == null)
+        {
+            try { await Task.Delay(2000, ct); } catch { }
+            return;
+        }
+
+        try
+        {
+            long startOffset = 0;
+            try { startOffset = new FileInfo(logPath).Length; } catch { }
+
+            var rx = new Regex($@"(?:AppLicensesChanged.*?\b{appId}\b|Unlocked.*?\b{appId}\b)", RegexOptions.Compiled);
+            var deadline = DateTime.UtcNow.AddSeconds(8);
+            bool unlocked = false;
+
+            while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+            {
+                try
+                {
+                    var fi = new FileInfo(logPath);
+                    if (fi.Length > startOffset)
+                    {
+                        using var fs = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        fs.Seek(Math.Max(0, startOffset - 1024), SeekOrigin.Begin);
+                        using var reader = new StreamReader(fs);
+                        var newText = await reader.ReadToEndAsync(ct);
+                        if (rx.IsMatch(newText))
+                        {
+                            unlocked = true;
+                            break;
+                        }
+                    }
+                }
+                catch { }
+                await Task.Delay(300, ct);
+            }
+
+            if (unlocked)
+            {
+                PlutoLogger.Info("GameInstallService", $"SLSsteam unlocked license for AppID {appId}. Waiting 1.5s for memory propagation...");
+                await Task.Delay(1500, ct);
+            }
+            else
+            {
+                PlutoLogger.Info("GameInstallService", $"SLS log check for {appId} timed out; proceeding with pipe notify.");
+                await Task.Delay(1500, ct);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("GameInstallService", $"License wait error for {appId}: {ex.Message}");
+        }
+    }
+
+    private static bool NotifySlsInstallPipe(uint appId, int libraryIndex)
     {
         const string pipePath = "/tmp/SLSsteam.API";
         if (!File.Exists(pipePath)) return false;
 
         try
         {
-            // Flow for install: send install|appid|0 to /tmp/SLSsteam.API
-            File.WriteAllText(pipePath, $"install|{appId}|0\n");
-            PlutoLogger.Info("GameInstallService", $"Sent install|{appId}|0 to {pipePath}");
+            // Flow for install: send install|appid|libraryIndex to /tmp/SLSsteam.API
+            File.WriteAllText(pipePath, $"install|{appId}|{libraryIndex}\n");
+            PlutoLogger.Info("GameInstallService", $"Sent install|{appId}|{libraryIndex} to {pipePath}");
             return true;
         }
         catch (Exception ex)
@@ -311,20 +365,6 @@ public sealed class GameInstallService
             PlutoLogger.Warn("GameInstallService", $"Could not write to {pipePath}: {ex.Message}");
             return false;
         }
-    }
-
-    private static async Task<bool> WaitForNativeSteamAcfAsync(string acfPath, int timeoutSeconds, CancellationToken ct)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
-        while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
-        {
-            if (File.Exists(acfPath))
-            {
-                return true;
-            }
-            await Task.Delay(350, ct);
-        }
-        return File.Exists(acfPath);
     }
 
     private static void CopyManifestsToSteamDepotcache(Dictionary<string, string> installedDepotsMap)

@@ -88,7 +88,15 @@ public class PluginGame : System.ComponentModel.INotifyPropertyChanged
     public bool IsDownloading
     {
         get => _isDownloading;
-        set { if (_isDownloading != value) { _isDownloading = value; OnPropertyChanged(nameof(IsDownloading)); } }
+        set
+        {
+            if (_isDownloading != value)
+            {
+                _isDownloading = value;
+                OnPropertyChanged(nameof(IsDownloading));
+                OnPropertyChanged(nameof(NameOpacityMask));
+            }
+        }
     }
 
     private double _downloadPercentage;
@@ -96,7 +104,37 @@ public class PluginGame : System.ComponentModel.INotifyPropertyChanged
     public double DownloadPercentage
     {
         get => _downloadPercentage;
-        set { if (Math.Abs(_downloadPercentage - value) > 0.05) { _downloadPercentage = value; OnPropertyChanged(nameof(DownloadPercentage)); } }
+        set
+        {
+            if (Math.Abs(_downloadPercentage - value) > 0.05)
+            {
+                _downloadPercentage = value;
+                OnPropertyChanged(nameof(DownloadPercentage));
+                OnPropertyChanged(nameof(NameOpacityMask));
+            }
+        }
+    }
+
+    [JsonIgnore]
+    public Avalonia.Media.IBrush? NameOpacityMask
+    {
+        get
+        {
+            if (!_isDownloading) return null;
+            double progress = Math.Clamp(_downloadPercentage / 100.0, 0.0, 1.0);
+            return new Avalonia.Media.LinearGradientBrush
+            {
+                StartPoint = new Avalonia.RelativePoint(0, 0.5, Avalonia.RelativeUnit.Relative),
+                EndPoint = new Avalonia.RelativePoint(1, 0.5, Avalonia.RelativeUnit.Relative),
+                GradientStops = new Avalonia.Media.GradientStops
+                {
+                    new Avalonia.Media.GradientStop(Avalonia.Media.Color.FromArgb(255, 255, 255, 255), 0.0),
+                    new Avalonia.Media.GradientStop(Avalonia.Media.Color.FromArgb(255, 255, 255, 255), progress),
+                    new Avalonia.Media.GradientStop(Avalonia.Media.Color.FromArgb(51, 255, 255, 255), progress),
+                    new Avalonia.Media.GradientStop(Avalonia.Media.Color.FromArgb(51, 255, 255, 255), 1.0)
+                }
+            };
+        }
     }
 
     private string _downloadStatusText = string.Empty;

@@ -11,7 +11,8 @@ public readonly record struct SteamLibraryFolder(
     string SteamappsPath,
     string Label,
     long FreeSpaceBytes,
-    string FreeSpaceString
+    string FreeSpaceString,
+    int Index = 0
 );
 
 public static class SteamLibraryService
@@ -32,12 +33,13 @@ public static class SteamLibraryService
             {
                 var content = File.ReadAllText(vdfPath);
                 // Matches library blocks e.g. "1" { "path" "..." "label" "..." }
-                var blockRegex = new Regex(@"\""\d+\""\s*\{([^{}]+)\}", RegexOptions.Compiled | RegexOptions.Singleline);
+                var blockRegex = new Regex(@"\""(\d+)\""\s*\{([^{}]+)\}", RegexOptions.Compiled | RegexOptions.Singleline);
                 var matches = blockRegex.Matches(content);
 
                 foreach (Match m in matches)
                 {
-                    var blockText = m.Groups[1].Value;
+                    int libIndex = int.TryParse(m.Groups[1].Value, out var li) ? li : 0;
+                    var blockText = m.Groups[2].Value;
                     var pathMatch = PathRegex.Match(blockText);
                     if (pathMatch.Success)
                     {
@@ -53,7 +55,7 @@ public static class SteamLibraryService
                         long freeBytes = GetFreeSpace(libPath);
                         var freeStr = FormatBytes(freeBytes);
 
-                        result.Add(new SteamLibraryFolder(libPath, steamappsPath, $"{label} ({freeStr} free)", freeBytes, freeStr));
+                        result.Add(new SteamLibraryFolder(libPath, steamappsPath, $"{label} ({freeStr} free)", freeBytes, freeStr, libIndex));
                     }
                 }
             }
@@ -69,7 +71,7 @@ public static class SteamLibraryService
             var defaultPath = System.IO.Path.Combine(home, ".local", "share", "Steam");
             long freeBytes = GetFreeSpace(defaultPath);
             var freeStr = FormatBytes(freeBytes);
-            result.Add(new SteamLibraryFolder(defaultPath, defaultSteamapps, $"Internal Storage ({freeStr} free)", freeBytes, freeStr));
+            result.Add(new SteamLibraryFolder(defaultPath, defaultSteamapps, $"Internal Storage ({freeStr} free)", freeBytes, freeStr, 0));
         }
 
         return result;
