@@ -43,6 +43,7 @@ public partial class MainWindow
         }
         DetailSwitchModeBtn.IsEnabled = true;
         DetailSwitchModeBtn.IsVisible = true;
+        if (DetailDownloadBtn != null) DetailDownloadBtn.IsVisible = false;
 
         if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
 
@@ -92,6 +93,13 @@ public partial class MainWindow
         DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
         DetailSwitchModeBtn.IsEnabled  = true;
         DetailSwitchModeBtn.IsVisible  = true;
+
+        if (DetailDownloadBtn != null)
+        {
+            DetailDownloadBtn.Content   = "download game";
+            DetailDownloadBtn.IsEnabled = true;
+            DetailDownloadBtn.IsVisible = true;
+        }
 
         if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
 
@@ -559,6 +567,7 @@ public partial class MainWindow
         // Returns ALL buttons that have IsVisible=true on the button itself
         var list = new List<Button>();
         if (DetailSwitchModeBtn != null && DetailSwitchModeBtn.IsVisible && DetailSwitchModeBtn.IsEnabled) list.Add(DetailSwitchModeBtn);
+        if (DetailDownloadBtn   != null && DetailDownloadBtn.IsVisible && DetailDownloadBtn.IsEnabled)     list.Add(DetailDownloadBtn);
         if (DetailSlsOnlineBtn  != null && DetailSlsOnlineBtn.IsVisible)  list.Add(DetailSlsOnlineBtn);
         if (DetailNetsockBtn    != null && DetailNetsockBtn.IsVisible)    list.Add(DetailNetsockBtn);
         if (DetailEosProxyBtn   != null && DetailEosProxyBtn.IsVisible)   list.Add(DetailEosProxyBtn);
@@ -572,6 +581,7 @@ public partial class MainWindow
     {
         if (_detailButtonBaseFontSizes.Count > 0) return;
         if (DetailSwitchModeBtn != null) _detailButtonBaseFontSizes[DetailSwitchModeBtn] = 17;
+        if (DetailDownloadBtn   != null) _detailButtonBaseFontSizes[DetailDownloadBtn]   = 16;
         if (DetailSlsOnlineBtn  != null) _detailButtonBaseFontSizes[DetailSlsOnlineBtn]  = 14;
         if (DetailNetsockBtn    != null) _detailButtonBaseFontSizes[DetailNetsockBtn]    = 14;
         if (DetailEosProxyBtn   != null) _detailButtonBaseFontSizes[DetailEosProxyBtn]   = 14;
@@ -621,7 +631,7 @@ public partial class MainWindow
     internal void ClearDetailActionFocus()
     {
         EnsureDetailBaseFontSizes();
-        var all = new[] { DetailSwitchModeBtn, DetailSlsOnlineBtn, DetailNetsockBtn, DetailEosProxyBtn, DetailSteamlessBtn };
+        var all = new[] { DetailSwitchModeBtn, DetailDownloadBtn, DetailSlsOnlineBtn, DetailNetsockBtn, DetailEosProxyBtn, DetailSteamlessBtn };
         foreach (var btn in all)
         {
             if (btn != null)
@@ -630,6 +640,76 @@ public partial class MainWindow
                 if (_detailButtonBaseFontSizes.TryGetValue(btn, out double baseSize))
                     btn.FontSize = baseSize;
             }
+        }
+    }
+
+    private async void OnDownloadGameClicked(object? sender, RoutedEventArgs e)
+    {
+        var appIdStr = _selectedSearchResult?.AppId ?? _selectedGame?.AppId;
+        var name = _selectedSearchResult?.Name ?? _selectedGame?.Name ?? "Game";
+        if (string.IsNullOrWhiteSpace(appIdStr) || !uint.TryParse(appIdStr, out var appId))
+            return;
+
+        if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = false;
+        if (DetailSwitchModeBtn != null) DetailSwitchModeBtn.IsEnabled = false;
+        if (DetailActionStatus != null)
+        {
+            DetailActionStatus.IsVisible = true;
+            DetailActionStatus.Foreground = Avalonia.Media.Brushes.DeepSkyBlue;
+            DetailActionStatus.Text = "Resolving app information...";
+        }
+
+        _downloadCts?.Cancel();
+        _downloadCts = new CancellationTokenSource();
+
+        var progress = new Progress<Pluto.Engine.Installation.InstallStepProgress>(p =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (DetailActionStatus != null)
+                {
+                    DetailActionStatus.Text = $"{p.Step} ({p.OverallPercentage:0}%): {p.Details}";
+                    DetailActionStatus.Foreground = Avalonia.Media.Brushes.DeepSkyBlue;
+                }
+            });
+        });
+
+        try
+        {
+            bool ok = await _installService.InstallGameAsync(appId, progress: progress, cancellationToken: _downloadCts.Token);
+            if (ok)
+            {
+                if (DetailActionStatus != null)
+                {
+                    DetailActionStatus.Text = $"Successfully installed {name}!";
+                    DetailActionStatus.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
+                }
+                if (DetailDownloadBtn != null) DetailDownloadBtn.IsVisible = false;
+                await ReloadLibraryAsync();
+            }
+            else
+            {
+                if (DetailActionStatus != null)
+                {
+                    DetailActionStatus.Text = "Installation failed or was cancelled.";
+                    DetailActionStatus.Foreground = Avalonia.Media.Brushes.IndianRed;
+                }
+                if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            if (DetailActionStatus != null)
+            {
+                DetailActionStatus.Text = $"Install error: {ex.Message}";
+                DetailActionStatus.Foreground = Avalonia.Media.Brushes.IndianRed;
+            }
+            if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = true;
+        }
+        finally
+        {
+            if (DetailSwitchModeBtn != null) DetailSwitchModeBtn.IsEnabled = true;
+            RefreshDetailActionFocus();
         }
     }
 }

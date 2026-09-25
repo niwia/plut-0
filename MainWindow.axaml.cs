@@ -40,6 +40,9 @@ public partial class MainWindow : Window
     private readonly EosProxyService _eosProxyService;
     private readonly SteamlessService _steamlessService;
     private readonly HealthService _healthService;
+    private readonly Pluto.Engine.DepotDownloader.DepotDownloaderService _ddmService;
+    private readonly Pluto.Engine.Installation.GameInstallService _installService;
+    private CancellationTokenSource? _downloadCts;
 
     // Timers
     private readonly DispatcherTimer _screenshotAutoRotateTimer;
@@ -148,6 +151,8 @@ public partial class MainWindow : Window
         _placeholderTimer.Start();
 
         _healthService = new HealthService(_configService);
+        _ddmService    = new Pluto.Engine.DepotDownloader.DepotDownloaderService();
+        _installService = new Pluto.Engine.Installation.GameInstallService(_ddmService, _slsService, _configService, _depotKeyService);
         _visorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
         _visorTimer.Tick += async (_, _) => await RefreshVisorAsync();
         _visorTimer.Start();

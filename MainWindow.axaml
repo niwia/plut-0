@@ -612,14 +612,23 @@
                         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
                             <!-- Bottom-Left: All Actions & Toggles (Indented to match details) -->
                             <StackPanel Grid.Column="0" Margin="32,0,0,0" Spacing="14" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                                <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" -->
-                                <StackPanel Spacing="4">
-                                    <Button x:Name="DetailSwitchModeBtn"
-                                            Classes="minimalTextBtn"
-                                            Content="add to plugin"
-                                            FontSize="17"
-                                            Foreground="#4ADE80"
-                                            Click="OnToggleModeClicked" />
+                                <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" & "download game" -->
+                                <StackPanel Spacing="6">
+                                    <StackPanel Orientation="Horizontal" Spacing="20">
+                                        <Button x:Name="DetailSwitchModeBtn"
+                                                Classes="minimalTextBtn"
+                                                Content="add to plugin"
+                                                FontSize="17"
+                                                Foreground="#4ADE80"
+                                                Click="OnToggleModeClicked" />
+                                        <Button x:Name="DetailDownloadBtn"
+                                                Classes="minimalTextBtn"
+                                                Content="download game"
+                                                FontSize="16"
+                                                Foreground="#38BDF8"
+                                                IsVisible="False"
+                                                Click="OnDownloadGameClicked" />
+                                    </StackPanel>
                                     <TextBlock x:Name="DetailActionStatus"
                                                FontSize="12"
                                                Foreground="#777777"
