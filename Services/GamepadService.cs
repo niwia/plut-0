@@ -10,8 +10,10 @@ public enum GamepadAction
 {
     NavigateUp,
     NavigateDown,
-    PageUp,
-    PageDown,
+    NavigateLeft,      // D-Pad Left / LB in some contexts
+    NavigateRight,     // D-Pad Right / RB in some contexts
+    PageUp,            // LB / L-shoulder
+    PageDown,          // RB / R-shoulder
     Confirm,           // A / Cross
     ManageGame,        // X / Square
     FocusSearch,       // Y / Triangle
@@ -251,11 +253,11 @@ public class GamepadService : IDisposable
                 break;
 
             case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_LEFT:
-                ActionTriggered?.Invoke(GamepadAction.PageUp);
+                ActionTriggered?.Invoke(GamepadAction.NavigateLeft);
                 break;
 
             case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
-                ActionTriggered?.Invoke(GamepadAction.PageDown);
+                ActionTriggered?.Invoke(GamepadAction.NavigateRight);
                 break;
 
             case SDL.SDL_GameControllerButton.SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
@@ -302,12 +304,12 @@ public class GamepadService : IDisposable
         else if ((hatValue & SDL.SDL_HAT_LEFT) != 0)
         {
             _lastHatNavTime = DateTime.UtcNow;
-            ActionTriggered?.Invoke(GamepadAction.PageUp);
+            ActionTriggered?.Invoke(GamepadAction.NavigateLeft);
         }
         else if ((hatValue & SDL.SDL_HAT_RIGHT) != 0)
         {
             _lastHatNavTime = DateTime.UtcNow;
-            ActionTriggered?.Invoke(GamepadAction.PageDown);
+            ActionTriggered?.Invoke(GamepadAction.NavigateRight);
         }
     }
 

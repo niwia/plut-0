@@ -21,6 +21,13 @@ public partial class MainWindow
         _detailCts?.Cancel();
         _screenshotAutoRotateTimer.Stop();
 
+        // Show main backdrop
+        if (MainBackdropImage != null)
+        {
+            MainBackdropImage.IsVisible = true;
+            MainBackdropImage.Opacity   = 0.18;
+        }
+
         if (_settingDynamicMainBackdrop && _mainBackdropPool.Count > 0)
         {
             _mainBackdropTimer.Interval = TimeSpan.FromSeconds(Math.Max(5, _settingMainBackdropIntervalSec));
@@ -38,6 +45,13 @@ public partial class MainWindow
         _currentView = ActiveView.Settings;
         _screenshotAutoRotateTimer.Stop();
         _mainBackdropTimer.Stop();
+
+        // Hide main backdrop so it doesn't bleed through
+        if (MainBackdropImage != null)
+        {
+            MainBackdropImage.Opacity   = 0;
+            MainBackdropImage.IsVisible = false;
+        }
 
         SetActiveSettingsTab(_activeSettingsTab);
         UpdateGameCountsText();
@@ -172,15 +186,32 @@ public partial class MainWindow
                 else if (_currentView == ActiveView.Settings)   NavigateSettingsOptions(1);
                 break;
 
+            case GamepadAction.NavigateLeft:
+                // D-Pad Left: prev screenshot in detail, prev tab in settings, no-op in main list
+                if (_currentView == ActiveView.GameDetail)
+                    OnPrevScreenshotClicked(null, new RoutedEventArgs());
+                else if (_currentView == ActiveView.Settings)
+                    CycleSettingsTab(-1);
+                break;
+
+            case GamepadAction.NavigateRight:
+                // D-Pad Right: next screenshot in detail, next tab in settings, no-op in main list
+                if (_currentView == ActiveView.GameDetail)
+                    OnNextScreenshotClicked(null, new RoutedEventArgs());
+                else if (_currentView == ActiveView.Settings)
+                    CycleSettingsTab(1);
+                break;
+
             case GamepadAction.PageUp:
+                // LB: fast scroll in main list; no-op in detail/settings (LB/RB now tab-cycle via NavigateLeft/Right via D-Pad)
                 if (_currentView == ActiveView.MainList)
                 {
                     if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
                         NavigateSearchResults(-5);
                     else NavigateList(-5);
                 }
-                else if (_currentView == ActiveView.GameDetail) OnPrevScreenshotClicked(null, new RoutedEventArgs());
-                else if (_currentView == ActiveView.Settings)   CycleSettingsTab(-1);
+                else if (_currentView == ActiveView.Settings)
+                    CycleSettingsTab(-1);
                 break;
 
             case GamepadAction.PageDown:
@@ -190,8 +221,8 @@ public partial class MainWindow
                         NavigateSearchResults(5);
                     else NavigateList(5);
                 }
-                else if (_currentView == ActiveView.GameDetail) OnNextScreenshotClicked(null, new RoutedEventArgs());
-                else if (_currentView == ActiveView.Settings)   CycleSettingsTab(1);
+                else if (_currentView == ActiveView.Settings)
+                    CycleSettingsTab(1);
                 break;
 
             case GamepadAction.Confirm:

@@ -184,7 +184,11 @@ public partial class MainWindow
         if (!_settingDynamicMainBackdrop)
         {
             _mainBackdropTimer.Stop();
-            if (MainBackdropImage != null) MainBackdropImage.Source = null;
+            if (MainBackdropImage != null)
+            {
+                MainBackdropImage.Opacity   = 0;
+                MainBackdropImage.IsVisible = false;
+            }
         }
         else
         {
@@ -244,7 +248,11 @@ public partial class MainWindow
             }
 
             if (bmp != null && _currentView == ActiveView.MainList && MainBackdropImage != null)
-                MainBackdropImage.Source = bmp;
+            {
+                MainBackdropImage.Source    = bmp;
+                MainBackdropImage.IsVisible = true;
+                MainBackdropImage.Opacity   = 0.18;
+            }
         }
         catch { }
     }

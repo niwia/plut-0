@@ -105,6 +105,13 @@ public partial class MainWindow
         _screenshotAutoRotateTimer.Stop();
         _mainBackdropTimer.Stop();
 
+        // Hide main backdrop so it doesn't bleed through
+        if (MainBackdropImage != null)
+        {
+            MainBackdropImage.Opacity   = 0;
+            MainBackdropImage.IsVisible = false;
+        }
+
         if (DetailGameLogo         != null) { DetailGameLogo.Source  = null; DetailGameLogo.IsVisible = false; }
         if (DetailGameTitle        != null) DetailGameTitle.IsVisible  = false;
         if (DetailGameCredits      != null) { DetailGameCredits.Text   = string.Empty; DetailGameCredits.IsVisible = false; }
@@ -548,6 +555,10 @@ public partial class MainWindow
     private void UpdateDetailActionHighlight()
     {
         var buttons = GetVisibleDetailActionButtons();
+        // Clamp in case buttons became hidden since last navigation
+        if (buttons.Count > 0)
+            _detailActionIndex = Math.Clamp(_detailActionIndex, 0, buttons.Count - 1);
+
         for (int i = 0; i < buttons.Count; i++)
             buttons[i].Classes.Set("actionBtnFocused", i == _detailActionIndex);
     }

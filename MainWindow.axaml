@@ -218,26 +218,41 @@
             <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
 
+        <!-- Focused action button: no borders, just a brighter text + subtle scale -->
         <Style Selector="Button.actionBtnFocused">
-            <Setter Property="Background" Value="#20FFFFFF" />
-            <Setter Property="BorderBrush" Value="#4ADE80" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.actionBtnFocused TextBlock">
+            <Setter Property="FontSize" Value="18" />
+        </Style>
+        <Style Selector="Button.actionBtnFocused /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
         </Style>
     </Window.Styles>
 
     <!-- Root Container -->
     <Grid>
-        <!-- Dynamic Rotating Background for Main Page -->
+        <!-- Dynamic Rotating Background — only shown on main list, hidden on detail/settings -->
         <Image x:Name="MainBackdropImage"
                Stretch="UniformToFill"
-               Opacity="0.18"
-               IsHitTestVisible="False">
+               Opacity="0"
+               IsHitTestVisible="False"
+               IsVisible="False">
             <Image.Transitions>
                 <Transitions>
                     <DoubleTransition Property="Opacity" Duration="0:0:0.6" Easing="CubicEaseOut" />
                 </Transitions>
             </Image.Transitions>
+            <!-- Left-to-right fade matching the detail backdrop gradient -->
+            <Image.OpacityMask>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                    <GradientStop Color="#FFFFFFFF" Offset="0.0" />
+                    <GradientStop Color="#BBFFFFFF" Offset="0.4" />
+                    <GradientStop Color="#44FFFFFF" Offset="0.75" />
+                    <GradientStop Color="#00000000" Offset="1.0" />
+                </LinearGradientBrush>
+            </Image.OpacityMask>
         </Image>
 
         <!-- Non-clickable brand watermark in top-right -->
