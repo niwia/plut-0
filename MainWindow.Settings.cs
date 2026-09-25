@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Pluto.Services;
+using Avalonia.Threading;
 
 namespace Pluto;
 
@@ -370,6 +371,12 @@ public partial class MainWindow
         _settingsOptionIndex = Math.Clamp(_settingsOptionIndex, 0, buttons.Count - 1);
         for (int i = 0; i < buttons.Count; i++)
             buttons[i].Opacity = i == _settingsOptionIndex ? 1.0 : 0.4;
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_settingsOptionIndex >= 0 && _settingsOptionIndex < buttons.Count)
+                buttons[_settingsOptionIndex].Focus();
+        }, DispatcherPriority.Input);
     }
 
     internal void CycleSettingsTab(int offset)

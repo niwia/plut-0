@@ -115,6 +115,17 @@ public partial class MainWindow
                     e.Handled = true;
                 }
             }
+            else if ((e.Key == Key.Y || e.Key == Key.OemQuestion) && !SearchBox.IsFocused)
+            {
+                SearchBox.Focus();
+                SearchBox.SelectAll();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.X && !SearchBox.IsFocused)
+            {
+                PlutoLogger.Info("Keyboard", "Options (X) pressed");
+                e.Handled = true;
+            }
             else if (e.Key == Key.Tab || e.Key == Key.F1)
             {
                 OpenSettingsPage();
@@ -126,25 +137,67 @@ public partial class MainWindow
                 e.Handled = true;
             }
         }
-        else
+        else if (_currentView == ActiveView.GameDetail)
         {
-            if (_currentView == ActiveView.GameDetail)
+            if (e.Key == Key.Up || e.Key == Key.Left)
             {
-                if (e.Key == Key.Left || e.Key == Key.PageUp)
-                {
-                    OnPrevScreenshotClicked(null, new RoutedEventArgs());
-                    e.Handled = true;
-                    return;
-                }
-                else if (e.Key == Key.Right || e.Key == Key.PageDown)
-                {
-                    OnNextScreenshotClicked(null, new RoutedEventArgs());
-                    e.Handled = true;
-                    return;
-                }
+                NavigateDetailActions(-1);
+                e.Handled = true;
             }
-
-            if (e.Key == Key.Escape || e.Key == Key.Back)
+            else if (e.Key == Key.Down || e.Key == Key.Right)
+            {
+                NavigateDetailActions(1);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter || e.Key == Key.Space)
+            {
+                TriggerDetailAction();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.B)
+            {
+                ShowMainList();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.X)
+            {
+                PlutoLogger.Info("Keyboard", "Options (X) pressed");
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Y || e.Key == Key.Tab || e.Key == Key.F1)
+            {
+                OpenSettingsPage();
+                e.Handled = true;
+            }
+        }
+        else if (_currentView == ActiveView.Settings)
+        {
+            if (e.Key == Key.Left)
+            {
+                CycleSettingsTab(-1);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Right)
+            {
+                CycleSettingsTab(1);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Up)
+            {
+                NavigateSettingsOptions(-1);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Down)
+            {
+                NavigateSettingsOptions(1);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter || e.Key == Key.Space)
+            {
+                TriggerSettingsOption();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Escape || e.Key == Key.Back || e.Key == Key.B)
             {
                 ShowMainList();
                 e.Handled = true;
@@ -193,23 +246,23 @@ public partial class MainWindow
                 break;
 
             case GamepadAction.NavigateLeft:
-                // D-Pad Left: prev screenshot in detail, prev tab in settings, no-op in main list
+                // D-Pad Left: prev action in detail, prev tab in settings, no-op in main list (no controller screenshot navigation)
                 if (_currentView == ActiveView.GameDetail)
-                    OnPrevScreenshotClicked(null, new RoutedEventArgs());
+                    NavigateDetailActions(-1);
                 else if (_currentView == ActiveView.Settings)
                     CycleSettingsTab(-1);
                 break;
 
             case GamepadAction.NavigateRight:
-                // D-Pad Right: next screenshot in detail, next tab in settings, no-op in main list
+                // D-Pad Right: next action in detail, next tab in settings, no-op in main list (no controller screenshot navigation)
                 if (_currentView == ActiveView.GameDetail)
-                    OnNextScreenshotClicked(null, new RoutedEventArgs());
+                    NavigateDetailActions(1);
                 else if (_currentView == ActiveView.Settings)
                     CycleSettingsTab(1);
                 break;
 
             case GamepadAction.PageUp:
-                // LB: fast scroll in main list; no-op in detail/settings (LB/RB now tab-cycle via NavigateLeft/Right via D-Pad)
+                // LB: fast scroll in main list; prev tab in settings
                 if (_currentView == ActiveView.MainList)
                 {
                     if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
@@ -246,11 +299,28 @@ public partial class MainWindow
                 else if (_currentView == ActiveView.Settings)   TriggerSettingsOption();
                 break;
 
+            case GamepadAction.ManageGame:
+                // X for options (placeholder to be implemented later)
+                PlutoLogger.Info("Gamepad", "Options (X) pressed");
+                break;
+
             case GamepadAction.FocusSearch:
                 if (_currentView == ActiveView.MainList)
-                { SearchBox.Focus(); SearchBox.SelectAll(); }
+                {
+                    if (SearchBox.IsFocused)
+                    {
+                        ClearSearchAndReset();
+                    }
+                    else
+                    {
+                        SearchBox.Focus();
+                        SearchBox.SelectAll();
+                    }
+                }
                 else if (_currentView == ActiveView.GameDetail)
+                {
                     OpenSettingsPage();  // Y from detail = open settings
+                }
                 break;
 
             case GamepadAction.BackOrCancel:
@@ -294,9 +364,16 @@ public partial class MainWindow
             SearchResultsListBox.ScrollIntoView(SearchResultsListBox.SelectedItem);
     }
 
-    // UI event handlers for list and back
-    private void OnBackToMainClicked(object? sender, RoutedEventArgs e)   => ShowMainList();
-    private void OnOpenSettingsClicked(object? sender, RoutedEventArgs e) => OpenSettingsPage();
+    // UI event handlers for list, badges, and back
+    private void OnBackToMainClicked(object? sender, RoutedEventArgs e)           => ShowMainList();
+    private void OnBackBadgeClicked(object? sender, PointerPressedEventArgs e)    => ShowMainList();
+    private void OnOpenSettingsClicked(object? sender, RoutedEventArgs e)         => OpenSettingsPage();
+    private void OnOpenSettingsPointerPressed(object? sender, PointerPressedEventArgs e) => OpenSettingsPage();
+    private void OnSearchBadgeClicked(object? sender, PointerPressedEventArgs e)
+    {
+        SearchBox.Focus();
+        SearchBox.SelectAll();
+    }
 
     private void OnGameDoubleTapped(object? sender, TappedEventArgs e)
     {
@@ -319,5 +396,7 @@ public partial class MainWindow
         else if (e.Key == Key.Tab || e.Key == Key.F1) { OpenSettingsPage(); e.Handled = true; }
         else if (e.Key == Key.Y || e.Key == Key.OemQuestion)
         { SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; }
+        else if (e.Key == Key.X)
+        { PlutoLogger.Info("Keyboard", "Options (X) pressed"); e.Handled = true; }
     }
 }

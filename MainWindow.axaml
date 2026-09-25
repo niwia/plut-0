@@ -155,10 +155,12 @@
             <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="#555555" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Foreground" Duration="0:0:0.15" />
                     <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                    <DoubleTransition Property="FontSize" Duration="0:0:0.18" Easing="CubicEaseOut" />
                 </Transitions>
             </Setter>
         </Style>
@@ -167,6 +169,10 @@
         </Style>
         <Style Selector="Button.minimalTextBtn:pointerover /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.minimalTextBtn:focus /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
 
         <!-- Search Results Item Styles: Clean, fast, no bold, subtle dark translucency -->
@@ -223,12 +229,69 @@
         <Style Selector="Button.actionBtnFocused">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
         </Style>
         <Style Selector="Button.actionBtnFocused TextBlock">
             <Setter Property="FontSize" Value="18" />
         </Style>
         <Style Selector="Button.actionBtnFocused /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <!-- Controller Button Badges & Prompt Labels -->
+        <Style Selector="Border.btnBadge">
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="MinWidth" Value="18" />
+            <Setter Property="Padding" Value="4, 0" />
+            <Setter Property="Background" Value="#1C1F26" />
+            <Setter Property="BorderBrush" Value="#2E3440" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="Border.btnBadge.btnA">
+            <Setter Property="BorderBrush" Value="#059669" />
+            <Setter Property="Background" Value="#0D281E" />
+        </Style>
+        <Style Selector="Border.btnBadge.btnB">
+            <Setter Property="BorderBrush" Value="#DC2626" />
+            <Setter Property="Background" Value="#291215" />
+        </Style>
+        <Style Selector="Border.btnBadge.btnX">
+            <Setter Property="BorderBrush" Value="#2563EB" />
+            <Setter Property="Background" Value="#101D36" />
+        </Style>
+        <Style Selector="Border.btnBadge.btnY">
+            <Setter Property="BorderBrush" Value="#D97706" />
+            <Setter Property="Background" Value="#2A1C0A" />
+        </Style>
+
+        <Style Selector="TextBlock.btnBadgeText">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#9CA3AF" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBlock.btnBadgeText.txtA">
+            <Setter Property="Foreground" Value="#34D399" />
+        </Style>
+        <Style Selector="TextBlock.btnBadgeText.txtB">
+            <Setter Property="Foreground" Value="#F87171" />
+        </Style>
+        <Style Selector="TextBlock.btnBadgeText.txtX">
+            <Setter Property="Foreground" Value="#60A5FA" />
+        </Style>
+        <Style Selector="TextBlock.btnBadgeText.txtY">
+            <Setter Property="Foreground" Value="#FBBF24" />
+        </Style>
+
+        <Style Selector="TextBlock.hintLabel">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#666666" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Window.Styles>
 
@@ -265,22 +328,25 @@
                    HorizontalAlignment="Right"
                    VerticalAlignment="Top"
                    Margin="0,48,64,0"
-                   IsHitTestVisible="False" />
-
-        <!-- 1. MAIN LIST VIEW -->
+                   IsHitTestVisible="False" />        <!-- 1. MAIN LIST VIEW -->
         <Grid x:Name="MainListPanel"
-              RowDefinitions="Auto,*"
-              Margin="64,48,64,36"
+              RowDefinitions="Auto,*,Auto"
+              Margin="64,48,64,28"
               IsVisible="True">
             
-            <!-- Top: Minimal Search Box -->
+            <!-- Top: Minimal Search Box with [Y] Controller Badge -->
             <StackPanel Grid.Row="0" Margin="0,0,0,0" HorizontalAlignment="Left" Spacing="6">
-                <TextBox x:Name="SearchBox"
-                         Classes="minimalSearch"
-                         PlaceholderText="search games..."
-                         TextChanged="OnSearchTextChanged"
-                         KeyDown="OnSearchBoxKeyDown"
-                         GotFocus="OnSearchBoxGotFocus" />
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Classes="btnBadge btnY" Cursor="Hand" PointerPressed="OnSearchBadgeClicked">
+                        <TextBlock Classes="btnBadgeText txtY" Text="Y" />
+                    </Border>
+                    <TextBox x:Name="SearchBox"
+                             Classes="minimalSearch"
+                             PlaceholderText="search games..."
+                             TextChanged="OnSearchTextChanged"
+                             KeyDown="OnSearchBoxKeyDown"
+                             GotFocus="OnSearchBoxGotFocus" />
+                </StackPanel>
                 <TextBlock x:Name="SearchStatusText"
                            FontSize="13"
                            FontWeight="Normal"
@@ -319,35 +385,35 @@
                                     CornerRadius="6"
                                     Padding="8, 6"
                                     Margin="0, 2">
-                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
-                                    <!-- In-memory game thumbnail (clean capsule) -->
-                                    <Border Grid.Column="0"
-                                            Width="110"
-                                            Height="50"
-                                            CornerRadius="4"
-                                            ClipToBounds="True"
-                                            Background="#0FFFFFFF">
-                                        <Image Source="{Binding Thumbnail}"
-                                               Stretch="UniformToFill"
-                                               IsVisible="{Binding HasThumbnail}" />
-                                    </Border>
+                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                     <!-- In-memory game thumbnail (clean capsule) -->
+                                     <Border Grid.Column="0"
+                                             Width="110"
+                                             Height="50"
+                                             CornerRadius="4"
+                                             ClipToBounds="True"
+                                             Background="#0FFFFFFF">
+                                         <Image Source="{Binding Thumbnail}"
+                                                Stretch="UniformToFill"
+                                                IsVisible="{Binding HasThumbnail}" />
+                                     </Border>
 
-                                    <!-- Game Details -->
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                                        <TextBlock Text="{Binding Name}"
-                                                   FontSize="17"
-                                                   FontWeight="Normal"
-                                                   Foreground="{Binding TitleColorHex}" />
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
-                                                       FontSize="12"
-                                                       Foreground="#555555" />
-                                            <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
-                                                       FontSize="12"
-                                                       Foreground="{Binding StatusColorHex}" />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Grid>
+                                     <!-- Game Details -->
+                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                                         <TextBlock Text="{Binding Name}"
+                                                    FontSize="17"
+                                                    FontWeight="Normal"
+                                                    Foreground="{Binding TitleColorHex}" />
+                                         <StackPanel Orientation="Horizontal" Spacing="8">
+                                             <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
+                                                        FontSize="12"
+                                                        Foreground="#555555" />
+                                             <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
+                                                        FontSize="12"
+                                                        Foreground="{Binding StatusColorHex}" />
+                                         </StackPanel>
+                                     </StackPanel>
+                                 </Grid>
                             </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -365,15 +431,39 @@
                            IsVisible="False" />
             </Grid>
 
-            <!-- Settings Button at Bottom Right of Main Page -->
-            <Button x:Name="SettingsBtn"
-                    Grid.Row="1"
-                    Classes="minimalTextBtn"
-                    Content="settings"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Margin="0,0,0,0"
-                    Click="OnOpenSettingsClicked" />
+            <!-- Bottom Row: Controller Hints on Left & Settings on Right -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0" VerticalAlignment="Bottom">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
+                        <TextBlock Classes="hintLabel" Text="select" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Classes="btnBadge btnX"><TextBlock Classes="btnBadgeText txtX" Text="X" /></Border>
+                        <TextBlock Classes="hintLabel" Text="options" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Classes="btnBadge btnY"><TextBlock Classes="btnBadgeText txtY" Text="Y" /></Border>
+                        <TextBlock Classes="hintLabel" Text="search" />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Settings Button with Controller Select / View Icon -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                    <Border Classes="btnBadge" MinWidth="22" Height="18" Padding="3,0" Cursor="Hand" PointerPressed="OnOpenSettingsPointerPressed">
+                        <Path Data="M 0,3 h 8 v 6 h -8 Z M 4,1 h 8 v 6 h -8 Z"
+                              Stroke="#888888"
+                              StrokeThickness="1"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Center" />
+                    </Border>
+                    <Button x:Name="SettingsBtn"
+                            Classes="minimalTextBtn"
+                            Content="settings"
+                            Focusable="False"
+                            Click="OnOpenSettingsClicked" />
+                </StackPanel>
+            </Grid>
         </Grid>
 
         <!-- 2. GAME DETAIL PAGE VIEW -->
@@ -405,15 +495,19 @@
             </Image>
 
             <!-- Foreground Content: Top Info & Bottom Actions / Gallery -->
-            <Grid RowDefinitions="Auto,*,Auto"
-                  Margin="64,48,64,36">
+            <Grid RowDefinitions="Auto,*,Auto,Auto"
+                  Margin="64,48,64,28">
                 
-                <!-- Row 0: Back Button -->
-                <Button Grid.Row="0"
-                        Classes="minimalTextBtn"
-                        Content="back"
-                        Margin="0,0,0,20"
-                        Click="OnBackToMainClicked" />
+                <!-- Row 0: Back Button with [B] Controller Badge -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,20">
+                    <Border Classes="btnBadge btnB" Cursor="Hand" PointerPressed="OnBackBadgeClicked">
+                        <TextBlock Classes="btnBadgeText txtB" Text="B" />
+                    </Border>
+                    <Button Classes="minimalTextBtn"
+                            Content="back"
+                            Focusable="False"
+                            Click="OnBackToMainClicked" />
+                </StackPanel>
 
                 <!-- Row 1: Header (Left Margin) & Indented Details (Right Offset) -->
                 <StackPanel Grid.Row="1" Spacing="4" HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -539,7 +633,7 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Bottom-Right: Circling Screenshot Gallery Controls -->
+                    <!-- Bottom-Right: Circling Screenshot Gallery Controls (Timer-driven) -->
                     <StackPanel x:Name="DetailGalleryControls"
                                 Grid.Column="1"
                                 Orientation="Horizontal"
@@ -552,6 +646,7 @@
                                 Content="&lt;"
                                 FontSize="18"
                                 Foreground="#888888"
+                                Focusable="False"
                                 Click="OnPrevScreenshotClicked" />
                         <TextBlock x:Name="DetailGalleryIndexText"
                                    Text="1 / 6"
@@ -563,12 +658,44 @@
                                 Content="&gt;"
                                 FontSize="18"
                                 Foreground="#888888"
+                                Focusable="False"
                                 Click="OnNextScreenshotClicked" />
-                        <TextBlock Text="lb / rb"
-                                   FontSize="11"
-                                   Foreground="#444444"
-                                   VerticalAlignment="Center"
-                                   Margin="6,0,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Row 3: Controller Hints Footer Bar -->
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="36,20,0,0" VerticalAlignment="Bottom">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="↑↓" /></Border>
+                            <TextBlock Classes="hintLabel" Text="navigate" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
+                            <TextBlock Classes="hintLabel" Text="select" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Classes="btnBadge btnB"><TextBlock Classes="btnBadgeText txtB" Text="B" /></Border>
+                            <TextBlock Classes="hintLabel" Text="back" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Classes="btnBadge btnX"><TextBlock Classes="btnBadgeText txtX" Text="X" /></Border>
+                            <TextBlock Classes="hintLabel" Text="options" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                        <Border Classes="btnBadge" MinWidth="22" Height="18" Padding="3,0" Cursor="Hand" PointerPressed="OnOpenSettingsPointerPressed">
+                            <Path Data="M 0,3 h 8 v 6 h -8 Z M 4,1 h 8 v 6 h -8 Z"
+                                  Stroke="#888888"
+                                  StrokeThickness="1"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Center" />
+                        </Border>
+                        <Button Classes="minimalTextBtn"
+                                Content="settings"
+                                Focusable="False"
+                                Click="OnOpenSettingsClicked" />
                     </StackPanel>
                 </Grid>
             </Grid>
@@ -576,16 +703,20 @@
 
         <!-- 3. SETTINGS PAGE VIEW WITH SUBMENUS (Theme, API, SLS Config, Visuals) -->
         <Grid x:Name="SettingsPanel"
-              RowDefinitions="Auto,Auto,Auto,*"
-              Margin="64,48,64,36"
+              RowDefinitions="Auto,Auto,Auto,*,Auto"
+              Margin="64,48,64,28"
               IsVisible="False">
             
-            <!-- Row 0: Back Button -->
-            <Button Grid.Row="0"
-                    Classes="minimalTextBtn"
-                    Content="back"
-                    Margin="0,0,0,20"
-                    Click="OnBackToMainClicked" />
+            <!-- Row 0: Back Button with [B] Controller Badge -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,20">
+                <Border Classes="btnBadge btnB" Cursor="Hand" PointerPressed="OnBackBadgeClicked">
+                    <TextBlock Classes="btnBadgeText txtB" Text="B" />
+                </Border>
+                <Button Classes="minimalTextBtn"
+                        Content="back"
+                        Focusable="False"
+                        Click="OnBackToMainClicked" />
+            </StackPanel>
 
             <!-- Row 1: Settings Title -->
             <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,24">
@@ -599,8 +730,8 @@
                            Foreground="#555555" />
             </StackPanel>
 
-            <!-- Row 2: Submenu Tab Navigation Bar -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="28" Margin="0,0,0,28">
+            <!-- Row 2: Submenu Tab Navigation Bar with [←→] switch tab hint -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="28" Margin="0,0,0,28" VerticalAlignment="Center">
                 <Button x:Name="SettingsTabThemeBtn"
                         Classes="settingsTabBtn active"
                         Content="theme"
@@ -617,6 +748,10 @@
                         Classes="settingsTabBtn"
                         Content="visuals &amp; gallery"
                         Click="OnSettingsTabVisualsClicked" />
+                <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="8,0,0,0">
+                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="←→" /></Border>
+                    <TextBlock Classes="hintLabel" Text="switch tab" />
+                </StackPanel>
             </StackPanel>
 
             <!-- Row 3: Submenu Content Panels -->
@@ -805,6 +940,26 @@
                     </StackPanel>
                 </Grid>
             </ScrollViewer>
+
+            <!-- Row 4: Controller Hints Footer Bar -->
+            <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="18" Margin="0,16,0,0" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="←→" /></Border>
+                    <TextBlock Classes="hintLabel" Text="tabs" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="↑↓" /></Border>
+                    <TextBlock Classes="hintLabel" Text="navigate" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
+                    <TextBlock Classes="hintLabel" Text="toggle" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Border Classes="btnBadge btnB"><TextBlock Classes="btnBadgeText txtB" Text="B" /></Border>
+                    <TextBlock Classes="hintLabel" Text="back" />
+                </StackPanel>
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

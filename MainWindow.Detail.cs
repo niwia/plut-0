@@ -59,14 +59,14 @@ public partial class MainWindow
 
         UpdateEosProxyUi();
 
+        MainListPanel.IsVisible   = false;
+        GameDetailPanel.IsVisible = true;
+        SettingsPanel.IsVisible   = false;
+
         _detailActionIndex = 0;
         RefreshDetailActionFocus();
 
         _ = LoadGameArtworkAndMetadataAsync(game.AppId, game.Name);
-
-        MainListPanel.IsVisible   = false;
-        GameDetailPanel.IsVisible = true;
-        SettingsPanel.IsVisible   = false;
     }
 
     private void OpenSearchResultDetailPage(SearchResultItem item)
@@ -96,14 +96,14 @@ public partial class MainWindow
         DetailEosProxyBtn.IsVisible   = false;
         DetailSteamlessBtn.IsVisible  = false;
 
+        MainListPanel.IsVisible   = false;
+        GameDetailPanel.IsVisible = true;
+        SettingsPanel.IsVisible   = false;
+
         _detailActionIndex = 0;
         RefreshDetailActionFocus();
 
         _ = LoadGameArtworkAndMetadataAsync(item.AppId, item.Name);
-
-        MainListPanel.IsVisible   = false;
-        GameDetailPanel.IsVisible = true;
-        SettingsPanel.IsVisible   = false;
     }
 
     // Reset all detail UI — hide backdrop, clear all data
@@ -131,11 +131,11 @@ public partial class MainWindow
         if (DetailGameBackdrop     != null) DetailGameBackdrop.IsVisible = false;
 
         // Reset all action buttons to hidden — they'll be explicitly shown as needed
-        if (DetailSwitchModeBtn  != null) { DetailSwitchModeBtn.IsVisible  = false; DetailSwitchModeBtn.Opacity  = 1.0; }
-        if (DetailSlsOnlineBtn   != null) { DetailSlsOnlineBtn.IsVisible   = false; DetailSlsOnlineBtn.Opacity   = 1.0; }
-        if (DetailNetsockBtn     != null) { DetailNetsockBtn.IsVisible     = false; DetailNetsockBtn.Opacity     = 1.0; }
-        if (DetailEosProxyBtn    != null) { DetailEosProxyBtn.IsVisible    = false; DetailEosProxyBtn.Opacity    = 1.0; }
-        if (DetailSteamlessBtn   != null) { DetailSteamlessBtn.IsVisible   = false; DetailSteamlessBtn.Opacity   = 1.0; }
+        if (DetailSwitchModeBtn  != null) { DetailSwitchModeBtn.IsVisible  = false; DetailSwitchModeBtn.Opacity  = 1.0; DetailSwitchModeBtn.FontSize = 17; }
+        if (DetailSlsOnlineBtn   != null) { DetailSlsOnlineBtn.IsVisible   = false; DetailSlsOnlineBtn.Opacity   = 1.0; DetailSlsOnlineBtn.FontSize = 14; }
+        if (DetailNetsockBtn     != null) { DetailNetsockBtn.IsVisible     = false; DetailNetsockBtn.Opacity     = 1.0; DetailNetsockBtn.FontSize = 14; }
+        if (DetailEosProxyBtn    != null) { DetailEosProxyBtn.IsVisible    = false; DetailEosProxyBtn.Opacity    = 1.0; DetailEosProxyBtn.FontSize = 14; }
+        if (DetailSteamlessBtn   != null) { DetailSteamlessBtn.IsVisible   = false; DetailSteamlessBtn.Opacity   = 1.0; DetailSteamlessBtn.FontSize = 14; }
     }
 
     // ── Artwork + metadata loading ────────────────────────────────────────────
@@ -557,14 +557,40 @@ public partial class MainWindow
         return list;
     }
 
-    // Full re-render of the focus ring: dim all, brighten focused
+    private readonly Dictionary<Button, double> _detailButtonBaseFontSizes = new();
+
+    private void EnsureDetailBaseFontSizes()
+    {
+        if (_detailButtonBaseFontSizes.Count > 0) return;
+        if (DetailSwitchModeBtn != null) _detailButtonBaseFontSizes[DetailSwitchModeBtn] = 17;
+        if (DetailSlsOnlineBtn  != null) _detailButtonBaseFontSizes[DetailSlsOnlineBtn]  = 14;
+        if (DetailNetsockBtn    != null) _detailButtonBaseFontSizes[DetailNetsockBtn]    = 14;
+        if (DetailEosProxyBtn   != null) _detailButtonBaseFontSizes[DetailEosProxyBtn]   = 14;
+        if (DetailSteamlessBtn  != null) _detailButtonBaseFontSizes[DetailSteamlessBtn]  = 14;
+    }
+
+    // Full re-render of the focus ring: dim all, brighten focused, subtle font size swell (+2px)
     private void RefreshDetailActionFocus()
     {
+        EnsureDetailBaseFontSizes();
         var buttons = GetDetailActionButtons();
         if (buttons.Count == 0) return;
         _detailActionIndex = Math.Clamp(_detailActionIndex, 0, buttons.Count - 1);
         for (int i = 0; i < buttons.Count; i++)
-            buttons[i].Opacity = i == _detailActionIndex ? 1.0 : 0.4;
+        {
+            bool isFocused = (i == _detailActionIndex);
+            buttons[i].Opacity = isFocused ? 1.0 : 0.4;
+            if (_detailButtonBaseFontSizes.TryGetValue(buttons[i], out double baseSize))
+            {
+                buttons[i].FontSize = isFocused ? (baseSize + 2) : baseSize;
+            }
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_detailActionIndex >= 0 && _detailActionIndex < buttons.Count)
+                buttons[_detailActionIndex].Focus();
+        }, DispatcherPriority.Input);
     }
 
     internal void NavigateDetailActions(int offset)
@@ -585,8 +611,16 @@ public partial class MainWindow
     // Clear all dim when leaving the detail page
     internal void ClearDetailActionFocus()
     {
+        EnsureDetailBaseFontSizes();
         var all = new[] { DetailSwitchModeBtn, DetailSlsOnlineBtn, DetailNetsockBtn, DetailEosProxyBtn, DetailSteamlessBtn };
         foreach (var btn in all)
-            if (btn != null) btn.Opacity = 1.0;
+        {
+            if (btn != null)
+            {
+                btn.Opacity = 1.0;
+                if (_detailButtonBaseFontSizes.TryGetValue(btn, out double baseSize))
+                    btn.FontSize = baseSize;
+            }
+        }
     }
 }
