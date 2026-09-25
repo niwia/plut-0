@@ -16,6 +16,8 @@ using Pluto.Services;
 namespace Pluto;
 
 // MainWindow partial — game detail page, artwork, screenshots, and detail actions
+// Controller navigation rule: ALL navigable buttons are tracked individually,
+// never via parent-panel visibility. Highlight = direct Opacity on the button.
 public partial class MainWindow
 {
     private void OpenGameDetailPage(PluginGame game)
@@ -40,22 +42,25 @@ public partial class MainWindow
             DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.LightSkyBlue;
         }
         DetailSwitchModeBtn.IsEnabled = true;
+        DetailSwitchModeBtn.IsVisible = true;
 
-        if (DetailActionStatus    != null) DetailActionStatus.IsVisible    = false;
-        if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = true;
-        if (DetailSteamlessRow    != null) DetailSteamlessRow.IsVisible    = true;
+        if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
 
+        // Online toggles: show row, set individual button states
         bool isOnline  = _slsService.IsSlsOnline(game.AppId);
         bool isNetsock = _slsService.IsNetsock(game.AppId);
         UpdateOnlineTogglesUi(isOnline, isNetsock);
-        UpdateEosProxyUi();
 
-        DetailSteamlessBtn.IsEnabled = true;
-        DetailSteamlessBtn.Content   = "apply steamless";
+        // Show steamless button
+        DetailSteamlessBtn.IsVisible    = true;
+        DetailSteamlessBtn.IsEnabled    = true;
+        DetailSteamlessBtn.Content      = "apply steamless";
         DetailSteamlessStatus.IsVisible = false;
 
+        UpdateEosProxyUi();
+
         _detailActionIndex = 0;
-        UpdateDetailActionHighlight();
+        RefreshDetailActionFocus();
 
         _ = LoadGameArtworkAndMetadataAsync(game.AppId, game.Name);
 
@@ -66,7 +71,6 @@ public partial class MainWindow
 
     private void OpenSearchResultDetailPage(SearchResultItem item)
     {
-        // If already in library, open as regular game
         var local = _allGames.FirstOrDefault(g => g.AppId == item.AppId);
         if (local != null) { OpenGameDetailPage(local); return; }
 
@@ -82,13 +86,18 @@ public partial class MainWindow
         DetailSwitchModeBtn.Content    = "add to plugin";
         DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
         DetailSwitchModeBtn.IsEnabled  = true;
+        DetailSwitchModeBtn.IsVisible  = true;
 
-        if (DetailActionStatus    != null) DetailActionStatus.IsVisible    = false;
-        if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = false;
-        if (DetailSteamlessRow    != null) DetailSteamlessRow.IsVisible    = false;
+        if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
+
+        // Online search result: hide SLS/netsock/steamless buttons individually
+        DetailSlsOnlineBtn.IsVisible  = false;
+        DetailNetsockBtn.IsVisible    = false;
+        DetailEosProxyBtn.IsVisible   = false;
+        DetailSteamlessBtn.IsVisible  = false;
 
         _detailActionIndex = 0;
-        UpdateDetailActionHighlight();
+        RefreshDetailActionFocus();
 
         _ = LoadGameArtworkAndMetadataAsync(item.AppId, item.Name);
 
@@ -97,7 +106,7 @@ public partial class MainWindow
         SettingsPanel.IsVisible   = false;
     }
 
-    // Reset all detail UI elements to blank/hidden state
+    // Reset all detail UI — hide backdrop, clear all data
     private void ResetDetailUi()
     {
         _currentScreenshots.Clear();
@@ -120,16 +129,22 @@ public partial class MainWindow
         if (DetailTagsPanel        != null) { DetailTagsPanel.Children.Clear(); DetailTagsPanel.IsVisible = false; }
         if (DetailGalleryControls  != null) DetailGalleryControls.IsVisible = false;
         if (DetailGameBackdrop     != null) DetailGameBackdrop.IsVisible = false;
+
+        // Reset all action buttons to hidden — they'll be explicitly shown as needed
+        if (DetailSwitchModeBtn  != null) { DetailSwitchModeBtn.IsVisible  = false; DetailSwitchModeBtn.Opacity  = 1.0; }
+        if (DetailSlsOnlineBtn   != null) { DetailSlsOnlineBtn.IsVisible   = false; DetailSlsOnlineBtn.Opacity   = 1.0; }
+        if (DetailNetsockBtn     != null) { DetailNetsockBtn.IsVisible     = false; DetailNetsockBtn.Opacity     = 1.0; }
+        if (DetailEosProxyBtn    != null) { DetailEosProxyBtn.IsVisible    = false; DetailEosProxyBtn.Opacity    = 1.0; }
+        if (DetailSteamlessBtn   != null) { DetailSteamlessBtn.IsVisible   = false; DetailSteamlessBtn.Opacity   = 1.0; }
     }
 
-    // Artwork + metadata loading
+    // ── Artwork + metadata loading ────────────────────────────────────────────
     private async Task LoadGameArtworkAndMetadataAsync(string appId, string gameName)
     {
         _detailCts?.Cancel();
         _detailCts = new CancellationTokenSource();
         var ct = _detailCts.Token;
 
-        // 1. Try local ACCELA image cache
         var imageCachePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".local", "share", "ACCELA", "image_cache", $"{appId}.jpg");
@@ -146,7 +161,6 @@ public partial class MainWindow
             catch { }
         }
 
-        // 2. On-demand steam header fetch
         if (!imageLoaded)
         {
             DetailGameBackdrop.Source    = null;
@@ -170,7 +184,6 @@ public partial class MainWindow
             }, ct);
         }
 
-        // 3. SteamGridDB logo + hero
         if (_sgdbService.HasApiKey)
         {
             _ = Task.Run(async () =>
@@ -185,8 +198,8 @@ public partial class MainWindow
                             if (!ct.IsCancellationRequested
                                 && (_selectedGame?.AppId == appId || _selectedSearchResult?.AppId == appId))
                             {
-                                DetailGameLogo.Source    = logoBmp;
-                                DetailGameLogo.IsVisible = true;
+                                DetailGameLogo.Source     = logoBmp;
+                                DetailGameLogo.IsVisible  = true;
                                 DetailGameTitle.IsVisible = false;
                             }
                         });
@@ -210,7 +223,6 @@ public partial class MainWindow
             }, ct);
         }
 
-        // 4. RAWG metadata: credits, rating, tags, screenshots
         if (_rawgService.HasApiKey)
         {
             _ = Task.Run(async () =>
@@ -226,29 +238,26 @@ public partial class MainWindow
                                 || (_selectedGame?.AppId != appId && _selectedSearchResult?.AppId != appId))
                                 return;
 
-                            // Credits
                             if (!string.IsNullOrEmpty(meta.CreditsLine) && DetailGameCredits != null)
                             {
                                 DetailGameCredits.Text      = meta.CreditsLine;
                                 DetailGameCredits.IsVisible = true;
                             }
 
-                            // Rating row
                             if (meta.Rating.HasValue && meta.Rating.Value > 0 && DetailRatingRow != null)
                             {
                                 DetailRatingScoreText.Text = $"{meta.Rating.Value:0.0} / 5";
                                 var parts = new List<string>();
                                 if (!string.IsNullOrEmpty(meta.FormattedReviewsCount)) parts.Add(meta.FormattedReviewsCount);
                                 if (!string.IsNullOrEmpty(meta.Verdict))               parts.Add(meta.Verdict);
-                                DetailRatingSubText.Text = parts.Count > 0 ? string.Join("  •  ", parts) : "";
+                                DetailRatingSubText.Text  = parts.Count > 0 ? string.Join("  •  ", parts) : "";
                                 DetailRatingRow.IsVisible = true;
                             }
 
-                            // Secondary meta line
                             var metaParts = new List<string>();
-                            if (!string.IsNullOrEmpty(meta.ReleaseYear))                          metaParts.Add(meta.ReleaseYear);
-                            if (meta.PlaytimeHours.HasValue && meta.PlaytimeHours.Value > 0)      metaParts.Add($"~{meta.PlaytimeHours.Value} hrs avg");
-                            if (meta.MetacriticScore.HasValue && meta.MetacriticScore.Value > 0)  metaParts.Add($"{meta.MetacriticScore.Value} metacritic");
+                            if (!string.IsNullOrEmpty(meta.ReleaseYear))                         metaParts.Add(meta.ReleaseYear);
+                            if (meta.PlaytimeHours.HasValue && meta.PlaytimeHours.Value > 0)     metaParts.Add($"~{meta.PlaytimeHours.Value} hrs avg");
+                            if (meta.MetacriticScore.HasValue && meta.MetacriticScore.Value > 0) metaParts.Add($"{meta.MetacriticScore.Value} metacritic");
 
                             if (metaParts.Count > 0 && DetailRawgMeta != null)
                             {
@@ -256,7 +265,6 @@ public partial class MainWindow
                                 DetailRawgMeta.IsVisible = true;
                             }
 
-                            // Top-3 tag pills
                             if (meta.Tags != null && meta.Tags.Count > 0 && DetailTagsPanel != null)
                             {
                                 DetailTagsPanel.Children.Clear();
@@ -270,13 +278,12 @@ public partial class MainWindow
                                 DetailTagsPanel.IsVisible = true;
                             }
 
-                            // Screenshot gallery
                             if (meta.Screenshots != null && meta.Screenshots.Count > 0)
                             {
                                 _currentScreenshots     = meta.Screenshots;
                                 _currentScreenshotIndex = 0;
 
-                                if (DetailGalleryIndexText  != null)
+                                if (DetailGalleryIndexText != null)
                                     DetailGalleryIndexText.Text = $"1 / {_currentScreenshots.Count}";
                                 if (DetailGalleryControls != null)
                                     DetailGalleryControls.IsVisible = _currentScreenshots.Count > 1;
@@ -305,7 +312,7 @@ public partial class MainWindow
         }
     }
 
-    // Screenshot gallery
+    // ── Screenshot gallery ────────────────────────────────────────────────────
     private void OnPrevScreenshotClicked(object? sender, RoutedEventArgs e)
     {
         if (_currentScreenshots.Count <= 1) return;
@@ -327,7 +334,6 @@ public partial class MainWindow
     private async Task ShowScreenshotAtIndexAsync(int index)
     {
         if (index < 0 || index >= _currentScreenshots.Count) return;
-
         if (DetailGalleryIndexText != null)
             DetailGalleryIndexText.Text = $"{index + 1} / {_currentScreenshots.Count}";
 
@@ -351,10 +357,32 @@ public partial class MainWindow
         }
     }
 
-    // Detail actions: mode switch, slsonline, netsock, eos proxy, steamless
+    // ── Online toggle actions ─────────────────────────────────────────────────
+    private void UpdateOnlineTogglesUi(bool isOnline, bool isNetsock)
+    {
+        if (isOnline)
+        {
+            DetailSlsOnlineBtn.IsVisible  = true;
+            DetailSlsOnlineBtn.Content    = "slsonline: active";
+            DetailSlsOnlineBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
+            DetailNetsockBtn.IsVisible    = true;
+            DetailNetsockBtn.Content      = isNetsock ? "netsock proxy: active" : "enable netsock proxy";
+            DetailNetsockBtn.Foreground   = isNetsock ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+        else
+        {
+            DetailSlsOnlineBtn.IsVisible  = true;
+            DetailSlsOnlineBtn.Content    = "enable slsonline";
+            DetailSlsOnlineBtn.Foreground = Avalonia.Media.Brushes.Gray;
+            DetailNetsockBtn.IsVisible    = false;
+        }
+        // Refresh focus ring since visibility changed
+        RefreshDetailActionFocus();
+    }
+
+    // ── Main action button handlers ───────────────────────────────────────────
     private async void OnToggleModeClicked(object? sender, RoutedEventArgs e)
     {
-        // Adding uninstalled search result to plugin
         if (_selectedSearchResult != null && _selectedGame == null)
         {
             var appId = _selectedSearchResult.AppId;
@@ -390,11 +418,16 @@ public partial class MainWindow
                 DetailSwitchModeBtn.Foreground     = Avalonia.Media.Brushes.LightSkyBlue;
                 DetailSwitchModeBtn.IsEnabled      = true;
 
-                if (DetailActionStatus   != null) DetailActionStatus.Text    = "added to slssteam plugin";
-                if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = true;
-                if (DetailSteamlessRow   != null) DetailSteamlessRow.IsVisible    = true;
+                if (DetailActionStatus != null) DetailActionStatus.Text = "added to slssteam plugin";
 
-                UpdateOnlineTogglesUi(_slsService.IsSlsOnline(appId), _slsService.IsNetsock(appId));
+                // Show previously hidden buttons
+                DetailSlsOnlineBtn.IsVisible  = true;
+                DetailSteamlessBtn.IsVisible  = true;
+                bool isOnline  = _slsService.IsSlsOnline(appId);
+                bool isNetsock = _slsService.IsNetsock(appId);
+                UpdateOnlineTogglesUi(isOnline, isNetsock);
+                UpdateEosProxyUi();
+
                 PlutoLogger.Info("Search", $"Successfully added {name} ({appId}).");
             }
             catch (Exception ex)
@@ -406,7 +439,6 @@ public partial class MainWindow
             return;
         }
 
-        // Toggle existing installed game between native <-> assella
         if (_selectedGame != null)
         {
             if (_selectedGame.IsAccela)
@@ -448,49 +480,31 @@ public partial class MainWindow
         UpdateOnlineTogglesUi(_slsService.IsSlsOnline(_selectedGame.AppId), _slsService.IsNetsock(_selectedGame.AppId));
     }
 
-    private void UpdateOnlineTogglesUi(bool isOnline, bool isNetsock)
-    {
-        if (isOnline)
-        {
-            DetailSlsOnlineBtn.Content    = "slsonline: active";
-            DetailSlsOnlineBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
-            DetailNetsockBtn.IsVisible    = true;
-            DetailNetsockBtn.Content      = isNetsock ? "netsock proxy: active" : "enable netsock proxy";
-            DetailNetsockBtn.Foreground   = isNetsock ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
-        }
-        else
-        {
-            DetailSlsOnlineBtn.Content    = "enable slsonline";
-            DetailSlsOnlineBtn.Foreground = Avalonia.Media.Brushes.Gray;
-            DetailNetsockBtn.IsVisible    = false;
-        }
-    }
-
     private async void OnApplySteamlessClicked(object? sender, RoutedEventArgs e)
     {
         if (_selectedGame == null) return;
-        DetailSteamlessBtn.IsEnabled    = false;
-        DetailSteamlessBtn.Content      = "processing steamless...";
-        DetailSteamlessStatus.Text      = "scanning and unpacking executables...";
+        DetailSteamlessBtn.IsEnabled     = false;
+        DetailSteamlessBtn.Content       = "processing steamless...";
+        DetailSteamlessStatus.Text       = "scanning and unpacking executables...";
         DetailSteamlessStatus.Foreground = Avalonia.Media.Brushes.Gray;
         DetailSteamlessStatus.IsVisible  = true;
 
         var result = await _steamlessService.ProcessGameAsync(_selectedGame.InstallPath, _selectedGame.Name);
 
-        DetailSteamlessBtn.IsEnabled    = true;
-        DetailSteamlessBtn.Content      = "apply steamless";
-        DetailSteamlessStatus.Text      = result.Message;
+        DetailSteamlessBtn.IsEnabled     = true;
+        DetailSteamlessBtn.Content       = "apply steamless";
+        DetailSteamlessStatus.Text       = result.Message;
         DetailSteamlessStatus.Foreground = result.Success
             ? Avalonia.Media.Brushes.MediumSpringGreen
             : Avalonia.Media.Brushes.Gray;
     }
 
-    // EOS Proxy
+    // ── EOS Proxy ─────────────────────────────────────────────────────────────
     private void UpdateEosProxyUi()
     {
         if (DetailEosProxyBtn == null) return;
         if (_selectedGame == null || string.IsNullOrWhiteSpace(_selectedGame.InstallPath))
-        { DetailEosProxyBtn.IsVisible = false; return; }
+        { DetailEosProxyBtn.IsVisible = false; RefreshDetailActionFocus(); return; }
 
         var status = _eosProxyService.GetProxyStatus(_selectedGame.InstallPath);
         switch (status)
@@ -514,6 +528,7 @@ public partial class MainWindow
                 DetailEosProxyBtn.IsVisible = false;
                 break;
         }
+        RefreshDetailActionFocus();
     }
 
     private async void OnToggleEosProxyClicked(object? sender, RoutedEventArgs e)
@@ -525,41 +540,53 @@ public partial class MainWindow
         UpdateEosProxyUi();
     }
 
-    // Gamepad focus for detail action buttons
-    private List<Button> GetVisibleDetailActionButtons()
+    // ── Controller focus system for detail page ───────────────────────────────
+    // Rule: visibility is ALWAYS tracked on the button itself (never via parent panel).
+    // Highlight = Opacity (1.0 = focused, 0.4 = unfocused). This works regardless
+    // of local FontSize / Foreground set in AXAML — no CSS class conflicts.
+
+    private List<Button> GetDetailActionButtons()
     {
+        // Returns ALL buttons that have IsVisible=true on the button itself
         var list = new List<Button>();
         if (DetailSwitchModeBtn != null && DetailSwitchModeBtn.IsVisible && DetailSwitchModeBtn.IsEnabled) list.Add(DetailSwitchModeBtn);
-        if (DetailSlsOnlineBtn  != null && DetailSlsOnlineBtn.IsVisible  && DetailSlsOnlineBtn.IsEnabled)  list.Add(DetailSlsOnlineBtn);
-        if (DetailNetsockBtn    != null && DetailNetsockBtn.IsVisible    && DetailNetsockBtn.IsEnabled)    list.Add(DetailNetsockBtn);
-        if (DetailEosProxyBtn   != null && DetailEosProxyBtn.IsVisible   && DetailEosProxyBtn.IsEnabled)   list.Add(DetailEosProxyBtn);
-        if (DetailSteamlessBtn  != null && DetailSteamlessBtn.IsVisible  && DetailSteamlessBtn.IsEnabled)  list.Add(DetailSteamlessBtn);
+        if (DetailSlsOnlineBtn  != null && DetailSlsOnlineBtn.IsVisible)  list.Add(DetailSlsOnlineBtn);
+        if (DetailNetsockBtn    != null && DetailNetsockBtn.IsVisible)    list.Add(DetailNetsockBtn);
+        if (DetailEosProxyBtn   != null && DetailEosProxyBtn.IsVisible)   list.Add(DetailEosProxyBtn);
+        if (DetailSteamlessBtn  != null && DetailSteamlessBtn.IsVisible && DetailSteamlessBtn.IsEnabled) list.Add(DetailSteamlessBtn);
         return list;
     }
 
-    private void NavigateDetailActions(int offset)
+    // Full re-render of the focus ring: dim all, brighten focused
+    private void RefreshDetailActionFocus()
     {
-        var buttons = GetVisibleDetailActionButtons();
+        var buttons = GetDetailActionButtons();
         if (buttons.Count == 0) return;
-        _detailActionIndex = Math.Clamp(_detailActionIndex + offset, 0, buttons.Count - 1);
-        UpdateDetailActionHighlight();
+        _detailActionIndex = Math.Clamp(_detailActionIndex, 0, buttons.Count - 1);
+        for (int i = 0; i < buttons.Count; i++)
+            buttons[i].Opacity = i == _detailActionIndex ? 1.0 : 0.4;
     }
 
-    private void TriggerDetailAction()
+    internal void NavigateDetailActions(int offset)
     {
-        var buttons = GetVisibleDetailActionButtons();
+        var buttons = GetDetailActionButtons();
+        if (buttons.Count == 0) return;
+        _detailActionIndex = Math.Clamp(_detailActionIndex + offset, 0, buttons.Count - 1);
+        RefreshDetailActionFocus();
+    }
+
+    internal void TriggerDetailAction()
+    {
+        var buttons = GetDetailActionButtons();
         if (_detailActionIndex >= 0 && _detailActionIndex < buttons.Count)
             buttons[_detailActionIndex].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
 
-    private void UpdateDetailActionHighlight()
+    // Clear all dim when leaving the detail page
+    internal void ClearDetailActionFocus()
     {
-        var buttons = GetVisibleDetailActionButtons();
-        // Clamp in case buttons became hidden since last navigation
-        if (buttons.Count > 0)
-            _detailActionIndex = Math.Clamp(_detailActionIndex, 0, buttons.Count - 1);
-
-        for (int i = 0; i < buttons.Count; i++)
-            buttons[i].Classes.Set("actionBtnFocused", i == _detailActionIndex);
+        var all = new[] { DetailSwitchModeBtn, DetailSlsOnlineBtn, DetailNetsockBtn, DetailEosProxyBtn, DetailSteamlessBtn };
+        foreach (var btn in all)
+            if (btn != null) btn.Opacity = 1.0;
     }
 }

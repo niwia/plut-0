@@ -102,7 +102,10 @@ public partial class MainWindow
         if (SettingsVisualsPanel != null) SettingsVisualsPanel.IsVisible = tab == SettingsTab.Visuals;
 
         _settingsOptionIndex = 0;
-        UpdateSettingsOptionHighlight();
+
+        // Only apply focus ring if we're actually in the settings view
+        if (_currentView == ActiveView.Settings)
+            RefreshSettingsFocus();
     }
 
     private void OnSettingsTabThemeClicked(object? sender, RoutedEventArgs e)   => SetActiveSettingsTab(SettingsTab.Theme);
@@ -308,63 +311,88 @@ public partial class MainWindow
     private void OnToggleRawgClicked(object? sender, RoutedEventArgs e)         => ApplyThemeColors();
     private void OnToggleHubcapApiClicked(object? sender, RoutedEventArgs e)    => ApplyThemeColors();
 
-    // Gamepad navigation in settings
-    private List<Button> GetVisibleSettingsButtons()
+    // ── Controller focus system for settings ──────────────────────────────────
+    // Rule: Opacity-based highlighting (1.0 = focused, 0.4 = dim).
+    // GetSettingsButtons() returns only the buttons in the *current* tab —
+    // because the parent panel (SettingsThemePanel etc) is visible, its
+    // children are always IsVisible=true; we filter by the active tab instead.
+
+    private List<Button> GetSettingsButtons()
     {
         var list = new List<Button>();
         switch (_activeSettingsTab)
         {
             case SettingsTab.Theme:
-                if (ToggleNativeThemeBtn != null && ToggleNativeThemeBtn.IsVisible) list.Add(ToggleNativeThemeBtn);
-                if (ToggleAccelaThemeBtn != null && ToggleAccelaThemeBtn.IsVisible) list.Add(ToggleAccelaThemeBtn);
+                if (ToggleNativeThemeBtn != null) list.Add(ToggleNativeThemeBtn);
+                if (ToggleAccelaThemeBtn != null) list.Add(ToggleAccelaThemeBtn);
                 break;
             case SettingsTab.Api:
-                if (ToggleSgdbApiBtn    != null && ToggleSgdbApiBtn.IsVisible)    list.Add(ToggleSgdbApiBtn);
-                if (ToggleRawgBtn       != null && ToggleRawgBtn.IsVisible)        list.Add(ToggleRawgBtn);
-                if (ToggleHubcapApiBtn  != null && ToggleHubcapApiBtn.IsVisible)  list.Add(ToggleHubcapApiBtn);
+                if (ToggleSgdbApiBtn   != null) list.Add(ToggleSgdbApiBtn);
+                if (ToggleRawgBtn      != null) list.Add(ToggleRawgBtn);
+                if (ToggleHubcapApiBtn != null) list.Add(ToggleHubcapApiBtn);
                 break;
             case SettingsTab.Sls:
-                if (ToggleVaporBtn          != null && ToggleVaporBtn.IsVisible)          list.Add(ToggleVaporBtn);
-                if (ToggleDownloadActionBtn != null && ToggleDownloadActionBtn.IsVisible) list.Add(ToggleDownloadActionBtn);
-                if (ToggleUpdatesBtn        != null && ToggleUpdatesBtn.IsVisible)        list.Add(ToggleUpdatesBtn);
+                if (ToggleVaporBtn          != null) list.Add(ToggleVaporBtn);
+                if (ToggleDownloadActionBtn != null) list.Add(ToggleDownloadActionBtn);
+                if (ToggleUpdatesBtn        != null) list.Add(ToggleUpdatesBtn);
                 break;
             case SettingsTab.Visuals:
-                if (ToggleMainBackdropBtn         != null && ToggleMainBackdropBtn.IsVisible)         list.Add(ToggleMainBackdropBtn);
-                if (ToggleMainBackdropIntervalBtn != null && ToggleMainBackdropIntervalBtn.IsVisible) list.Add(ToggleMainBackdropIntervalBtn);
-                if (ToggleSearchThumbnailsBtn     != null && ToggleSearchThumbnailsBtn.IsVisible)     list.Add(ToggleSearchThumbnailsBtn);
-                if (ToggleAutoRotateBtn           != null && ToggleAutoRotateBtn.IsVisible)           list.Add(ToggleAutoRotateBtn);
-                if (ToggleAutoRotateIntervalBtn   != null && ToggleAutoRotateIntervalBtn.IsVisible)   list.Add(ToggleAutoRotateIntervalBtn);
+                if (ToggleMainBackdropBtn        != null) list.Add(ToggleMainBackdropBtn);
+                if (ToggleMainBackdropIntervalBtn != null) list.Add(ToggleMainBackdropIntervalBtn);
+                if (ToggleSearchThumbnailsBtn    != null) list.Add(ToggleSearchThumbnailsBtn);
+                if (ToggleAutoRotateBtn          != null) list.Add(ToggleAutoRotateBtn);
+                if (ToggleAutoRotateIntervalBtn  != null) list.Add(ToggleAutoRotateIntervalBtn);
                 break;
         }
         return list;
     }
 
-    private void CycleSettingsTab(int offset)
+    // All tab buttons (for resetting opacity when switching)
+    private IEnumerable<Button?> AllSettingsTabPanelButtons() => new Button?[]
+    {
+        ToggleNativeThemeBtn, ToggleAccelaThemeBtn,
+        ToggleSgdbApiBtn, ToggleRawgBtn, ToggleHubcapApiBtn,
+        ToggleVaporBtn, ToggleDownloadActionBtn, ToggleUpdatesBtn,
+        ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,
+        ToggleSearchThumbnailsBtn, ToggleAutoRotateBtn, ToggleAutoRotateIntervalBtn
+    };
+
+    // Full re-render of settings focus ring
+    internal void RefreshSettingsFocus()
+    {
+        // Reset all settings buttons to full opacity first
+        foreach (var btn in AllSettingsTabPanelButtons())
+            if (btn != null) btn.Opacity = 1.0;
+
+        // Then dim all in current tab except focused
+        var buttons = GetSettingsButtons();
+        if (buttons.Count == 0) return;
+        _settingsOptionIndex = Math.Clamp(_settingsOptionIndex, 0, buttons.Count - 1);
+        for (int i = 0; i < buttons.Count; i++)
+            buttons[i].Opacity = i == _settingsOptionIndex ? 1.0 : 0.4;
+    }
+
+    internal void CycleSettingsTab(int offset)
     {
         const int count = 4;
         int next = (((int)_activeSettingsTab + offset) % count + count) % count;
         SetActiveSettingsTab((SettingsTab)next);
     }
 
-    private void NavigateSettingsOptions(int offset)
+    internal void NavigateSettingsOptions(int offset)
     {
-        var buttons = GetVisibleSettingsButtons();
+        var buttons = GetSettingsButtons();
         if (buttons.Count == 0) return;
         _settingsOptionIndex = Math.Clamp(_settingsOptionIndex + offset, 0, buttons.Count - 1);
-        UpdateSettingsOptionHighlight();
+        RefreshSettingsFocus();
     }
 
-    private void TriggerSettingsOption()
+    internal void TriggerSettingsOption()
     {
-        var buttons = GetVisibleSettingsButtons();
+        var buttons = GetSettingsButtons();
         if (_settingsOptionIndex >= 0 && _settingsOptionIndex < buttons.Count)
             buttons[_settingsOptionIndex].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
     }
-
-    private void UpdateSettingsOptionHighlight()
-    {
-        var buttons = GetVisibleSettingsButtons();
-        for (int i = 0; i < buttons.Count; i++)
-            buttons[i].Classes.Set("actionBtnFocused", i == _settingsOptionIndex);
-    }
 }
+
+

@@ -20,6 +20,7 @@ public partial class MainWindow
 
         _detailCts?.Cancel();
         _screenshotAutoRotateTimer.Stop();
+        ClearDetailActionFocus();  // restore all button opacity
 
         // Show main backdrop
         if (MainBackdropImage != null)
@@ -45,6 +46,7 @@ public partial class MainWindow
         _currentView = ActiveView.Settings;
         _screenshotAutoRotateTimer.Stop();
         _mainBackdropTimer.Stop();
+        ClearDetailActionFocus();  // restore detail button opacity
 
         // Hide main backdrop so it doesn't bleed through
         if (MainBackdropImage != null)
@@ -53,6 +55,7 @@ public partial class MainWindow
             MainBackdropImage.IsVisible = false;
         }
 
+        _settingsOptionIndex = 0;  // always reset to top on enter
         SetActiveSettingsTab(_activeSettingsTab);
         UpdateGameCountsText();
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
@@ -63,6 +66,9 @@ public partial class MainWindow
         MainListPanel.IsVisible   = false;
         GameDetailPanel.IsVisible = false;
         SettingsPanel.IsVisible   = true;
+
+        // Apply initial focus ring after panels are shown
+        RefreshSettingsFocus();
     }
 
     // Window-level keyboard handler
@@ -243,6 +249,8 @@ public partial class MainWindow
             case GamepadAction.FocusSearch:
                 if (_currentView == ActiveView.MainList)
                 { SearchBox.Focus(); SearchBox.SelectAll(); }
+                else if (_currentView == ActiveView.GameDetail)
+                    OpenSettingsPage();  // Y from detail = open settings
                 break;
 
             case GamepadAction.BackOrCancel:
@@ -251,12 +259,13 @@ public partial class MainWindow
                 break;
 
             case GamepadAction.OpenSettings:
-                if (_currentView == ActiveView.MainList) OpenSettingsPage();
-                else ShowMainList();
+                // Back/Select opens settings from main list or detail; acts as back from settings
+                if (_currentView == ActiveView.Settings) ShowMainList();
+                else OpenSettingsPage();
                 break;
 
             case GamepadAction.SyncAll:
-                SyncAllGames();
+                if (_currentView == ActiveView.MainList) SyncAllGames();
                 break;
         }
     }
