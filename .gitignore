@@ -10,4 +10,6 @@ __pycache__/
 *.pyc
 *rawg_api*.txt
 rawg_api.txt
+*steamgriddb*.txt
+*api*.txt
 *.key

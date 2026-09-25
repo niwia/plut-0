@@ -184,6 +184,19 @@
         <Style Selector="ListBox#SearchResultsListBox ListBoxItem:selected /template/ ContentPresenter">
             <Setter Property="Background" Value="#1AFFFFFF" />
         </Style>
+
+        <!-- Subtle Metadata Tag Pills (no bold, no emojis) -->
+        <Style Selector="Border.tagPill">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="7, 3" />
+            <Setter Property="Margin" Value="0, 0, 6, 0" />
+        </Style>
+        <Style Selector="TextBlock.tagPillText">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#777777" />
+        </Style>
     </Window.Styles>
 
     <!-- Root Container -->
@@ -321,90 +334,141 @@
                 </Image.OpacityMask>
             </Image>
 
-            <!-- Foreground Content (Left Aligned with pure black backing) -->
-            <Grid RowDefinitions="Auto,Auto,*"
+            <!-- Foreground Content: Top Info & Bottom Actions / Gallery -->
+            <Grid RowDefinitions="Auto,*,Auto"
                   Margin="64,48,64,36">
                 
-                <!-- Back Button -->
+                <!-- Row 0: Back Button -->
                 <Button Grid.Row="0"
                         Classes="minimalTextBtn"
                         Content="back"
-                        Margin="0,0,0,24"
+                        Margin="0,0,0,20"
                         Click="OnBackToMainClicked" />
 
-                <!-- Game Title & Clean Subtitle (Name, AppID • native/assella, RAWG Info) -->
-                <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,32">
+                <!-- Row 1: Top Section: Logo / Title, Subtitle, Studio/Publisher, RAWG Metrics, Tags -->
+                <StackPanel Grid.Row="1" Spacing="6" HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <!-- SteamGridDB Transparent Logo (falls back cleanly to Title text) -->
+                    <Image x:Name="DetailGameLogo"
+                           MaxHeight="75"
+                           MaxWidth="340"
+                           HorizontalAlignment="Left"
+                           Stretch="Uniform"
+                           Margin="0,0,0,6"
+                           IsVisible="False" />
+
                     <TextBlock x:Name="DetailGameTitle"
                                Text="Game Title"
                                FontSize="34"
                                FontWeight="Normal"
                                Foreground="#FFFFFF" />
+
                     <TextBlock x:Name="DetailGameSubtitle"
                                Text="3473250  •  native"
-                               FontSize="15"
+                               FontSize="14"
                                FontWeight="Normal"
-                               Foreground="#888888" />
+                               Foreground="#777777" />
+
+                    <TextBlock x:Name="DetailGameCredits"
+                               Text=""
+                               FontSize="13"
+                               FontWeight="Normal"
+                               Foreground="#999999"
+                               IsVisible="False" />
+
                     <TextBlock x:Name="DetailRawgMeta"
                                Text=""
                                FontSize="13"
                                FontWeight="Normal"
                                Foreground="#60A5FA"
                                IsVisible="False" />
-                    <TextBlock x:Name="DetailRawgSynopsis"
-                               Text=""
-                               FontSize="12"
-                               FontWeight="Normal"
-                               Foreground="#777777"
-                               TextWrapping="Wrap"
-                               MaxWidth="520"
-                               IsVisible="False" />
+
+                    <!-- Tags Row -->
+                    <StackPanel x:Name="DetailTagsPanel"
+                                Orientation="Horizontal"
+                                Margin="0,4,0,0"
+                                IsVisible="False" />
                 </StackPanel>
 
-                <!-- Game Page Actions & Toggles -->
-                <StackPanel Grid.Row="2" Spacing="24" HorizontalAlignment="Left">
-                    <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" -->
-                    <StackPanel Spacing="6">
-                        <Button x:Name="DetailSwitchModeBtn"
-                                Classes="minimalTextBtn"
-                                Content="add to plugin"
-                                FontSize="17"
-                                Foreground="#4ADE80"
-                                Click="OnToggleModeClicked" />
-                        <TextBlock x:Name="DetailActionStatus"
-                                   FontSize="12"
-                                   Foreground="#777777"
-                                   IsVisible="False" />
+                <!-- Row 2: Bottom Section (Left Actions, Right Screenshot Gallery) -->
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
+                    <!-- Bottom-Left: All Actions & Toggles -->
+                    <StackPanel Grid.Column="0" Spacing="16" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                        <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" -->
+                        <StackPanel Spacing="4">
+                            <Button x:Name="DetailSwitchModeBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="add to plugin"
+                                    FontSize="17"
+                                    Foreground="#4ADE80"
+                                    Click="OnToggleModeClicked" />
+                            <TextBlock x:Name="DetailActionStatus"
+                                       FontSize="12"
+                                       Foreground="#777777"
+                                       IsVisible="False" />
+                        </StackPanel>
+
+                        <!-- Online Toggles Row: SLSonline & Netsock Proxy -->
+                        <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="28">
+                            <Button x:Name="DetailSlsOnlineBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enable slsonline"
+                                    FontSize="14"
+                                    Click="OnToggleSlsOnlineClicked" />
+
+                            <Button x:Name="DetailNetsockBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enable netsock proxy"
+                                    FontSize="14"
+                                    IsVisible="False"
+                                    Click="OnToggleNetsockClicked" />
+                        </StackPanel>
+
+                        <!-- Steamless Action -->
+                        <StackPanel x:Name="DetailSteamlessRow" Spacing="4">
+                            <Button x:Name="DetailSteamlessBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="apply steamless"
+                                    FontSize="14"
+                                    Click="OnApplySteamlessClicked" />
+                            <TextBlock x:Name="DetailSteamlessStatus"
+                                       FontSize="12"
+                                       Foreground="#777777"
+                                       IsVisible="False" />
+                        </StackPanel>
                     </StackPanel>
 
-                    <!-- Online Toggles Row: SLSonline & Netsock Proxy -->
-                    <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="32">
-                        <Button x:Name="DetailSlsOnlineBtn"
+                    <!-- Bottom-Right: Circling Screenshot Gallery Controls -->
+                    <StackPanel x:Name="DetailGalleryControls"
+                                Grid.Column="1"
+                                Orientation="Horizontal"
+                                Spacing="12"
+                                VerticalAlignment="Bottom"
+                                HorizontalAlignment="Right"
+                                IsVisible="False">
+                        <Button x:Name="DetailPrevScreenBtn"
                                 Classes="minimalTextBtn"
-                                Content="enable slsonline"
-                                FontSize="15"
-                                Click="OnToggleSlsOnlineClicked" />
-
-                        <Button x:Name="DetailNetsockBtn"
+                                Content="&lt;"
+                                FontSize="18"
+                                Foreground="#888888"
+                                Click="OnPrevScreenshotClicked" />
+                        <TextBlock x:Name="DetailGalleryIndexText"
+                                   Text="1 / 6"
+                                   FontSize="13"
+                                   Foreground="#666666"
+                                   VerticalAlignment="Center" />
+                        <Button x:Name="DetailNextScreenBtn"
                                 Classes="minimalTextBtn"
-                                Content="enable netsock proxy"
-                                FontSize="15"
-                                IsVisible="False"
-                                Click="OnToggleNetsockClicked" />
+                                Content="&gt;"
+                                FontSize="18"
+                                Foreground="#888888"
+                                Click="OnNextScreenshotClicked" />
+                        <TextBlock Text="lb / rb"
+                                   FontSize="11"
+                                   Foreground="#444444"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0" />
                     </StackPanel>
-
-                    <!-- Steamless Action -->
-                    <StackPanel x:Name="DetailSteamlessRow" Spacing="6" Margin="0,4,0,0">
-                        <Button x:Name="DetailSteamlessBtn"
-                                Classes="minimalTextBtn"
-                                Content="apply steamless"
-                                FontSize="15"
-                                Click="OnApplySteamlessClicked" />
-                        <TextBlock x:Name="DetailSteamlessStatus"
-                                   FontSize="12"
-                                   Foreground="#777777"
-                                   IsVisible="False" />
-                    </StackPanel>
-                </StackPanel>
+                </Grid>
             </Grid>
         </Grid>
 
@@ -433,7 +497,7 @@
                            Foreground="#555555" />
             </StackPanel>
 
-            <!-- Settings Content: Interactive Toggles, Themes & Actions -->
+            <!-- Settings Content: Interactive Toggles, Themes, APIs & Actions -->
             <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
                 <StackPanel Spacing="24">
                     <!-- Theme Settings (Colors for Native & Assella games) -->
@@ -457,15 +521,38 @@
                                 Click="OnToggleAccelaThemeClicked" />
                     </StackPanel>
 
-                    <!-- RAWG API Integration Status -->
+                    <!-- API Integrations & Keys Section -->
                     <StackPanel Spacing="4">
-                        <TextBlock Text="rawg api metadata" FontSize="13" Foreground="#666666" />
+                        <TextBlock Text="api: steamgriddb (official logos &amp; heroes)" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleSgdbApiBtn"
+                                Classes="minimalTextBtn"
+                                Content="api active"
+                                FontSize="16"
+                                Foreground="#4ADE80"
+                                Click="OnToggleSgdbApiClicked" />
+                        <TextBlock Text="saved in ~/.config/pluto/steamgriddb_api.txt" FontSize="11" Foreground="#444444" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="api: rawg (metadata, tags &amp; gallery)" FontSize="13" Foreground="#666666" />
                         <Button x:Name="ToggleRawgBtn"
+                                Classes="minimalTextBtn"
+                                Content="api active"
+                                FontSize="16"
+                                Foreground="#4ADE80"
+                                Click="OnToggleRawgClicked" />
+                        <TextBlock Text="saved in ~/.config/pluto/rawg_api.txt" FontSize="11" Foreground="#444444" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="api: hubcap / morrenus (keys &amp; manifests)" FontSize="13" Foreground="#666666" />
+                        <Button x:Name="ToggleHubcapApiBtn"
                                 Classes="minimalTextBtn"
                                 Content="api configured"
                                 FontSize="16"
                                 Foreground="#4ADE80"
-                                Click="OnToggleRawgClicked" />
+                                Click="OnToggleHubcapApiClicked" />
+                        <TextBlock Text="saved in ACCELA.conf (morrenus_api_key)" FontSize="11" Foreground="#444444" />
                     </StackPanel>
 
                     <!-- Toggle: Plugin Engine (enable_vapor) -->

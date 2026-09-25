@@ -27,7 +27,11 @@ public partial class MainWindow : Window
     private readonly HubcapSearchService _hubcapSearchService;
     private readonly ThemeService _themeService;
     private readonly RawgService _rawgService;
+    private readonly SteamGridDbService _sgdbService;
     private CancellationTokenSource? _detailCts;
+
+    private List<string> _currentScreenshots = new();
+    private int _currentScreenshotIndex = 0;
 
     private List<PluginGame> _allGames = new();
     private ObservableCollection<PluginGame> _displayedGames = new();
@@ -94,6 +98,7 @@ public partial class MainWindow : Window
         _hubcapSearchService = new HubcapSearchService(_configService, _depotKeyService);
         _themeService = new ThemeService(_configService);
         _rawgService = new RawgService(_configService);
+        _sgdbService = new SteamGridDbService(_configService);
 
         ApplyThemeColors();
 
@@ -315,6 +320,22 @@ public partial class MainWindow : Window
         else
         {
             // Inside GameDetail or Settings
+            if (_currentView == ActiveView.GameDetail)
+            {
+                if (e.Key == Key.Left || e.Key == Key.PageUp)
+                {
+                    OnPrevScreenshotClicked(null, new RoutedEventArgs());
+                    e.Handled = true;
+                    return;
+                }
+                else if (e.Key == Key.Right || e.Key == Key.PageDown)
+                {
+                    OnNextScreenshotClicked(null, new RoutedEventArgs());
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (e.Key == Key.Escape || e.Key == Key.Back)
             {
                 ShowMainList();
@@ -349,8 +370,16 @@ public partial class MainWindow : Window
         _selectedSearchResult = null;
         _currentView = ActiveView.GameDetail;
 
-        DetailGameTitle.Text = game.Name;
-        DetailGameSubtitle.Text = $"{game.AppId}  •  {(game.IsAccela ? "assella" : "native")}";
+        // Reset detail header and gallery state
+        _currentScreenshots.Clear();
+        _currentScreenshotIndex = 0;
+        if (DetailGameLogo != null) { DetailGameLogo.Source = null; DetailGameLogo.IsVisible = false; }
+        if (DetailGameTitle != null) { DetailGameTitle.Text = game.Name; DetailGameTitle.IsVisible = true; }
+        if (DetailGameSubtitle != null) DetailGameSubtitle.Text = $"{game.AppId}  •  {(game.IsAccela ? "assella" : "native")}";
+        if (DetailGameCredits != null) { DetailGameCredits.Text = string.Empty; DetailGameCredits.IsVisible = false; }
+        if (DetailRawgMeta != null) { DetailRawgMeta.Text = string.Empty; DetailRawgMeta.IsVisible = false; }
+        if (DetailTagsPanel != null) { DetailTagsPanel.Children.Clear(); DetailTagsPanel.IsVisible = false; }
+        if (DetailGalleryControls != null) DetailGalleryControls.IsVisible = false;
 
         if (game.IsAccela)
         {
@@ -378,7 +407,7 @@ public partial class MainWindow : Window
         DetailSteamlessBtn.Content = "apply steamless";
         DetailSteamlessStatus.IsVisible = false;
 
-        // Load Artwork and RAWG metadata on-demand
+        // Load Artwork, SteamGridDB Logo & Hero, and RAWG metadata on-demand
         _ = LoadGameArtworkAndMetadataAsync(game.AppId, game.Name);
 
         MainListPanel.IsVisible = false;
@@ -401,8 +430,16 @@ public partial class MainWindow : Window
         _selectedGame = null;
         _currentView = ActiveView.GameDetail;
 
-        DetailGameTitle.Text = item.Name;
-        DetailGameSubtitle.Text = $"{item.AppId}  •  online";
+        // Reset detail header and gallery state
+        _currentScreenshots.Clear();
+        _currentScreenshotIndex = 0;
+        if (DetailGameLogo != null) { DetailGameLogo.Source = null; DetailGameLogo.IsVisible = false; }
+        if (DetailGameTitle != null) { DetailGameTitle.Text = item.Name; DetailGameTitle.IsVisible = true; }
+        if (DetailGameSubtitle != null) DetailGameSubtitle.Text = $"{item.AppId}  •  online";
+        if (DetailGameCredits != null) { DetailGameCredits.Text = string.Empty; DetailGameCredits.IsVisible = false; }
+        if (DetailRawgMeta != null) { DetailRawgMeta.Text = string.Empty; DetailRawgMeta.IsVisible = false; }
+        if (DetailTagsPanel != null) { DetailTagsPanel.Children.Clear(); DetailTagsPanel.IsVisible = false; }
+        if (DetailGalleryControls != null) DetailGalleryControls.IsVisible = false;
 
         DetailSwitchModeBtn.Content = "add to plugin";
         DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
@@ -412,7 +449,7 @@ public partial class MainWindow : Window
         if (DetailOnlineTogglesRow != null) DetailOnlineTogglesRow.IsVisible = false;
         if (DetailSteamlessRow != null) DetailSteamlessRow.IsVisible = false;
 
-        // Load Artwork and RAWG metadata on-demand
+        // Load Artwork, SteamGridDB Logo & Hero, and RAWG metadata on-demand
         _ = LoadGameArtworkAndMetadataAsync(item.AppId, item.Name);
 
         MainListPanel.IsVisible = false;
@@ -425,18 +462,6 @@ public partial class MainWindow : Window
         _detailCts?.Cancel();
         _detailCts = new CancellationTokenSource();
         var ct = _detailCts.Token;
-
-        // Reset RAWG text info
-        if (DetailRawgMeta != null)
-        {
-            DetailRawgMeta.Text = string.Empty;
-            DetailRawgMeta.IsVisible = false;
-        }
-        if (DetailRawgSynopsis != null)
-        {
-            DetailRawgSynopsis.Text = string.Empty;
-            DetailRawgSynopsis.IsVisible = false;
-        }
 
         // 1. Check local image cache
         var imageCachePath = Path.Combine(
@@ -481,7 +506,48 @@ public partial class MainWindow : Window
             }, ct);
         }
 
-        // 3. Query RAWG API in background for enriched metadata and high-res art
+        // 3. SteamGridDB: Fetch Logo and Hero backdrop
+        if (_sgdbService.HasApiKey)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var logoBmp = await _sgdbService.FetchLogoBitmapAsync(appId, ct);
+                    if (logoBmp != null && !ct.IsCancellationRequested)
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            if (!ct.IsCancellationRequested && (_selectedGame?.AppId == appId || _selectedSearchResult?.AppId == appId))
+                            {
+                                DetailGameLogo.Source = logoBmp;
+                                DetailGameLogo.IsVisible = true;
+                                DetailGameTitle.IsVisible = false; // Authentic logo replaces raw text!
+                            }
+                        });
+                    }
+
+                    var heroBmp = await _sgdbService.FetchHeroBitmapAsync(appId, ct);
+                    if (heroBmp != null && !ct.IsCancellationRequested)
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            if (!ct.IsCancellationRequested && (_selectedGame?.AppId == appId || _selectedSearchResult?.AppId == appId))
+                            {
+                                DetailGameBackdrop.Source = heroBmp;
+                                DetailGameBackdrop.IsVisible = true;
+                            }
+                        });
+                    }
+                }
+                catch
+                {
+                    // Fall through gracefully
+                }
+            }, ct);
+        }
+
+        // 4. Query RAWG API for studio, publisher, playtime, tags, verdicts, and screenshots
         if (_rawgService.HasApiKey)
         {
             _ = Task.Run(async () =>
@@ -496,26 +562,54 @@ public partial class MainWindow : Window
                             if (ct.IsCancellationRequested || (_selectedGame?.AppId != appId && _selectedSearchResult?.AppId != appId))
                                 return;
 
+                            if (!string.IsNullOrEmpty(meta.CreditsLine) && DetailGameCredits != null)
+                            {
+                                DetailGameCredits.Text = meta.CreditsLine;
+                                DetailGameCredits.IsVisible = true;
+                            }
+
                             if (!string.IsNullOrEmpty(meta.SummaryLine) && DetailRawgMeta != null)
                             {
                                 DetailRawgMeta.Text = meta.SummaryLine;
                                 DetailRawgMeta.IsVisible = true;
                             }
 
-                            if (!string.IsNullOrEmpty(meta.DescriptionSnippet) && DetailRawgSynopsis != null)
+                            // Populate clean tag pills
+                            if (meta.Tags != null && meta.Tags.Count > 0 && DetailTagsPanel != null)
                             {
-                                DetailRawgSynopsis.Text = meta.DescriptionSnippet;
-                                DetailRawgSynopsis.IsVisible = true;
+                                DetailTagsPanel.Children.Clear();
+                                foreach (var tag in meta.Tags)
+                                {
+                                    var border = new Border { Classes = { "tagPill" } };
+                                    border.Child = new TextBlock { Text = tag, Classes = { "tagPillText" } };
+                                    DetailTagsPanel.Children.Add(border);
+                                }
+                                DetailTagsPanel.IsVisible = true;
                             }
 
-                            // If RAWG provides a background image, fetch and update backdrop with high-res art
-                            if (!string.IsNullOrEmpty(meta.BackgroundImageUrl))
+                            // Initialize screenshot gallery
+                            if (meta.Screenshots != null && meta.Screenshots.Count > 0)
                             {
-                                var rawgBmp = await _rawgService.FetchBackdropBitmapAsync(meta.BackgroundImageUrl, appId, ct);
-                                if (rawgBmp != null && !ct.IsCancellationRequested)
+                                _currentScreenshots = meta.Screenshots;
+                                _currentScreenshotIndex = 0;
+                                if (DetailGalleryIndexText != null)
                                 {
-                                    DetailGameBackdrop.Source = rawgBmp;
-                                    DetailGameBackdrop.IsVisible = true;
+                                    DetailGalleryIndexText.Text = $"1 / {_currentScreenshots.Count}";
+                                }
+                                if (DetailGalleryControls != null)
+                                {
+                                    DetailGalleryControls.IsVisible = _currentScreenshots.Count > 1;
+                                }
+
+                                // If no hero backdrop was loaded yet, load the first screenshot
+                                if (DetailGameBackdrop.Source == null && !string.IsNullOrEmpty(meta.BackgroundImageUrl))
+                                {
+                                    var rawgBmp = await _rawgService.FetchBackdropBitmapAsync(meta.BackgroundImageUrl, appId, ct);
+                                    if (rawgBmp != null && !ct.IsCancellationRequested)
+                                    {
+                                        DetailGameBackdrop.Source = rawgBmp;
+                                        DetailGameBackdrop.IsVisible = true;
+                                    }
                                 }
                             }
                         });
@@ -526,6 +620,42 @@ public partial class MainWindow : Window
                     // Gracefully continue
                 }
             }, ct);
+        }
+    }
+
+    // Screenshot Gallery Cycling
+    private void OnPrevScreenshotClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_currentScreenshots.Count <= 1) return;
+        _currentScreenshotIndex = (_currentScreenshotIndex - 1 + _currentScreenshots.Count) % _currentScreenshots.Count;
+        _ = ShowScreenshotAtIndexAsync(_currentScreenshotIndex);
+    }
+
+    private void OnNextScreenshotClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_currentScreenshots.Count <= 1) return;
+        _currentScreenshotIndex = (_currentScreenshotIndex + 1) % _currentScreenshots.Count;
+        _ = ShowScreenshotAtIndexAsync(_currentScreenshotIndex);
+    }
+
+    private async Task ShowScreenshotAtIndexAsync(int index)
+    {
+        if (index < 0 || index >= _currentScreenshots.Count) return;
+
+        if (DetailGalleryIndexText != null)
+        {
+            DetailGalleryIndexText.Text = $"{index + 1} / {_currentScreenshots.Count}";
+        }
+
+        var appId = _selectedGame?.AppId ?? _selectedSearchResult?.AppId;
+        if (string.IsNullOrEmpty(appId)) return;
+
+        var url = _currentScreenshots[index];
+        var bmp = await _rawgService.FetchScreenshotBitmapAsync(url, appId, index);
+        if (bmp != null && (_selectedGame?.AppId == appId || _selectedSearchResult?.AppId == appId))
+        {
+            DetailGameBackdrop.Source = bmp;
+            DetailGameBackdrop.IsVisible = true;
         }
     }
 
@@ -606,6 +736,10 @@ public partial class MainWindow : Window
                     else
                         NavigateList(-5);
                 }
+                else if (_currentView == ActiveView.GameDetail)
+                {
+                    OnPrevScreenshotClicked(null, new RoutedEventArgs());
+                }
                 break;
 
             case GamepadAction.PageDown:
@@ -615,6 +749,10 @@ public partial class MainWindow : Window
                         NavigateSearchResults(5);
                     else
                         NavigateList(5);
+                }
+                else if (_currentView == ActiveView.GameDetail)
+                {
+                    OnNextScreenshotClicked(null, new RoutedEventArgs());
                 }
                 break;
 
@@ -1270,11 +1408,25 @@ public partial class MainWindow : Window
             ToggleAccelaThemeBtn.Foreground = new SolidColorBrush(aCol);
         }
 
+        if (ToggleSgdbApiBtn != null)
+        {
+            bool hasKey = _sgdbService.HasApiKey;
+            ToggleSgdbApiBtn.Content = hasKey ? "api active" : "key missing (add to ~/.config/pluto/steamgriddb_api.txt)";
+            ToggleSgdbApiBtn.Foreground = hasKey ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+
         if (ToggleRawgBtn != null)
         {
             bool hasKey = _rawgService.HasApiKey;
             ToggleRawgBtn.Content = hasKey ? "api active" : "key missing (add to ~/.config/pluto/rawg_api.txt)";
             ToggleRawgBtn.Foreground = hasKey ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+
+        if (ToggleHubcapApiBtn != null)
+        {
+            bool hasKey = !string.IsNullOrWhiteSpace(_configService.GetValue("morrenus_api_key"));
+            ToggleHubcapApiBtn.Content = hasKey ? "api configured" : "key not set (add to ACCELA.conf)";
+            ToggleHubcapApiBtn.Foreground = hasKey ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
         }
     }
 
@@ -1290,9 +1442,21 @@ public partial class MainWindow : Window
         ApplyThemeColors();
     }
 
+    private void OnToggleSgdbApiClicked(object? sender, RoutedEventArgs e)
+    {
+        // Re-read and refresh SteamGridDB status
+        ApplyThemeColors();
+    }
+
     private void OnToggleRawgClicked(object? sender, RoutedEventArgs e)
     {
         // Re-read and refresh RAWG status
+        ApplyThemeColors();
+    }
+
+    private void OnToggleHubcapApiClicked(object? sender, RoutedEventArgs e)
+    {
+        // Re-read and refresh Hubcap status
         ApplyThemeColors();
     }
 }
