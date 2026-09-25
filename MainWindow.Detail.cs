@@ -59,7 +59,12 @@ public partial class MainWindow
 
         UpdateEosProxyUi();
 
-        MainListPanel.IsVisible   = false;
+        // Keep main list visible in background: shifted left and dimmed
+        MainListPanel.IsVisible   = true;
+        MainListPanel.Opacity     = 0.22;
+        MainListPanel.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(-60px)");
+        MainListPanel.IsHitTestVisible = false;
+
         GameDetailPanel.IsVisible = true;
         SettingsPanel.IsVisible   = false;
 
@@ -96,7 +101,11 @@ public partial class MainWindow
         DetailEosProxyBtn.IsVisible   = false;
         DetailSteamlessBtn.IsVisible  = false;
 
-        MainListPanel.IsVisible   = false;
+        MainListPanel.IsVisible   = true;
+        MainListPanel.Opacity     = 0.22;
+        MainListPanel.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(-60px)");
+        MainListPanel.IsHitTestVisible = false;
+
         GameDetailPanel.IsVisible = true;
         SettingsPanel.IsVisible   = false;
 

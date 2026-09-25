@@ -92,15 +92,22 @@ public partial class MainWindow
     {
         _activeSettingsTab = tab;
 
-        if (SettingsTabThemeBtn  != null) SettingsTabThemeBtn.Classes.Set("active",  tab == SettingsTab.Theme);
-        if (SettingsTabApiBtn    != null) SettingsTabApiBtn.Classes.Set("active",    tab == SettingsTab.Api);
-        if (SettingsTabSlsBtn    != null) SettingsTabSlsBtn.Classes.Set("active",    tab == SettingsTab.Sls);
+        if (SettingsTabThemeBtn   != null) SettingsTabThemeBtn.Classes.Set("active",   tab == SettingsTab.Theme);
+        if (SettingsTabApiBtn     != null) SettingsTabApiBtn.Classes.Set("active",     tab == SettingsTab.Api);
+        if (SettingsTabSlsBtn     != null) SettingsTabSlsBtn.Classes.Set("active",     tab == SettingsTab.Sls);
         if (SettingsTabVisualsBtn != null) SettingsTabVisualsBtn.Classes.Set("active", tab == SettingsTab.Visuals);
+        if (SettingsTabHealthBtn  != null) SettingsTabHealthBtn.Classes.Set("active",  tab == SettingsTab.Health);
 
-        if (SettingsThemePanel  != null) SettingsThemePanel.IsVisible   = tab == SettingsTab.Theme;
-        if (SettingsApiPanel    != null) SettingsApiPanel.IsVisible      = tab == SettingsTab.Api;
-        if (SettingsSlsPanel    != null) SettingsSlsPanel.IsVisible      = tab == SettingsTab.Sls;
+        if (SettingsThemePanel   != null) SettingsThemePanel.IsVisible   = tab == SettingsTab.Theme;
+        if (SettingsApiPanel     != null) SettingsApiPanel.IsVisible     = tab == SettingsTab.Api;
+        if (SettingsSlsPanel     != null) SettingsSlsPanel.IsVisible     = tab == SettingsTab.Sls;
         if (SettingsVisualsPanel != null) SettingsVisualsPanel.IsVisible = tab == SettingsTab.Visuals;
+        if (SettingsHealthPanel  != null) SettingsHealthPanel.IsVisible  = tab == SettingsTab.Health;
+
+        if (tab == SettingsTab.Health)
+        {
+            _ = RefreshVisorAsync();
+        }
 
         _settingsOptionIndex = 0;
 
@@ -113,6 +120,7 @@ public partial class MainWindow
     private void OnSettingsTabApiClicked(object? sender, RoutedEventArgs e)     => SetActiveSettingsTab(SettingsTab.Api);
     private void OnSettingsTabSlsClicked(object? sender, RoutedEventArgs e)     => SetActiveSettingsTab(SettingsTab.Sls);
     private void OnSettingsTabVisualsClicked(object? sender, RoutedEventArgs e) => SetActiveSettingsTab(SettingsTab.Visuals);
+    private void OnSettingsTabHealthClicked(object? sender, RoutedEventArgs e)  => SetActiveSettingsTab(SettingsTab.Health);
 
     // SLS Config toggles
     private void OnToggleVaporClicked(object? sender, RoutedEventArgs e)
@@ -344,6 +352,14 @@ public partial class MainWindow
                 if (ToggleAutoRotateBtn          != null) list.Add(ToggleAutoRotateBtn);
                 if (ToggleAutoRotateIntervalBtn  != null) list.Add(ToggleAutoRotateIntervalBtn);
                 break;
+            case SettingsTab.Health:
+                if (AssfixerCheckBtn != null)            list.Add(AssfixerCheckBtn);
+                if (AssfixerRepairBtn != null)           list.Add(AssfixerRepairBtn);
+                if (AssfixerRestoreBtn != null)          list.Add(AssfixerRestoreBtn);
+                if (SanitationClearThumbnailsBtn != null) list.Add(SanitationClearThumbnailsBtn);
+                if (SanitationResyncSlsBtn != null)       list.Add(SanitationResyncSlsBtn);
+                if (HealthRefreshBtn != null)             list.Add(HealthRefreshBtn);
+                break;
         }
         return list;
     }
@@ -355,7 +371,9 @@ public partial class MainWindow
         ToggleSgdbApiBtn, ToggleRawgBtn, ToggleHubcapApiBtn,
         ToggleVaporBtn, ToggleDownloadActionBtn, ToggleUpdatesBtn,
         ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,
-        ToggleSearchThumbnailsBtn, ToggleAutoRotateBtn, ToggleAutoRotateIntervalBtn
+        ToggleSearchThumbnailsBtn, ToggleAutoRotateBtn, ToggleAutoRotateIntervalBtn,
+        AssfixerCheckBtn, AssfixerRepairBtn, AssfixerRestoreBtn,
+        SanitationClearThumbnailsBtn, SanitationResyncSlsBtn, HealthRefreshBtn
     };
 
     // Full re-render of settings focus ring
@@ -381,7 +399,7 @@ public partial class MainWindow
 
     internal void CycleSettingsTab(int offset)
     {
-        const int count = 4;
+        const int count = 5;
         int next = (((int)_activeSettingsTab + offset) % count + count) % count;
         SetActiveSettingsTab((SettingsTab)next);
     }
@@ -399,6 +417,123 @@ public partial class MainWindow
         var buttons = GetSettingsButtons();
         if (_settingsOptionIndex >= 0 && _settingsOptionIndex < buttons.Count)
             buttons[_settingsOptionIndex].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+    }
+
+    // ── Health Tab Handlers ──────────────────────────────────────────────────
+
+    private async void OnAssfixerCheckClicked(object? sender, RoutedEventArgs e)
+    {
+        if (AssfixerStatusText != null)
+        {
+            AssfixerStatusText.Text = "Running assfixer validation...";
+            AssfixerStatusText.Foreground = Avalonia.Media.Brushes.DeepSkyBlue;
+            AssfixerStatusText.IsVisible = true;
+        }
+
+        var (ok, msg) = await _healthService.RunAssfixerCheckAsync();
+        if (AssfixerStatusText != null)
+        {
+            AssfixerStatusText.Text = ok ? $"● Config Healthy: {msg}" : $"● Check Notice: {msg}";
+            AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Goldenrod;
+        }
+    }
+
+    private async void OnAssfixerRepairClicked(object? sender, RoutedEventArgs e)
+    {
+        if (AssfixerStatusText != null)
+        {
+            AssfixerStatusText.Text = "Repairing and synchronizing config.yaml...";
+            AssfixerStatusText.Foreground = Avalonia.Media.Brushes.DeepSkyBlue;
+            AssfixerStatusText.IsVisible = true;
+        }
+
+        var (ok, msg) = await _healthService.RunAssfixerRepairAsync();
+        if (AssfixerStatusText != null)
+        {
+            AssfixerStatusText.Text = ok ? $"● Repaired: {msg}" : $"● Repair Failed: {msg}";
+            AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.IndianRed;
+        }
+    }
+
+    private void OnAssfixerRestoreClicked(object? sender, RoutedEventArgs e)
+    {
+        var (ok, msg) = _healthService.RestoreAssfixerBackup();
+        if (AssfixerStatusText != null)
+        {
+            AssfixerStatusText.Text = ok ? $"● {msg}" : $"● {msg}";
+            AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.IndianRed;
+            AssfixerStatusText.IsVisible = true;
+        }
+    }
+
+    private void OnClearThumbnailCacheClicked(object? sender, RoutedEventArgs e)
+    {
+        var (count, mb) = _healthService.ClearThumbnailCache();
+        if (SanitationStatusText != null)
+        {
+            SanitationStatusText.Text = $"Cleared {count} cached thumbnails ({mb:0.1} MB freed).";
+            SanitationStatusText.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
+            SanitationStatusText.IsVisible = true;
+        }
+    }
+
+    private void OnResyncSlsClicked(object? sender, RoutedEventArgs e)
+    {
+        bool ok = _healthService.TouchSlsConfig();
+        if (SanitationStatusText != null)
+        {
+            SanitationStatusText.Text = ok ? "Touched config.yaml — SLSsteam inotify reload triggered." : "config.yaml not found.";
+            SanitationStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.IndianRed;
+            SanitationStatusText.IsVisible = true;
+        }
+    }
+
+    private async void OnRefreshHealthClicked(object? sender, RoutedEventArgs e)
+    {
+        await RefreshVisorAsync();
+        if (SanitationStatusText != null)
+        {
+            SanitationStatusText.Text = "Health and API status updated.";
+            SanitationStatusText.Foreground = Avalonia.Media.Brushes.DeepSkyBlue;
+            SanitationStatusText.IsVisible = true;
+        }
+    }
+
+    private void UpdateHealthTabUi(SystemHealthStatus health)
+    {
+        if (HealthSummaryStatusText != null)
+        {
+            HealthSummaryStatusText.Text = $"{health.OverallState} • Steam: {(health.SteamRunning ? "Online" : "Offline")} • SLS: {(health.SlsProcessActive ? "Active" : "Inactive")}";
+            HealthSummaryStatusText.Foreground = health.IsOptimal 
+                ? Avalonia.Media.Brushes.MediumSpringGreen 
+                : (health.OverallState == "Attention" ? Avalonia.Media.Brushes.Goldenrod : Avalonia.Media.Brushes.IndianRed);
+        }
+
+        if (HealthIssuesListText != null)
+        {
+            if (health.Issues.Count > 0)
+            {
+                HealthIssuesListText.Text = "Status Notes:\n• " + string.Join("\n• ", health.Issues);
+                HealthIssuesListText.IsVisible = true;
+            }
+            else
+            {
+                HealthIssuesListText.Text = "All critical services (SLSsteam, Steam process, Config) are running optimally.";
+                HealthIssuesListText.IsVisible = true;
+            }
+        }
+
+        if (HealthHubcapQuotaText != null)
+        {
+            if (health.Hubcap.IsConfigured)
+            {
+                HealthHubcapQuotaText.Text = $"User: {health.Hubcap.Username}  •  Daily Calls: {health.Hubcap.DailyUsage} / {health.Hubcap.DailyLimit}  •  Total Calls: {health.Hubcap.TotalCalls}";
+            }
+            else
+            {
+                HealthHubcapQuotaText.Text = "API key not configured in ACCELA.conf";
+            }
+        }
     }
 }
 

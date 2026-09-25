@@ -15,6 +15,10 @@ public partial class MainWindow
     {
         _currentView = ActiveView.MainList;
         MainListPanel.IsVisible   = true;
+        MainListPanel.Opacity     = 1.0;
+        MainListPanel.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(0px)");
+        MainListPanel.IsHitTestVisible = true;
+
         GameDetailPanel.IsVisible = false;
         SettingsPanel.IsVisible   = false;
 
@@ -64,6 +68,10 @@ public partial class MainWindow
             SettingsLogPathText.Text = PlutoLogger.LogFilePath;
 
         MainListPanel.IsVisible   = false;
+        MainListPanel.Opacity     = 1.0;
+        MainListPanel.RenderTransform = Avalonia.Media.Transformation.TransformOperations.Parse("translateX(0px)");
+        MainListPanel.IsHitTestVisible = true;
+
         GameDetailPanel.IsVisible = false;
         SettingsPanel.IsVisible   = true;
 

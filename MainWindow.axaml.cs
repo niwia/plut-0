@@ -39,12 +39,14 @@ public partial class MainWindow : Window
     private readonly SteamTagService _steamTagService;
     private readonly EosProxyService _eosProxyService;
     private readonly SteamlessService _steamlessService;
+    private readonly HealthService _healthService;
 
     // Timers
     private readonly DispatcherTimer _screenshotAutoRotateTimer;
     private readonly DispatcherTimer _mainBackdropTimer;
     private readonly DispatcherTimer _liveSearchTimer;
     private readonly DispatcherTimer _placeholderTimer;
+    private readonly DispatcherTimer _visorTimer;
 
     // Visual settings
     private bool _settingAutoRotateScreenshots  = true;
@@ -62,7 +64,7 @@ public partial class MainWindow : Window
     private int _settingsOptionIndex = 0;
 
     // Settings submenu state
-    private enum SettingsTab { Theme, Api, Sls, Visuals }
+    private enum SettingsTab { Theme, Api, Sls, Visuals, Health }
     private SettingsTab _activeSettingsTab = SettingsTab.Theme;
 
     // Detail page state
@@ -144,6 +146,11 @@ public partial class MainWindow : Window
         _placeholderTimer.Tick += OnPlaceholderTimerTick;
         _placeholderTimer.Start();
 
+        _healthService = new HealthService(_configService);
+        _visorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
+        _visorTimer.Tick += async (_, _) => await RefreshVisorAsync();
+        _visorTimer.Start();
+
         ApplyThemeColors();
 
         GamesListBox.ItemsSource         = _displayedGames;
@@ -192,6 +199,7 @@ public partial class MainWindow : Window
         await ReloadLibraryAsync();
         LoadSettingsFromConfig();
         GamesListBox.Focus();
+        _ = RefreshVisorAsync();
     }
 
     private async Task ReloadLibraryAsync()
@@ -269,5 +277,63 @@ public partial class MainWindow : Window
             int a = _allGames.Count(g => g.IsAccela);
             SettingsGameCountsText.Text = $"{p} plugin games, {a} assella managed games";
         }
+    }
+
+    // Visor refresh & click handler
+    public async Task RefreshVisorAsync()
+    {
+        try
+        {
+            var health = await _healthService.CheckHealthAsync();
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (VisorHubcapText != null)
+                {
+                    VisorHubcapText.Text = health.Hubcap.IsConfigured 
+                        ? $"{health.Hubcap.DailyUsage}/{health.Hubcap.DailyLimit}" 
+                        : "not set";
+                    VisorHubcapText.Foreground = health.Hubcap.IsConfigured
+                        ? Avalonia.Media.Brushes.LightGray
+                        : Avalonia.Media.Brushes.Gray;
+                }
+
+                if (VisorSlsText != null)
+                {
+                    VisorSlsText.Text = health.SlsProcessActive ? "Active" : (health.SlsBinaryDetected ? "Inactive" : "Not Found");
+                    VisorSlsText.Foreground = health.SlsProcessActive
+                        ? Avalonia.Media.Brushes.LightGray
+                        : (health.SlsBinaryDetected ? Avalonia.Media.Brushes.Goldenrod : Avalonia.Media.Brushes.IndianRed);
+                }
+
+                if (VisorSteamText != null)
+                {
+                    VisorSteamText.Text = health.SteamRunning ? "Online" : "Offline";
+                    VisorSteamText.Foreground = health.SteamRunning
+                        ? Avalonia.Media.Brushes.LightGray
+                        : Avalonia.Media.Brushes.IndianRed;
+                }
+
+                if (VisorHealthText != null)
+                {
+                    VisorHealthText.Text = health.OverallState;
+                    VisorHealthText.Foreground = health.IsOptimal
+                        ? Avalonia.Media.Brushes.LightGray
+                        : (health.OverallState == "Attention" ? Avalonia.Media.Brushes.Goldenrod : Avalonia.Media.Brushes.IndianRed);
+                }
+
+                UpdateHealthTabUi(health);
+            });
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Visor", "Failed to refresh visor status", ex);
+        }
+    }
+
+    private void OnVisorHealthClicked(object? sender, PointerPressedEventArgs e)
+    {
+        OpenSettingsPage();
+        SetActiveSettingsTab(SettingsTab.Health);
     }
 }

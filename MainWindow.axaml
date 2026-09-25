@@ -238,59 +238,59 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
-        <!-- Controller Button Badges & Prompt Labels -->
+        <!-- Controller Button Badges & Prompt Labels: Clean, Muted Monochromatic -->
         <Style Selector="Border.btnBadge">
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Height" Value="18" />
             <Setter Property="MinWidth" Value="18" />
             <Setter Property="Padding" Value="4, 0" />
-            <Setter Property="Background" Value="#1C1F26" />
-            <Setter Property="BorderBrush" Value="#2E3440" />
+            <Setter Property="Background" Value="#1A1D24" />
+            <Setter Property="BorderBrush" Value="#30363D" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style Selector="Border.btnBadge.btnA">
-            <Setter Property="BorderBrush" Value="#059669" />
-            <Setter Property="Background" Value="#0D281E" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="Background" Value="#1A1D24" />
         </Style>
         <Style Selector="Border.btnBadge.btnB">
-            <Setter Property="BorderBrush" Value="#DC2626" />
-            <Setter Property="Background" Value="#291215" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="Background" Value="#1A1D24" />
         </Style>
         <Style Selector="Border.btnBadge.btnX">
-            <Setter Property="BorderBrush" Value="#2563EB" />
-            <Setter Property="Background" Value="#101D36" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="Background" Value="#1A1D24" />
         </Style>
         <Style Selector="Border.btnBadge.btnY">
-            <Setter Property="BorderBrush" Value="#D97706" />
-            <Setter Property="Background" Value="#2A1C0A" />
+            <Setter Property="BorderBrush" Value="#30363D" />
+            <Setter Property="Background" Value="#1A1D24" />
         </Style>
 
         <Style Selector="TextBlock.btnBadgeText">
             <Setter Property="FontSize" Value="10" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Foreground" Value="#9CA3AF" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style Selector="TextBlock.btnBadgeText.txtA">
-            <Setter Property="Foreground" Value="#34D399" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
         </Style>
         <Style Selector="TextBlock.btnBadgeText.txtB">
-            <Setter Property="Foreground" Value="#F87171" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
         </Style>
         <Style Selector="TextBlock.btnBadgeText.txtX">
-            <Setter Property="Foreground" Value="#60A5FA" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
         </Style>
         <Style Selector="TextBlock.btnBadgeText.txtY">
-            <Setter Property="Foreground" Value="#FBBF24" />
+            <Setter Property="Foreground" Value="#E2E8F0" />
         </Style>
 
         <Style Selector="TextBlock.hintLabel">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#666666" />
+            <Setter Property="Foreground" Value="#777777" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </Window.Styles>
@@ -330,9 +330,15 @@
                    Margin="0,48,64,0"
                    IsHitTestVisible="False" />        <!-- 1. MAIN LIST VIEW -->
         <Grid x:Name="MainListPanel"
-              RowDefinitions="Auto,*,Auto"
-              Margin="64,48,64,28"
+              RowDefinitions="Auto,*,Auto,Auto"
+              Margin="64,48,64,24"
               IsVisible="True">
+            <Grid.Transitions>
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                </Transitions>
+            </Grid.Transitions>
             
             <!-- Top: Minimal Search Box with [Y] Controller Badge -->
             <StackPanel Grid.Row="0" Margin="0,0,0,0" HorizontalAlignment="Left" Spacing="6">
@@ -431,8 +437,47 @@
                            IsVisible="False" />
             </Grid>
 
-            <!-- Bottom Row: Controller Hints on Left & Settings on Right -->
-            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0" VerticalAlignment="Bottom">
+            <!-- Row 2: Visor Status Strip (Hubcap Quota, SLS State, Steam, Health) -->
+            <Border Grid.Row="2"
+                    Margin="0,10,0,0"
+                    Padding="14,6"
+                    Background="#0DFFFFFF"
+                    BorderBrush="#18FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Cursor="Hand"
+                    PointerPressed="OnVisorHealthClicked">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="20" VerticalAlignment="Center">
+                        <!-- Hubcap Quota -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="HUBCAP" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
+                            <TextBlock x:Name="VisorHubcapText" Text="Connecting..." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- SLS Status -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="SLS" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
+                            <TextBlock x:Name="VisorSlsText" Text="Checking..." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Steam Process -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="STEAM" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
+                            <TextBlock x:Name="VisorSteamText" Text="Checking..." FontSize="12" Foreground="#9CA3AF" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Overall Health Status -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="HEALTH" FontSize="10" FontWeight="SemiBold" Foreground="#666666" VerticalAlignment="Center" />
+                        <TextBlock x:Name="VisorHealthText" Text="Good" FontSize="12" Foreground="#34D399" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Row 3: Controller Hints on Left & Settings on Right -->
+            <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,12,0,0" VerticalAlignment="Bottom">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
@@ -466,239 +511,256 @@
             </Grid>
         </Grid>
 
-        <!-- 2. GAME DETAIL PAGE VIEW -->
+        <!-- 2. GAME DETAIL PAGE VIEW (Popout Floating Card with Dimmed List Backdrop) -->
         <Grid x:Name="GameDetailPanel"
               Margin="0"
               IsVisible="False">
 
-            <!-- Right-aligned Game Backdrop Artwork with Opacity Gradient Mask -->
-            <Image x:Name="DetailGameBackdrop"
-                   HorizontalAlignment="Right"
-                   VerticalAlignment="Stretch"
-                   Stretch="UniformToFill"
-                   Width="850"
-                   Opacity="0.55"
-                   IsHitTestVisible="False">
-                <Image.Transitions>
-                    <Transitions>
-                        <DoubleTransition Property="Opacity" Duration="0:0:0.35" Easing="CubicEaseOut" />
-                    </Transitions>
-                </Image.Transitions>
-                <Image.OpacityMask>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
-                        <GradientStop Color="#00000000" Offset="0.0" />
-                        <GradientStop Color="#22000000" Offset="0.18" />
-                        <GradientStop Color="#88000000" Offset="0.45" />
-                        <GradientStop Color="#FFFFFFFF" Offset="0.85" />
-                    </LinearGradientBrush>
-                </Image.OpacityMask>
-            </Image>
+            <!-- Backdrop Click-Outside Dimmer -->
+            <Border Background="#33000000"
+                    Cursor="Hand"
+                    PointerPressed="OnBackBadgeClicked" />
 
-            <!-- Foreground Content: Top Info & Bottom Actions / Gallery -->
-            <Grid RowDefinitions="Auto,*,Auto,Auto"
-                  Margin="64,48,64,28">
-                
-                <!-- Row 0: Back Button with [B] Controller Badge -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,20">
-                    <Border Classes="btnBadge btnB" Cursor="Hand" PointerPressed="OnBackBadgeClicked">
-                        <TextBlock Classes="btnBadgeText txtB" Text="B" />
-                    </Border>
-                    <Button Classes="minimalTextBtn"
-                            Content="back"
-                            Focusable="False"
-                            Click="OnBackToMainClicked" />
-                </StackPanel>
+            <!-- Floating Popout Card (Shifted right, preserves shifted main list peek on left) -->
+            <Border x:Name="GameDetailCard"
+                    Margin="90,16,24,16"
+                    CornerRadius="14"
+                    Background="#F0090B10"
+                    BorderBrush="#25FFFFFF"
+                    BorderThickness="1"
+                    BoxShadow="0 18 50 0 #B0000000"
+                    ClipToBounds="True">
+                <Grid>
+                    <!-- Right-aligned Game Backdrop Artwork with Opacity Gradient Mask -->
+                    <Image x:Name="DetailGameBackdrop"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Stretch"
+                           Stretch="UniformToFill"
+                           Width="760"
+                           Opacity="0.55"
+                           IsHitTestVisible="False">
+                        <Image.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.35" Easing="CubicEaseOut" />
+                            </Transitions>
+                        </Image.Transitions>
+                        <Image.OpacityMask>
+                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                                <GradientStop Color="#00000000" Offset="0.0" />
+                                <GradientStop Color="#22000000" Offset="0.18" />
+                                <GradientStop Color="#88000000" Offset="0.45" />
+                                <GradientStop Color="#FFFFFFFF" Offset="0.85" />
+                            </LinearGradientBrush>
+                        </Image.OpacityMask>
+                    </Image>
 
-                <!-- Row 1: Header (Left Margin) & Indented Details (Right Offset) -->
-                <StackPanel Grid.Row="1" Spacing="4" HorizontalAlignment="Left" VerticalAlignment="Top">
-                    <!-- SteamGridDB Transparent Logo (falls back cleanly to Title text) -->
-                    <Image x:Name="DetailGameLogo"
-                           MaxHeight="75"
-                           MaxWidth="340"
-                           HorizontalAlignment="Left"
-                           Stretch="Uniform"
-                           Margin="0,0,0,6"
-                           IsVisible="False" />
+                    <!-- Foreground Content: Top Info & Bottom Actions / Gallery -->
+                    <Grid RowDefinitions="Auto,*,Auto,Auto"
+                          Margin="36,26,36,20">
+                        
+                        <!-- Row 0: Back Button with [B] Controller Badge -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,16">
+                            <Border Classes="btnBadge btnB" Cursor="Hand" PointerPressed="OnBackBadgeClicked">
+                                <TextBlock Classes="btnBadgeText txtB" Text="B" />
+                            </Border>
+                            <Button Classes="minimalTextBtn"
+                                    Content="back"
+                                    Focusable="False"
+                                    Click="OnBackToMainClicked" />
+                        </StackPanel>
 
-                    <TextBlock x:Name="DetailGameTitle"
-                               Text="Game Title"
-                               FontSize="34"
-                               FontWeight="Normal"
-                               Foreground="#FFFFFF" />
-
-                    <TextBlock x:Name="DetailGameSubtitle"
-                               Text="3473250  •  native"
-                               FontSize="14"
-                               FontWeight="Normal"
-                               Foreground="#777777" />
-
-                    <!-- Indented details section (offset slightly to the right) -->
-                    <StackPanel Margin="36, 12, 0, 0" Spacing="10">
-                        <TextBlock x:Name="DetailGameCredits"
-                                   Text=""
-                                   FontSize="13"
-                                   FontWeight="Normal"
-                                   Foreground="#999999"
+                        <!-- Row 1: Header (Left Margin) & Indented Details (Right Offset) -->
+                        <StackPanel Grid.Row="1" Spacing="4" HorizontalAlignment="Left" VerticalAlignment="Top">
+                            <!-- SteamGridDB Transparent Logo (falls back cleanly to Title text) -->
+                            <Image x:Name="DetailGameLogo"
+                                   MaxHeight="70"
+                                   MaxWidth="320"
+                                   HorizontalAlignment="Left"
+                                   Stretch="Uniform"
+                                   Margin="0,0,0,6"
                                    IsVisible="False" />
 
-                        <!-- Simple Rating Row matching the rest of the text -->
-                        <StackPanel x:Name="DetailRatingRow"
-                                    Orientation="Horizontal"
-                                    Spacing="8"
-                                    VerticalAlignment="Center"
-                                    IsVisible="False">
-                            <TextBlock Text="★" FontSize="14" Foreground="#FBBF24" VerticalAlignment="Center" />
-                            <TextBlock x:Name="DetailRatingScoreText"
-                                       Text="4.2 / 5"
-                                       FontSize="13"
+                            <TextBlock x:Name="DetailGameTitle"
+                                       Text="Game Title"
+                                       FontSize="32"
                                        FontWeight="Normal"
-                                       Foreground="#FFFFFF"
-                                       VerticalAlignment="Center" />
-                            <TextBlock x:Name="DetailRatingSubText"
-                                       Text="2.4k reviews • exceptional"
-                                       FontSize="13"
+                                       Foreground="#FFFFFF" />
+
+                            <TextBlock x:Name="DetailGameSubtitle"
+                                       Text="3473250  •  native"
+                                       FontSize="14"
                                        FontWeight="Normal"
-                                       Foreground="#888888"
-                                       VerticalAlignment="Center" />
+                                       Foreground="#777777" />
+
+                            <!-- Indented details section (offset slightly to the right) -->
+                            <StackPanel Margin="32, 10, 0, 0" Spacing="9">
+                                <TextBlock x:Name="DetailGameCredits"
+                                           Text=""
+                                           FontSize="13"
+                                           FontWeight="Normal"
+                                           Foreground="#999999"
+                                           IsVisible="False" />
+
+                                <!-- Simple Rating Row matching the rest of the text -->
+                                <StackPanel x:Name="DetailRatingRow"
+                                            Orientation="Horizontal"
+                                            Spacing="8"
+                                            VerticalAlignment="Center"
+                                            IsVisible="False">
+                                    <TextBlock Text="★" FontSize="14" Foreground="#FBBF24" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="DetailRatingScoreText"
+                                               Text="4.2 / 5"
+                                               FontSize="13"
+                                               FontWeight="Normal"
+                                               Foreground="#FFFFFF"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock x:Name="DetailRatingSubText"
+                                               Text="2.4k reviews • exceptional"
+                                               FontSize="13"
+                                               FontWeight="Normal"
+                                               Foreground="#888888"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <!-- Other metrics: Playtime & Metacritic -->
+                                <TextBlock x:Name="DetailRawgMeta"
+                                           Text=""
+                                           FontSize="13"
+                                           FontWeight="Normal"
+                                           Foreground="#60A5FA"
+                                           IsVisible="False" />
+
+                                <!-- Top 3 Tags Row with SteamDB Icons -->
+                                <WrapPanel x:Name="DetailTagsPanel"
+                                           Orientation="Horizontal"
+                                           Margin="0,2,0,0"
+                                           IsVisible="False" />
+                            </StackPanel>
                         </StackPanel>
 
-                        <!-- Other metrics: Playtime & Metacritic -->
-                        <TextBlock x:Name="DetailRawgMeta"
-                                   Text=""
-                                   FontSize="13"
-                                   FontWeight="Normal"
-                                   Foreground="#60A5FA"
-                                   IsVisible="False" />
+                        <!-- Row 2: Bottom Section (Left Actions Indented, Right Screenshot Gallery) -->
+                        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
+                            <!-- Bottom-Left: All Actions & Toggles (Indented to match details) -->
+                            <StackPanel Grid.Column="0" Margin="32,0,0,0" Spacing="14" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                                <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" -->
+                                <StackPanel Spacing="4">
+                                    <Button x:Name="DetailSwitchModeBtn"
+                                            Classes="minimalTextBtn"
+                                            Content="add to plugin"
+                                            FontSize="17"
+                                            Foreground="#4ADE80"
+                                            Click="OnToggleModeClicked" />
+                                    <TextBlock x:Name="DetailActionStatus"
+                                               FontSize="12"
+                                               Foreground="#777777"
+                                               IsVisible="False" />
+                                </StackPanel>
 
-                        <!-- Top 3 Tags Row with SteamDB Icons -->
-                        <WrapPanel x:Name="DetailTagsPanel"
-                                   Orientation="Horizontal"
-                                   Margin="0,2,0,0"
-                                   IsVisible="False" />
-                    </StackPanel>
-                </StackPanel>
+                                <!-- Online Toggles Row: SLSonline, Netsock Proxy & EOS Proxy -->
+                                <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="22">
+                                    <Button x:Name="DetailSlsOnlineBtn"
+                                            Classes="minimalTextBtn"
+                                            Content="enable slsonline"
+                                            FontSize="14"
+                                            Click="OnToggleSlsOnlineClicked" />
 
-                <!-- Row 2: Bottom Section (Left Actions Indented, Right Screenshot Gallery) -->
-                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" VerticalAlignment="Bottom">
-                    <!-- Bottom-Left: All Actions & Toggles (Indented to match details) -->
-                    <StackPanel Grid.Column="0" Margin="36,0,0,0" Spacing="16" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                        <!-- Primary Mode Switch Action: "add to plugin" / "move to assella" -->
-                        <StackPanel Spacing="4">
-                            <Button x:Name="DetailSwitchModeBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="add to plugin"
-                                    FontSize="17"
-                                    Foreground="#4ADE80"
-                                    Click="OnToggleModeClicked" />
-                            <TextBlock x:Name="DetailActionStatus"
-                                       FontSize="12"
-                                       Foreground="#777777"
-                                       IsVisible="False" />
-                        </StackPanel>
+                                    <Button x:Name="DetailNetsockBtn"
+                                            Classes="minimalTextBtn"
+                                            Content="enable netsock proxy"
+                                            FontSize="14"
+                                            IsVisible="False"
+                                            Click="OnToggleNetsockClicked" />
 
-                        <!-- Online Toggles Row: SLSonline, Netsock Proxy & EOS Proxy -->
-                        <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="24">
-                            <Button x:Name="DetailSlsOnlineBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="enable slsonline"
-                                    FontSize="14"
-                                    Click="OnToggleSlsOnlineClicked" />
+                                    <Button x:Name="DetailEosProxyBtn"
+                                            Classes="minimalTextBtn"
+                                            Content="enable eos proxy"
+                                            FontSize="14"
+                                            IsVisible="False"
+                                            Click="OnToggleEosProxyClicked" />
+                                </StackPanel>
 
-                            <Button x:Name="DetailNetsockBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="enable netsock proxy"
-                                    FontSize="14"
-                                    IsVisible="False"
-                                    Click="OnToggleNetsockClicked" />
+                                <!-- Steamless Action -->
+                                <StackPanel x:Name="DetailSteamlessRow" Spacing="4">
+                                    <Button x:Name="DetailSteamlessBtn"
+                                            Classes="minimalTextBtn"
+                                            Content="apply steamless"
+                                            FontSize="14"
+                                            Click="OnApplySteamlessClicked" />
+                                    <TextBlock x:Name="DetailSteamlessStatus"
+                                               FontSize="12"
+                                               Foreground="#777777"
+                                               IsVisible="False" />
+                                </StackPanel>
+                            </StackPanel>
 
-                            <Button x:Name="DetailEosProxyBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="enable eos proxy"
-                                    FontSize="14"
-                                    IsVisible="False"
-                                    Click="OnToggleEosProxyClicked" />
-                        </StackPanel>
+                            <!-- Bottom-Right: Circling Screenshot Gallery Controls (Timer-driven) -->
+                            <StackPanel x:Name="DetailGalleryControls"
+                                        Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Spacing="12"
+                                        VerticalAlignment="Bottom"
+                                        HorizontalAlignment="Right"
+                                        IsVisible="False">
+                                <Button x:Name="DetailPrevScreenBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="&lt;"
+                                        FontSize="18"
+                                        Foreground="#888888"
+                                        Focusable="False"
+                                        Click="OnPrevScreenshotClicked" />
+                                <TextBlock x:Name="DetailGalleryIndexText"
+                                           Text="1 / 6"
+                                           FontSize="13"
+                                           Foreground="#666666"
+                                           VerticalAlignment="Center" />
+                                <Button x:Name="DetailNextScreenBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="&gt;"
+                                        FontSize="18"
+                                        Foreground="#888888"
+                                        Focusable="False"
+                                        Click="OnNextScreenshotClicked" />
+                            </StackPanel>
+                        </Grid>
 
-                        <!-- Steamless Action -->
-                        <StackPanel x:Name="DetailSteamlessRow" Spacing="4">
-                            <Button x:Name="DetailSteamlessBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="apply steamless"
-                                    FontSize="14"
-                                    Click="OnApplySteamlessClicked" />
-                            <TextBlock x:Name="DetailSteamlessStatus"
-                                       FontSize="12"
-                                       Foreground="#777777"
-                                       IsVisible="False" />
-                        </StackPanel>
-                    </StackPanel>
+                        <!-- Row 3: Controller Hints Footer Bar -->
+                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="32,18,0,0" VerticalAlignment="Bottom">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="↑↓" /></Border>
+                                    <TextBlock Classes="hintLabel" Text="navigate" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
+                                    <TextBlock Classes="hintLabel" Text="select" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Classes="btnBadge btnB"><TextBlock Classes="btnBadgeText txtB" Text="B" /></Border>
+                                    <TextBlock Classes="hintLabel" Text="back" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Border Classes="btnBadge btnX"><TextBlock Classes="btnBadgeText txtX" Text="X" /></Border>
+                                    <TextBlock Classes="hintLabel" Text="options" />
+                                </StackPanel>
+                            </StackPanel>
 
-                    <!-- Bottom-Right: Circling Screenshot Gallery Controls (Timer-driven) -->
-                    <StackPanel x:Name="DetailGalleryControls"
-                                Grid.Column="1"
-                                Orientation="Horizontal"
-                                Spacing="12"
-                                VerticalAlignment="Bottom"
-                                HorizontalAlignment="Right"
-                                IsVisible="False">
-                        <Button x:Name="DetailPrevScreenBtn"
-                                Classes="minimalTextBtn"
-                                Content="&lt;"
-                                FontSize="18"
-                                Foreground="#888888"
-                                Focusable="False"
-                                Click="OnPrevScreenshotClicked" />
-                        <TextBlock x:Name="DetailGalleryIndexText"
-                                   Text="1 / 6"
-                                   FontSize="13"
-                                   Foreground="#666666"
-                                   VerticalAlignment="Center" />
-                        <Button x:Name="DetailNextScreenBtn"
-                                Classes="minimalTextBtn"
-                                Content="&gt;"
-                                FontSize="18"
-                                Foreground="#888888"
-                                Focusable="False"
-                                Click="OnNextScreenshotClicked" />
-                    </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                <Border Classes="btnBadge" MinWidth="22" Height="18" Padding="3,0" Cursor="Hand" PointerPressed="OnOpenSettingsPointerPressed">
+                                    <Path Data="M 0,3 h 8 v 6 h -8 Z M 4,1 h 8 v 6 h -8 Z"
+                                          Stroke="#888888"
+                                          StrokeThickness="1"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Center" />
+                                </Border>
+                                <Button Classes="minimalTextBtn"
+                                        Content="settings"
+                                        Focusable="False"
+                                        Click="OnOpenSettingsClicked" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
                 </Grid>
-
-                <!-- Row 3: Controller Hints Footer Bar -->
-                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="36,20,0,0" VerticalAlignment="Bottom">
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="↑↓" /></Border>
-                            <TextBlock Classes="hintLabel" Text="navigate" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="btnBadge btnA"><TextBlock Classes="btnBadgeText txtA" Text="A" /></Border>
-                            <TextBlock Classes="hintLabel" Text="select" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="btnBadge btnB"><TextBlock Classes="btnBadgeText txtB" Text="B" /></Border>
-                            <TextBlock Classes="hintLabel" Text="back" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Border Classes="btnBadge btnX"><TextBlock Classes="btnBadgeText txtX" Text="X" /></Border>
-                            <TextBlock Classes="hintLabel" Text="options" />
-                        </StackPanel>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                        <Border Classes="btnBadge" MinWidth="22" Height="18" Padding="3,0" Cursor="Hand" PointerPressed="OnOpenSettingsPointerPressed">
-                            <Path Data="M 0,3 h 8 v 6 h -8 Z M 4,1 h 8 v 6 h -8 Z"
-                                  Stroke="#888888"
-                                  StrokeThickness="1"
-                                  VerticalAlignment="Center"
-                                  HorizontalAlignment="Center" />
-                        </Border>
-                        <Button Classes="minimalTextBtn"
-                                Content="settings"
-                                Focusable="False"
-                                Click="OnOpenSettingsClicked" />
-                    </StackPanel>
-                </Grid>
-            </Grid>
+            </Border>
         </Grid>
 
         <!-- 3. SETTINGS PAGE VIEW WITH SUBMENUS (Theme, API, SLS Config, Visuals) -->
@@ -748,6 +810,10 @@
                         Classes="settingsTabBtn"
                         Content="visuals &amp; gallery"
                         Click="OnSettingsTabVisualsClicked" />
+                <Button x:Name="SettingsTabHealthBtn"
+                        Classes="settingsTabBtn"
+                        Content="health &amp; sanitation"
+                        Click="OnSettingsTabHealthClicked" />
                 <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center" Margin="8,0,0,0">
                     <Border Classes="btnBadge"><TextBlock Classes="btnBadgeText" Text="←→" /></Border>
                     <TextBlock Classes="hintLabel" Text="switch tab" />
@@ -936,6 +1002,95 @@
                         <StackPanel Spacing="4">
                             <TextBlock Text="pluto log" FontSize="13" Foreground="#666666" />
                             <TextBlock x:Name="SettingsLogPathText" Text="~/.local/share/pluto/pluto.log" FontSize="14" Foreground="#AAAAAA" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 3E: HEALTH & SANITATION SUBMENU -->
+                    <StackPanel x:Name="SettingsHealthPanel" Spacing="24" IsVisible="False">
+                        <!-- System Status Overview -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="system diagnostic summary" FontSize="13" Foreground="#666666" />
+                            <TextBlock x:Name="HealthSummaryStatusText"
+                                       Text="Checking system status..."
+                                       FontSize="15"
+                                       Foreground="#4ADE80" />
+                            <TextBlock x:Name="HealthIssuesListText"
+                                       Text="All critical services are running optimally."
+                                       FontSize="12"
+                                       Foreground="#888888"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <!-- Hubcap Quota Details -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="hubcap / morrenus quota usage" FontSize="13" Foreground="#666666" />
+                            <TextBlock x:Name="HealthHubcapQuotaText"
+                                       Text="Querying Hubcap API..."
+                                       FontSize="14"
+                                       Foreground="#CCCCCC" />
+                            <TextBlock Text="API Key source: ~/.config/Tachibana Labs/ACCELA.conf" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
+
+                        <!-- ASSfixer: SLSsteam Config Diagnostic & Repair -->
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="assfixer (slssteam config.yaml diagnostics)" FontSize="13" Foreground="#666666" />
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <Button x:Name="AssfixerCheckBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="validate config"
+                                        FontSize="15"
+                                        Foreground="#38BDF8"
+                                        Click="OnAssfixerCheckClicked" />
+                                <Button x:Name="AssfixerRepairBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="repair &amp; sync syntax"
+                                        FontSize="15"
+                                        Foreground="#4ADE80"
+                                        Click="OnAssfixerRepairClicked" />
+                                <Button x:Name="AssfixerRestoreBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="restore backup"
+                                        FontSize="15"
+                                        Foreground="#F87171"
+                                        Click="OnAssfixerRestoreClicked" />
+                            </StackPanel>
+                            <TextBlock x:Name="AssfixerStatusText"
+                                       Text=""
+                                       FontSize="12"
+                                       Foreground="#777777"
+                                       TextWrapping="Wrap"
+                                       IsVisible="False" />
+                        </StackPanel>
+
+                        <!-- Cache & Config Sanitation -->
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="sanitation &amp; maintenance" FontSize="13" Foreground="#666666" />
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <Button x:Name="SanitationClearThumbnailsBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="clear thumbnail cache"
+                                        FontSize="15"
+                                        Foreground="#E2E8F0"
+                                        Click="OnClearThumbnailCacheClicked" />
+                                <Button x:Name="SanitationResyncSlsBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="trigger sls reload (touch)"
+                                        FontSize="15"
+                                        Foreground="#E2E8F0"
+                                        Click="OnResyncSlsClicked" />
+                                <Button x:Name="HealthRefreshBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="refresh health"
+                                        FontSize="15"
+                                        Foreground="#38BDF8"
+                                        Click="OnRefreshHealthClicked" />
+                            </StackPanel>
+                            <TextBlock x:Name="SanitationStatusText"
+                                       Text=""
+                                       FontSize="12"
+                                       Foreground="#777777"
+                                       TextWrapping="Wrap"
+                                       IsVisible="False" />
                         </StackPanel>
                     </StackPanel>
                 </Grid>
