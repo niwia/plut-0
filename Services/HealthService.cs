@@ -118,10 +118,19 @@ public class HealthService
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         string[] candidates =
         {
-            Path.Combine(home, ".local", "share", "Steam", "slssteam", "slssteam.so"),
+            // Primary Linux install path used by ACCELA & installer scripts
+            Path.Combine(home, ".local", "share", "SLSsteam", "SLSsteam.so"),
+            Path.Combine(home, ".local", "share", "SLSsteam", "slssteam.so"),
+            "/usr/lib32/libSLSsteam.so",
+            "/usr/lib/libSLSsteam.so",
+            // Flatpak SLSsteam paths
+            Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "SLSsteam", "SLSsteam.so"),
+            Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", "data", "SLSsteam", "SLSsteam.so"),
+            // Legacy / alternate config locations
             Path.Combine(home, ".local", "share", "Steam", "slssteam", "SLSsteam.so"),
-            Path.Combine(home, ".config", "SLSsteam", "slssteam.so"),
+            Path.Combine(home, ".local", "share", "Steam", "slssteam", "slssteam.so"),
             Path.Combine(home, ".config", "SLSsteam", "SLSsteam.so"),
+            Path.Combine(home, ".config", "SLSsteam", "slssteam.so"),
             Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam", "slssteam", "slssteam.so"),
             Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", "data", "Steam", "slssteam", "slssteam.so")
         };
@@ -130,6 +139,33 @@ public class HealthService
         {
             if (File.Exists(p)) return (true, p);
         }
+
+        // Retrace running Steam process /proc/{pid}/maps to locate loaded SLSsteam.so
+        try
+        {
+            foreach (var p in Process.GetProcessesByName("steam"))
+            {
+                var mapsPath = $"/proc/{p.Id}/maps";
+                if (File.Exists(mapsPath))
+                {
+                    foreach (var line in File.ReadLines(mapsPath))
+                    {
+                        if (line.Contains("SLSsteam.so", StringComparison.OrdinalIgnoreCase) ||
+                            line.Contains("slssteam.so", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 6 && File.Exists(parts[5]))
+                            {
+                                return (true, parts[5]);
+                            }
+                            return (true, "loaded in steam memory");
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+
         return (false, string.Empty);
     }
 

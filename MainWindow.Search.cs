@@ -175,6 +175,11 @@ public partial class MainWindow
     private void OnSearchBoxGotFocus(object? sender, RoutedEventArgs e)
     {
         GamesListBox?.Classes.Set("accessed", false);
+        if (_settingSearchResetOnAccess && _displayedGames.Count > 0 && GamesListBox != null)
+        {
+            GamesListBox.SelectedIndex = 0;
+            GamesListBox.ScrollIntoView(_displayedGames[0]);
+        }
     }
 
     private async void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)

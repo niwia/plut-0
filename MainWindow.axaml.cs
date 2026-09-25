@@ -81,10 +81,11 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _searchCts;
     private int _placeholderIndex = 0;
 
-    // SLS settings (cached)
+    // SLS & UI settings (cached)
     private bool   _settingVaporEnabled   = true;
     private string _settingDownloadAction = "native";
     private bool   _settingDisableUpdates = false;
+    private bool   _settingSearchResetOnAccess = true;
 
     // View state
     private enum ActiveView { MainList, GameDetail, Settings }

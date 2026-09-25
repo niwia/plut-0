@@ -34,13 +34,14 @@ public partial class MainWindow
             if (_settingMainBackdropIntervalSec < 5) _settingMainBackdropIntervalSec = 15;
 
             _settingSearchThumbnailsEnabled = _configService.GetBool("search_thumbnails_enabled", true);
+            _settingSearchResetOnAccess     = _configService.GetBool("search_reset_on_access", true);
 
             UpdateSettingsUi();
             PlutoLogger.Info("Pluto",
                 $"Settings: vapor={_settingVaporEnabled}, dl={_settingDownloadAction}, " +
                 $"autoRotate={_settingAutoRotateScreenshots}@{_settingAutoRotateIntervalSec}s, " +
                 $"mainBackdrop={_settingDynamicMainBackdrop}@{_settingMainBackdropIntervalSec}s, " +
-                $"searchThumbs={_settingSearchThumbnailsEnabled}");
+                $"searchThumbs={_settingSearchThumbnailsEnabled}, searchReset={_settingSearchResetOnAccess}");
         }
         catch (Exception ex)
         {
@@ -83,6 +84,13 @@ public partial class MainWindow
         {
             ToggleSearchThumbnailsBtn.Content    = _settingSearchThumbnailsEnabled ? "enabled" : "disabled";
             ToggleSearchThumbnailsBtn.Foreground = _settingSearchThumbnailsEnabled
+                ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+
+        if (ToggleSearchResetBtn != null)
+        {
+            ToggleSearchResetBtn.Content    = _settingSearchResetOnAccess ? "enabled (reset position)" : "disabled (keep position)";
+            ToggleSearchResetBtn.Foreground = _settingSearchResetOnAccess
                 ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
         }
     }
@@ -316,6 +324,12 @@ public partial class MainWindow
 
     private void OnToggleNativeThemeClicked(object? sender, RoutedEventArgs e)  { _themeService.CycleNextNative();  ApplyThemeColors(); }
     private void OnToggleAccelaThemeClicked(object? sender, RoutedEventArgs e)  { _themeService.CycleNextAccela();  ApplyThemeColors(); }
+    private void OnToggleSearchResetClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingSearchResetOnAccess = !_settingSearchResetOnAccess;
+        UpdateSettingsUi();
+        _configService.SetBool("search_reset_on_access", _settingSearchResetOnAccess);
+    }
     private void OnToggleSgdbApiClicked(object? sender, RoutedEventArgs e)      => ApplyThemeColors();
     private void OnToggleRawgClicked(object? sender, RoutedEventArgs e)         => ApplyThemeColors();
     private void OnToggleHubcapApiClicked(object? sender, RoutedEventArgs e)    => ApplyThemeColors();
@@ -334,6 +348,7 @@ public partial class MainWindow
             case SettingsTab.Theme:
                 if (ToggleNativeThemeBtn != null) list.Add(ToggleNativeThemeBtn);
                 if (ToggleAccelaThemeBtn != null) list.Add(ToggleAccelaThemeBtn);
+                if (ToggleSearchResetBtn != null) list.Add(ToggleSearchResetBtn);
                 break;
             case SettingsTab.Api:
                 if (ToggleSgdbApiBtn   != null) list.Add(ToggleSgdbApiBtn);
@@ -367,7 +382,7 @@ public partial class MainWindow
     // All tab buttons (for resetting opacity when switching)
     private IEnumerable<Button?> AllSettingsTabPanelButtons() => new Button?[]
     {
-        ToggleNativeThemeBtn, ToggleAccelaThemeBtn,
+        ToggleNativeThemeBtn, ToggleAccelaThemeBtn, ToggleSearchResetBtn,
         ToggleSgdbApiBtn, ToggleRawgBtn, ToggleHubcapApiBtn,
         ToggleVaporBtn, ToggleDownloadActionBtn, ToggleUpdatesBtn,
         ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,

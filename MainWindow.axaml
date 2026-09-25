@@ -95,16 +95,14 @@
             <Setter Property="Foreground" Value="{DynamicResource AccelaGameColor}" />
         </Style>
 
-        <!-- Games list scrolling bounding box: Keeps highlighted selection within comfortable upper/mid screen space -->
+        <!-- Games list scrolling bounding box: Allows waterfall list to flow with seamless bottom fade -->
         <Style Selector="ListBox#GamesListBox">
-            <Setter Property="MaxHeight" Value="340" />
-            <Setter Property="VerticalAlignment" Value="Top" />
-            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="ClipToBounds" Value="False" />
         </Style>
         <Style Selector="ListBox#SearchResultsListBox">
-            <Setter Property="MaxHeight" Value="340" />
-            <Setter Property="VerticalAlignment" Value="Top" />
-            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="ClipToBounds" Value="False" />
         </Style>
 
         <!-- Minimal Search Box: Low opacity, no bold, no emojis -->
@@ -292,8 +290,8 @@
         <!-- Dedicated dark vignette specifically behind the top-right status & Pluto watermark -->
         <Border HorizontalAlignment="Right"
                 VerticalAlignment="Top"
-                Width="420"
-                Height="220"
+                Width="480"
+                Height="320"
                 IsHitTestVisible="False">
             <Border.Background>
                 <LinearGradientBrush StartPoint="100%,0%" EndPoint="0%,100%">
@@ -308,26 +306,26 @@
         <StackPanel HorizontalAlignment="Right"
                     VerticalAlignment="Top"
                     Margin="0,36,64,0"
-                    Spacing="3">
+                    Spacing="4">
             <TextBlock Text="plut-0"
-                       FontSize="18"
+                       FontSize="22"
                        FontWeight="Normal"
                        Foreground="#FFFFFF"
                        Opacity="0.95"
                        HorizontalAlignment="Right" />
             <TextBlock x:Name="PlutoVersionText"
-                       Text="0.0.8-0125+09+26"
-                       FontSize="11"
+                       Text="0.0.8-2509+09+26"
+                       FontSize="13"
                        FontWeight="Normal"
                        Foreground="#666666"
                        HorizontalAlignment="Right" />
 
-            <!-- Visor Status Lines Right Aligned -->
-            <StackPanel Orientation="Vertical" Spacing="2" Margin="0,4,0,0" HorizontalAlignment="Right">
+            <!-- Visor Status Lines Right Aligned: Same weight and size as game names (20px) with increased spacing -->
+            <StackPanel Orientation="Vertical" Spacing="10" Margin="0,14,0,0" HorizontalAlignment="Right">
                 <!-- API: xx/xx -->
                 <TextBlock x:Name="VisorHubcapText"
                            Text="API: --/--"
-                           FontSize="12"
+                           FontSize="20"
                            FontWeight="Normal"
                            Foreground="#777777"
                            HorizontalAlignment="Right" />
@@ -335,7 +333,7 @@
                 <!-- SLS: active -->
                 <TextBlock x:Name="VisorSlsText"
                            Text="SLS: checking..."
-                           FontSize="12"
+                           FontSize="20"
                            FontWeight="Normal"
                            Foreground="#777777"
                            HorizontalAlignment="Right" />
@@ -343,7 +341,7 @@
                 <!-- Steam: online -->
                 <TextBlock x:Name="VisorSteamText"
                            Text="Steam: offline"
-                           FontSize="12"
+                           FontSize="20"
                            FontWeight="Normal"
                            Foreground="#777777"
                            HorizontalAlignment="Right" />
@@ -351,7 +349,7 @@
                 <!-- health: status (clickable to health settings) -->
                 <TextBlock x:Name="VisorHealthText"
                            Text="health: checking..."
-                           FontSize="12"
+                           FontSize="20"
                            FontWeight="Normal"
                            Foreground="#34D399"
                            Cursor="Hand"
@@ -390,8 +388,16 @@
                            IsVisible="False" />
             </StackPanel>
 
-            <!-- Bottom: Waterfall List of Games / Search Results -->
-            <Grid Grid.Row="1" Margin="0, 16, 0, 0">
+            <!-- Bottom: Waterfall List of Games / Search Results (seamless gradual bottom blur/fade) -->
+            <Grid Grid.Row="1" Margin="0, 42, 0, 0">
+                <Grid.OpacityMask>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#FFFFFFFF" Offset="0.0" />
+                        <GradientStop Color="#FFFFFFFF" Offset="0.55" />
+                        <GradientStop Color="#88FFFFFF" Offset="0.80" />
+                        <GradientStop Color="#00000000" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Grid.OpacityMask>
                 <!-- 1A: Normal Installed Games Waterfall (glides up when accessed) -->
                 <ListBox x:Name="GamesListBox"
                          SelectionMode="Single"
@@ -485,26 +491,18 @@
             </Grid>
         </Grid>
 
-        <!-- 2. GAME DETAIL PAGE VIEW (Popout Floating Card with Dimmed List Backdrop) -->
+        <!-- 2. GAME DETAIL PAGE VIEW (Seamless window-integrated view with blurred/dimmed backdrop) -->
         <Grid x:Name="GameDetailPanel"
               Margin="0"
               IsVisible="False">
 
-            <!-- Backdrop Click-Outside Dimmer -->
-            <Border Background="#33000000"
+            <!-- Seamless Backdrop Dimmer -->
+            <Border Background="#E6080A0E"
                     Cursor="Hand"
                     PointerPressed="OnBackBadgeClicked" />
 
-            <!-- Floating Popout Card (Shifted right, preserves shifted main list peek on left) -->
-            <Border x:Name="GameDetailCard"
-                    Margin="90,16,24,16"
-                    CornerRadius="14"
-                    Background="#F0090B10"
-                    BorderBrush="#25FFFFFF"
-                    BorderThickness="1"
-                    BoxShadow="0 18 50 0 #B0000000"
-                    ClipToBounds="True">
-                <Grid>
+            <!-- Integrated Content Grid (Direct window alignment matching main view, no card borders) -->
+            <Grid Margin="64,48,64,24">
                     <!-- Right-aligned Game Backdrop Artwork with Opacity Gradient Mask -->
                     <Image x:Name="DetailGameBackdrop"
                            HorizontalAlignment="Right"
@@ -712,8 +710,7 @@
                         </Grid>
                     </Grid>
                 </Grid>
-            </Border>
-        </Grid>
+            </Grid>
 
         <!-- 3. SETTINGS PAGE VIEW WITH SUBMENUS (Theme, API, SLS Config, Visuals) -->
         <Grid x:Name="SettingsPanel"
@@ -790,6 +787,16 @@
                                     FontSize="16"
                                     Foreground="#60A5FA"
                                     Click="OnToggleAccelaThemeClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="reset list on search access" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleSearchResetBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enabled (reset position)"
+                                    FontSize="16"
+                                    Foreground="#4ADE80"
+                                    Click="OnToggleSearchResetClicked" />
                         </StackPanel>
                     </StackPanel>
 
