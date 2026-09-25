@@ -398,12 +398,11 @@ public partial class MainWindow : Window
 
     private async void SyncAllGames()
     {
-        PlutoLogger.Info("Pluto", "Syncing all at0-m games into config.yaml...");
+        PlutoLogger.Info("Pluto", "Syncing all plugin games into config.yaml...");
         foreach (var g in _allGames.Where(g => !g.IsAccela))
         {
             await _slsService.SyncGameToConfigAsync(g);
         }
-        _slsService.NotifyReload();
     }
 
     // UI Event Handlers

@@ -93,14 +93,12 @@ public class GameTransitionService
                 SteamAcfService.EnsureAcfDepots(game.AppmanifestPath, game.AppId, game.Depots.ToArray(), Array.Empty<string>(), 0);
             }
 
-            // 6. Reload SLSsteam
-            _slsService.NotifyReload();
-            PlutoLogger.Info("Transition", $"Successfully converted {game.AppId} ({game.Name}) to AT0-M plugin native");
+            PlutoLogger.Info("Transition", $"Successfully converted {game.AppId} ({game.Name}) to plugin native");
             return true;
         }
         catch (Exception ex)
         {
-            PlutoLogger.Error("Transition", $"Error converting {game.AppId} to AT0-M", ex);
+            PlutoLogger.Error("Transition", $"Error converting {game.AppId} to plugin native", ex);
             return false;
         }
     }
@@ -109,8 +107,7 @@ public class GameTransitionService
     /// Converts a game back to ACCELA Managed mode:
     /// 1. Re-creates .ACCELA marker folder
     /// 2. Unregisters from plugin_library.json
-    /// 3. Cleans up non-shared depots/keys from SLS config.yaml
-    /// 4. Sends reloadlua to /tmp/SLSsteam.API
+    /// 3. Cleans up non-shared depots/keys from SLS config.yaml (inotify FileWatcher handles reload automatically)
     /// </summary>
     public async Task<bool> ConvertToAccelaManagedAsync(PluginGame game, string? gameInstallPath = null)
     {
@@ -134,9 +131,7 @@ public class GameTransitionService
             var allOtherGames = pluginDict.Values.Where(g => g.AppId != game.AppId).ToList();
             await _slsService.RemoveGameFromConfigAsync(game, allOtherGames);
 
-            // 4. Reload SLSsteam
-            _slsService.NotifyReload();
-            PlutoLogger.Info("Transition", $"Successfully reverted {game.AppId} ({game.Name}) to ACCELA managed mode");
+            PlutoLogger.Info("Transition", $"Successfully reverted {game.AppId} ({game.Name}) to assella managed mode");
             return true;
         }
         catch (Exception ex)

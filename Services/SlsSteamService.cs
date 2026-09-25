@@ -84,12 +84,9 @@ public class SlsSteamService
                 content = EnsureDecryptionKey(content, depot, key, comment);
             }
 
-            // 4. In-place write to keep existing inode
+            // 4. In-place write to keep existing inode (SLSsteam inotify FileWatcher automatically detects IN_CLOSE_WRITE)
             await WriteInPlaceAsync(SlsConfigPath, content);
             PlutoLogger.Info("SLS", $"In-place updated config.yaml for game {game.AppId} ({game.Name})");
-
-            // 5. Notify SLSsteam via API pipe
-            NotifyReload();
             return true;
         }
         catch (Exception ex)
@@ -135,7 +132,6 @@ public class SlsSteamService
 
             await WriteInPlaceAsync(SlsConfigPath, content);
             PlutoLogger.Info("SLS", $"In-place removed game {game.AppId} ({game.Name}) from config.yaml");
-            NotifyReload();
             return true;
         }
         catch (Exception ex)
@@ -147,6 +143,8 @@ public class SlsSteamService
 
     /// <summary>
     /// Sends 'reloadlua\n' command directly into /tmp/SLSsteam.API pipe.
+    /// Used only when specifically requested to re-run Lua plugin scripts.
+    /// Normal config changes are automatically detected by SLSsteam's inotify FileWatcher.
     /// </summary>
     public bool NotifyReload()
     {
@@ -203,7 +201,7 @@ public class SlsSteamService
         fs.Seek(0, SeekOrigin.Begin);
         await fs.WriteAsync(bytes, 0, bytes.Length);
         fs.SetLength(bytes.Length);
-        await fs.FlushAsync();
+        fs.Flush(true); // Commits to disk immediately so IN_CLOSE_WRITE triggers with full contents
     }
 
     /// <summary>
@@ -386,7 +384,6 @@ public class SlsSteamService
             }
 
             await WriteInPlaceAsync(SlsConfigPath, content);
-            NotifyReload();
             PlutoLogger.Info("SLS", $"Set SLSonline for {appId} ({gameName}) to {enable}");
             return true;
         }
@@ -437,7 +434,6 @@ public class SlsSteamService
             }
 
             await WriteInPlaceAsync(SlsConfigPath, content);
-            NotifyReload();
             PlutoLogger.Info("SLS", $"Set Netsock for {appId} to {enable}");
             return true;
         }
