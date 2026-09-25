@@ -293,6 +293,11 @@ public partial class MainWindow
                 break;
 
             case GamepadAction.Confirm:
+                if (PreDownloadPanel != null && PreDownloadPanel.IsVisible)
+                {
+                    OnPreDownloadConfirmClicked(null, new RoutedEventArgs());
+                    break;
+                }
                 if (_currentView == ActiveView.MainList)
                 {
                     if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
@@ -332,6 +337,11 @@ public partial class MainWindow
                 break;
 
             case GamepadAction.BackOrCancel:
+                if (PreDownloadPanel != null && PreDownloadPanel.IsVisible)
+                {
+                    PreDownloadPanel.IsVisible = false;
+                    break;
+                }
                 if (_currentView != ActiveView.MainList) ShowMainList();
                 else ClearSearchAndReset();
                 break;

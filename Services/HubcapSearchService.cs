@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
@@ -23,6 +24,8 @@ public class HubcapSearchService
     private readonly HttpClient _httpClient;
     private readonly AccelaConfigService _configService;
     private readonly DepotKeyService _depotKeyService;
+
+    public string? LastError { get; private set; }
 
     private static readonly string ImageCacheDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -59,6 +62,7 @@ public class HubcapSearchService
         {
             Timeout = TimeSpan.FromSeconds(15)
         };
+        _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) Pluto/1.0");
     }
 
     private string? GetApiKey()
@@ -75,8 +79,9 @@ public class HubcapSearchService
         IEnumerable<PluginGame> localLibrary,
         CancellationToken ct = default)
     {
+        LastError = null;
         var trimmed = query?.Trim();
-        if (string.IsNullOrWhiteSpace(trimmed))
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 3)
         {
             return new List<SearchResultItem>();
         }
@@ -165,13 +170,51 @@ public class HubcapSearchService
         request.Headers.Add("Authorization", $"Bearer {apiKey}");
 
         using var response = await _httpClient.SendAsync(request, ct);
+        if (response.StatusCode == HttpStatusCode.TooManyRequests)
+        {
+            LastError = "rate_limit";
+            PlutoLogger.Warn("HubcapSearch", $"Hubcap rate limit hit for query '{query}', retrying after 1.1s delay...");
+            try
+            {
+                await Task.Delay(1100, ct);
+                using var retryRequest = new HttpRequestMessage(HttpMethod.Get, uri);
+                retryRequest.Headers.Add("Authorization", $"Bearer {apiKey}");
+                using var retryResponse = await _httpClient.SendAsync(retryRequest, ct);
+                if (retryResponse.IsSuccessStatusCode)
+                {
+                    LastError = null;
+                    var retryJson = await retryResponse.Content.ReadAsStringAsync(ct);
+                    return ParseSearchResults(retryJson);
+                }
+
+                string retryBody = string.Empty;
+                try { retryBody = await retryResponse.Content.ReadAsStringAsync(ct); } catch { }
+                PlutoLogger.Warn("HubcapSearch", $"Hubcap search retry failed with status {retryResponse.StatusCode} for query '{query}': {retryBody}");
+            }
+            catch (OperationCanceledException) { return results; }
+            catch (Exception ex)
+            {
+                PlutoLogger.Warn("HubcapSearch", $"Hubcap retry error for '{query}': {ex.Message}");
+            }
+            return results;
+        }
+
         if (!response.IsSuccessStatusCode)
         {
-            PlutoLogger.Warn("HubcapSearch", $"Hubcap search returned status {response.StatusCode} for query '{query}'");
+            LastError = response.StatusCode == HttpStatusCode.BadRequest ? "bad_request" : "api_error";
+            string errBody = string.Empty;
+            try { errBody = await response.Content.ReadAsStringAsync(ct); } catch { }
+            PlutoLogger.Warn("HubcapSearch", $"Hubcap search returned status {response.StatusCode} for query '{query}': {errBody}");
             return results;
         }
 
         var json = await response.Content.ReadAsStringAsync(ct);
+        return ParseSearchResults(json);
+    }
+
+    private static List<SearchResultItem> ParseSearchResults(string json)
+    {
+        var results = new List<SearchResultItem>();
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 

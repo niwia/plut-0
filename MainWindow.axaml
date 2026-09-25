@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:Pluto.Models"
+        xmlns:installation="clr-namespace:Pluto.Engine.Installation"
         mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="580"
         x:Class="Pluto.MainWindow"
         Title="PLUT-0"
@@ -406,10 +407,41 @@
                          KeyDown="OnGameListKeyDown">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="models:PluginGame">
-                            <TextBlock Classes="gameTitle"
-                                       Classes.accela="{Binding IsAccela}"
-                                       Text="{Binding Name}"
-                                       VerticalAlignment="Center" />
+                            <Grid Margin="0,1">
+                                <!-- Subtle Progress Fill if downloading -->
+                                <ProgressBar Value="{Binding DownloadPercentage}"
+                                             Minimum="0" Maximum="100"
+                                             Height="36"
+                                             CornerRadius="4"
+                                             Opacity="0.2"
+                                             Foreground="#38BDF8"
+                                             Background="Transparent"
+                                             IsVisible="{Binding IsDownloading}"
+                                             HorizontalAlignment="Stretch" />
+
+                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <TextBlock Classes="gameTitle"
+                                               Classes.accela="{Binding IsAccela}"
+                                               Text="{Binding Name}"
+                                               VerticalAlignment="Center" />
+
+                                    <!-- "- New" Tag -->
+                                    <Border Background="#1E293B" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding IsNew}">
+                                        <TextBlock Text="— New"
+                                                   FontSize="11"
+                                                   FontWeight="Bold"
+                                                   Foreground="#38BDF8" />
+                                    </Border>
+
+                                    <!-- Download Status / Percentage Text -->
+                                    <TextBlock Text="{Binding DownloadStatusText}"
+                                               FontSize="13"
+                                               FontWeight="Normal"
+                                               Foreground="#38BDF8"
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding IsDownloading}" />
+                                </StackPanel>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
@@ -770,6 +802,10 @@
                         Classes="settingsTabBtn"
                         Content="health &amp; sanitation"
                         Click="OnSettingsTabHealthClicked" />
+                <Button x:Name="SettingsTabDdmBtn"
+                        Classes="settingsTabBtn"
+                        Content="ddm"
+                        Click="OnSettingsTabDdmClicked" />
                 <TextBlock Classes="ctrlPrompt" Text="(←→) switch tab" Margin="8,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
@@ -1056,6 +1092,79 @@
                                        IsVisible="False" />
                         </StackPanel>
                     </StackPanel>
+
+                    <!-- 3F: DDM SUBMENU -->
+                    <StackPanel x:Name="SettingsDdmPanel" Spacing="24" IsVisible="False">
+                        <!-- Concurrent Downloads -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="concurrent downloads (connections)" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleDdmMaxDownloadsBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="4 downloads"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleDdmMaxDownloadsClicked" />
+                            <TextBlock Text="limits simultaneous chunk streams to prevent network saturation (1 to 30)" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
+
+                        <!-- Validate Chunks -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="chunk verification (-validate)" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleDdmValidateBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enabled"
+                                    FontSize="16"
+                                    Foreground="#4ADE80"
+                                    Click="OnToggleDdmValidateClicked" />
+                            <TextBlock Text="validates sha-1 checksums of every downloaded chunk against the manifest" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
+
+                        <!-- LanCache Integration -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="lancache local proxy (-use-lancache)" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleDdmLanCacheBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enabled"
+                                    FontSize="16"
+                                    Foreground="#4ADE80"
+                                    Click="OnToggleDdmLanCacheClicked" />
+                            <TextBlock Text="routes downloads through local network caching servers if present" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
+
+                        <!-- Platform Preference -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="depot platform preference" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleDdmPlatformPrefBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="native linux first"
+                                    FontSize="16"
+                                    Foreground="#FFFFFF"
+                                    Click="OnToggleDdmPlatformPrefClicked" />
+                            <TextBlock Text="selects native linux depots over windows/proton when both are available" FontSize="11" Foreground="#444444" />
+                        </StackPanel>
+
+                        <!-- Hide OST / Soundtracks -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="depot filters: soundtrack / ost depots" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleDdmFilterOstBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="hidden by default"
+                                    FontSize="16"
+                                    Foreground="#60A5FA"
+                                    Click="OnToggleDdmFilterOstClicked" />
+                        </StackPanel>
+
+                        <!-- Hide Artbooks / Extras -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="depot filters: artbooks, wallpapers &amp; extra content" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleDdmFilterExtrasBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="hidden by default"
+                                    FontSize="16"
+                                    Foreground="#60A5FA"
+                                    Click="OnToggleDdmFilterExtrasClicked" />
+                        </StackPanel>
+                    </StackPanel>
                 </Grid>
             </ScrollViewer>
 
@@ -1067,5 +1176,144 @@
                 <TextBlock Classes="ctrlPrompt" Text="(B) back" />
             </StackPanel>
         </Grid>
+
+        <!-- 4. PRE-DOWNLOAD CONFIGURATION MODAL -->
+        <Grid x:Name="PreDownloadPanel"
+              Margin="0"
+              IsVisible="False"
+              ZIndex="900">
+            <!-- Modal Dimmer Background -->
+            <Border Background="#D9000000" PointerPressed="OnPreDownloadCancelClicked" />
+
+            <!-- Modal Content Card -->
+            <Border Width="680"
+                    MaxHeight="540"
+                    Background="#111622"
+                    BorderBrush="#252D3D"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="32,24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <!-- Title Header -->
+                    <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+                        <TextBlock Text="INSTALL CONFIGURATION" FontSize="11" FontWeight="Bold" Foreground="#38BDF8" />
+                        <TextBlock x:Name="PreDownloadGameTitleText" Text="Game Title" FontSize="20" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                    </StackPanel>
+
+                    <!-- Config Options Body -->
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="18">
+                            <!-- Storage Selector -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="install location / storage" FontSize="12" Foreground="#888888" />
+                                <Button x:Name="PreDownloadStorageBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="Internal Storage"
+                                        FontSize="15"
+                                        Foreground="#FFFFFF"
+                                        Click="OnPreDownloadStorageCycleClicked" />
+                            </StackPanel>
+
+                            <!-- Branch Selector -->
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="branch" FontSize="12" Foreground="#888888" />
+                                <Button x:Name="PreDownloadBranchBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="public"
+                                        FontSize="15"
+                                        Foreground="#38BDF8"
+                                        Click="OnPreDownloadBranchCycleClicked" />
+                            </StackPanel>
+
+                            <!-- Depots Section -->
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="included depots" FontSize="12" Foreground="#888888" />
+                                    <TextBlock Grid.Column="1" x:Name="PreDownloadTotalSizeText" Text="" FontSize="12" Foreground="#38BDF8" />
+                                </Grid>
+
+                                <ItemsControl x:Name="PreDownloadDepotsItemsControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="installation:PreDownloadDepotItem">
+                                            <Border Background="#161D2B" CornerRadius="6" Padding="12,8" Margin="0,3">
+                                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                                        <TextBlock Text="{Binding Name}" FontSize="13" Foreground="#FFFFFF" />
+                                                        <TextBlock Text="{Binding DepotId, StringFormat='Depot ID: {0}'}" FontSize="11" Foreground="#64748B" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="2" Text="{Binding SizeString}" FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- Action Footer with controller hints -->
+                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" Margin="0,20,0,0">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                            <TextBlock Classes="ctrlPrompt" Text="(A) toggle/start" />
+                            <TextBlock Classes="ctrlPrompt" Text="(B) cancel" />
+                        </StackPanel>
+
+                        <Button Grid.Column="1"
+                                x:Name="PreDownloadCancelBtn"
+                                Classes="minimalTextBtn"
+                                Content="cancel"
+                                FontSize="14"
+                                Foreground="#888888"
+                                Margin="0,0,16,0"
+                                Click="OnPreDownloadCancelClicked" />
+
+                        <Button Grid.Column="2"
+                                x:Name="PreDownloadConfirmBtn"
+                                Background="#0284C7"
+                                Foreground="#FFFFFF"
+                                CornerRadius="6"
+                                Padding="18,8"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Content="start download"
+                                Click="OnPreDownloadConfirmClicked" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- PERSISTENT GLOBAL DOWNLOAD PROGRESS BAR -->
+        <Border x:Name="GlobalDownloadBar"
+                VerticalAlignment="Bottom"
+                HorizontalAlignment="Stretch"
+                Background="#F20B0E14"
+                BorderBrush="#1E293B"
+                BorderThickness="0,1,0,0"
+                Padding="32,10,32,10"
+                IsVisible="False"
+                ZIndex="999">
+            <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <Border Background="#0284C7" CornerRadius="3" Padding="6,2">
+                        <TextBlock Text="DOWNLOADING" FontSize="10" FontWeight="Bold" Foreground="#FFFFFF" />
+                    </Border>
+                    <TextBlock x:Name="GlobalDlGameTitle" Text="" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                    <TextBlock x:Name="GlobalDlStepText" Text="" FontSize="12" Foreground="#94A3B8" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <TextBlock x:Name="GlobalDlSpeedText" Text="" FontSize="12" Foreground="#38BDF8" VerticalAlignment="Center" />
+                    <TextBlock x:Name="GlobalDlPercentText" Text="0%" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <ProgressBar Grid.Row="1" Grid.ColumnSpan="3" x:Name="GlobalDlProgressBar"
+                             Height="4" Margin="0,8,0,0"
+                             Minimum="0" Maximum="100" Value="0"
+                             Foreground="#38BDF8" Background="#1E293B" />
+            </Grid>
+        </Border>
     </Grid>
 </Window>

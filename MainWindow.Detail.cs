@@ -12,6 +12,8 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Pluto.Models;
 using Pluto.Services;
+using Pluto.Engine.Installation;
+using Pluto.Engine.Steam;
 
 namespace Pluto;
 
@@ -643,6 +645,13 @@ public partial class MainWindow
         }
     }
 
+    // ── Pre-Download Configuration & Persistent Download Flow ───────────────
+    private PreDownloadConfig? _currentPreDownloadConfig;
+    private List<SteamLibraryFolder> _availableLibraries = new();
+    private int _selectedLibraryIndex = 0;
+    private List<string> _availableBranches = new();
+    private int _selectedBranchIndex = 0;
+
     private async void OnDownloadGameClicked(object? sender, RoutedEventArgs e)
     {
         var appIdStr = _selectedSearchResult?.AppId ?? _selectedGame?.AppId;
@@ -651,23 +660,209 @@ public partial class MainWindow
             return;
 
         if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = false;
-        if (DetailSwitchModeBtn != null) DetailSwitchModeBtn.IsEnabled = false;
         if (DetailActionStatus != null)
         {
             DetailActionStatus.IsVisible = true;
             DetailActionStatus.Foreground = Avalonia.Media.Brushes.DeepSkyBlue;
-            DetailActionStatus.Text = "Resolving app information...";
+            DetailActionStatus.Text = "Querying branches & depots from Steam...";
         }
+
+        try
+        {
+            var appInfo = await SteamCmdService.FetchAppInfoAsync(appId);
+            if (appInfo == null)
+            {
+                if (DetailActionStatus != null)
+                {
+                    DetailActionStatus.Text = "Failed to resolve app details from Steam.";
+                    DetailActionStatus.Foreground = Avalonia.Media.Brushes.IndianRed;
+                }
+                if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = true;
+                return;
+            }
+
+            // 1. Storage Libraries
+            _availableLibraries = SteamLibraryService.GetLibraryFolders();
+            _selectedLibraryIndex = 0;
+
+            // 2. Branches
+            _availableBranches = new List<string> { "public" };
+            if (appInfo.Branches != null)
+            {
+                foreach (var b in appInfo.Branches.Keys)
+                {
+                    if (!b.Equals("public", StringComparison.OrdinalIgnoreCase) && !_availableBranches.Contains(b))
+                    {
+                        _availableBranches.Add(b);
+                    }
+                }
+            }
+            _selectedBranchIndex = 0;
+
+            // 3. Depots with DDM preferences
+            var depotItems = new List<PreDownloadDepotItem>();
+            foreach (var d in appInfo.Depots)
+            {
+                long sizeBytes = d.Size;
+                var lowerName = d.Name.ToLowerInvariant();
+
+                bool isOst = lowerName.Contains("soundtrack") || lowerName.Contains(" ost");
+                bool isExtra = lowerName.Contains("artbook") || lowerName.Contains("wallpaper") || lowerName.Contains("bonus");
+                bool isDemo = lowerName.Contains("demo") || lowerName.Contains("trial") || lowerName.Contains("sdk");
+
+                // Check default selection
+                bool shouldSelect = !string.IsNullOrWhiteSpace(d.ManifestId);
+                if (_settingDdmFilterOst && isOst) shouldSelect = false;
+                if (_settingDdmFilterExtras && isExtra) shouldSelect = false;
+                if (isDemo) shouldSelect = false;
+
+                depotItems.Add(new PreDownloadDepotItem
+                {
+                    DepotId = d.DepotId,
+                    Name = d.Name,
+                    SizeBytes = sizeBytes,
+                    SizeString = SteamLibraryService.FormatBytes(sizeBytes),
+                    IsSelected = shouldSelect,
+                    IsRequired = false
+                });
+            }
+
+            if (!depotItems.Any(d => d.IsSelected) && depotItems.Count > 0)
+            {
+                depotItems[0].IsSelected = true;
+            }
+
+            _currentPreDownloadConfig = new PreDownloadConfig
+            {
+                AppId = appId,
+                GameName = name,
+                SelectedLibrarySteamappsDir = _availableLibraries[0].SteamappsPath,
+                SelectedBranch = "public",
+                Depots = depotItems
+            };
+
+            // Populate UI Modal
+            if (PreDownloadGameTitleText != null) PreDownloadGameTitleText.Text = name;
+            if (PreDownloadStorageBtn != null) PreDownloadStorageBtn.Content = _availableLibraries[0].Label;
+            if (PreDownloadBranchBtn != null) PreDownloadBranchBtn.Content = "public";
+            if (PreDownloadDepotsItemsControl != null) PreDownloadDepotsItemsControl.ItemsSource = depotItems;
+            if (PreDownloadTotalSizeText != null)
+                PreDownloadTotalSizeText.Text = $"Selected: {SteamLibraryService.FormatBytes(_currentPreDownloadConfig.GetTotalSelectedSize())}";
+
+            if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
+            if (PreDownloadPanel != null) PreDownloadPanel.IsVisible = true;
+        }
+        catch (Exception ex)
+        {
+            if (DetailActionStatus != null)
+            {
+                DetailActionStatus.Text = $"Error: {ex.Message}";
+                DetailActionStatus.Foreground = Avalonia.Media.Brushes.IndianRed;
+            }
+        }
+        finally
+        {
+            if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = true;
+        }
+    }
+
+    private void OnPreDownloadStorageCycleClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_availableLibraries.Count == 0 || _currentPreDownloadConfig == null) return;
+        _selectedLibraryIndex = (_selectedLibraryIndex + 1) % _availableLibraries.Count;
+        var chosen = _availableLibraries[_selectedLibraryIndex];
+        if (PreDownloadStorageBtn != null) PreDownloadStorageBtn.Content = chosen.Label;
+        _currentPreDownloadConfig.SelectedLibrarySteamappsDir = chosen.SteamappsPath;
+    }
+
+    private void OnPreDownloadBranchCycleClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_availableBranches.Count == 0 || _currentPreDownloadConfig == null) return;
+        _selectedBranchIndex = (_selectedBranchIndex + 1) % _availableBranches.Count;
+        var branch = _availableBranches[_selectedBranchIndex];
+        if (PreDownloadBranchBtn != null) PreDownloadBranchBtn.Content = branch;
+        _currentPreDownloadConfig.SelectedBranch = branch;
+    }
+
+    private void OnPreDownloadCancelClicked(object? sender, RoutedEventArgs e)
+    {
+        if (PreDownloadPanel != null) PreDownloadPanel.IsVisible = false;
+    }
+
+    private async void OnPreDownloadConfirmClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_currentPreDownloadConfig == null) return;
+        if (PreDownloadPanel != null) PreDownloadPanel.IsVisible = false;
+
+        var appId = _currentPreDownloadConfig.AppId;
+        var name = _currentPreDownloadConfig.GameName;
+        var targetSteamappsDir = _currentPreDownloadConfig.SelectedLibrarySteamappsDir;
+        var branch = _currentPreDownloadConfig.SelectedBranch;
+        var selectedDepots = _currentPreDownloadConfig.GetSelectedDepotIds();
+
+        // 1. Move or insert this game to the very top (index 0) of the game list with [— New] tag
+        var targetGame = _allGames.FirstOrDefault(g => g.AppId == appId.ToString());
+        if (targetGame == null)
+        {
+            targetGame = new PluginGame
+            {
+                AppId = appId.ToString(),
+                Name = name,
+                IsAccela = true,
+                IsNew = true
+            };
+            _allGames.Insert(0, targetGame);
+        }
+        else
+        {
+            _allGames.Remove(targetGame);
+            _allGames.Insert(0, targetGame);
+            targetGame.IsNew = true;
+        }
+
+        targetGame.IsDownloading = true;
+        targetGame.DownloadPercentage = 0;
+        targetGame.DownloadStatusText = "0%";
+
+        // Refresh waterfall game list display
+        _displayedGames.Clear();
+        foreach (var g in _allGames) _displayedGames.Add(g);
+        if (GamesListBox != null) GamesListBox.SelectedIndex = 0;
+
+        // 2. Activate persistent global bottom progress bar
+        if (GlobalDownloadBar != null) GlobalDownloadBar.IsVisible = true;
+        if (GlobalDlGameTitle != null) GlobalDlGameTitle.Text = name;
+        if (GlobalDlStepText != null) GlobalDlStepText.Text = "Initializing download...";
+        if (GlobalDlSpeedText != null) GlobalDlSpeedText.Text = "0.0 MB/s";
+        if (GlobalDlPercentText != null) GlobalDlPercentText.Text = "0%";
+        if (GlobalDlProgressBar != null) GlobalDlProgressBar.Value = 0;
+
+        if (DetailDownloadBtn != null) DetailDownloadBtn.IsEnabled = false;
+        if (DetailSwitchModeBtn != null) DetailSwitchModeBtn.IsEnabled = false;
 
         _downloadCts?.Cancel();
         _downloadCts = new CancellationTokenSource();
 
-        var progress = new Progress<Pluto.Engine.Installation.InstallStepProgress>(p =>
+        var progress = new Progress<InstallStepProgress>(p =>
         {
             Dispatcher.UIThread.Post(() =>
             {
-                if (DetailActionStatus != null)
+                // Update persistent bottom bar
+                if (GlobalDlProgressBar != null) GlobalDlProgressBar.Value = p.OverallPercentage;
+                if (GlobalDlPercentText != null) GlobalDlPercentText.Text = $"{p.OverallPercentage:0}%";
+                if (GlobalDlSpeedText != null) GlobalDlSpeedText.Text = p.SpeedMbPerSec > 0 ? $"{p.SpeedMbPerSec:0.1} MB/s" : "";
+                if (GlobalDlStepText != null) GlobalDlStepText.Text = p.Step;
+
+                // Update game list item at index 0
+                targetGame.DownloadPercentage = p.OverallPercentage;
+                targetGame.DownloadStatusText = p.SpeedMbPerSec > 0
+                    ? $"{p.OverallPercentage:0}% ({p.SpeedMbPerSec:0.1} MB/s)"
+                    : $"{p.OverallPercentage:0}%";
+
+                // Update detail page status if user is currently viewing this game
+                if (DetailActionStatus != null && (_selectedSearchResult?.AppId == appId.ToString() || _selectedGame?.AppId == appId.ToString()))
                 {
+                    DetailActionStatus.IsVisible = true;
                     DetailActionStatus.Text = $"{p.Step} ({p.OverallPercentage:0}%): {p.Details}";
                     DetailActionStatus.Foreground = Avalonia.Media.Brushes.DeepSkyBlue;
                 }
@@ -676,7 +871,20 @@ public partial class MainWindow
 
         try
         {
-            bool ok = await _installService.InstallGameAsync(appId, progress: progress, cancellationToken: _downloadCts.Token);
+            bool ok = await _installService.InstallGameAsync(
+                appId,
+                targetSteamappsDir: targetSteamappsDir,
+                branch: branch,
+                selectedDepotIds: selectedDepots,
+                progress: progress,
+                cancellationToken: _downloadCts.Token);
+
+            targetGame.IsDownloading = false;
+            targetGame.DownloadStatusText = string.Empty;
+            targetGame.IsNew = true; // Stays New till next boot of Pluto!
+
+            if (GlobalDownloadBar != null) GlobalDownloadBar.IsVisible = false;
+
             if (ok)
             {
                 if (DetailActionStatus != null)
@@ -699,6 +907,9 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            targetGame.IsDownloading = false;
+            if (GlobalDownloadBar != null) GlobalDownloadBar.IsVisible = false;
+
             if (DetailActionStatus != null)
             {
                 DetailActionStatus.Text = $"Install error: {ex.Message}";
@@ -713,3 +924,4 @@ public partial class MainWindow
         }
     }
 }
+

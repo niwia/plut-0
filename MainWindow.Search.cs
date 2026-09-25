@@ -42,7 +42,7 @@ public partial class MainWindow
 
         ApplyFilter(text);
 
-        if (text.Trim().Length >= 2)
+        if (text.Trim().Length >= 3)
         {
             if (SearchStatusText != null)
             {
@@ -51,6 +51,14 @@ public partial class MainWindow
             }
             _liveSearchTimer.Stop();
             _liveSearchTimer.Start();
+        }
+        else
+        {
+            _liveSearchTimer.Stop();
+            _searchCts?.Cancel();
+            if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+            if (GamesListBox         != null) GamesListBox.IsVisible         = true;
+            if (SearchStatusText     != null) SearchStatusText.IsVisible     = false;
         }
     }
 
@@ -63,7 +71,7 @@ public partial class MainWindow
     private async Task ExecuteSearchAsync(string? query)
     {
         var trimmed = query?.Trim();
-        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 2) return;
+        if (string.IsNullOrWhiteSpace(trimmed) || trimmed.Length < 3) return;
 
         _searchCts?.Cancel();
         _searchCts = new CancellationTokenSource();
@@ -126,7 +134,17 @@ public partial class MainWindow
             }
             else
             {
-                if (_displayedGames.Count > 0)
+                if (_hubcapSearchService.LastError == "rate_limit")
+                {
+                    if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+                    if (GamesListBox         != null) GamesListBox.IsVisible         = true;
+                    if (SearchStatusText     != null)
+                    {
+                        SearchStatusText.Text      = "search rate limited • press enter to retry";
+                        SearchStatusText.IsVisible = true;
+                    }
+                }
+                else if (_displayedGames.Count > 0)
                 {
                     if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
                     if (GamesListBox         != null) GamesListBox.IsVisible         = true;
@@ -200,7 +218,7 @@ public partial class MainWindow
             if (SearchResultsListBox != null && SearchResultsListBox.IsVisible
                 && SearchResultsListBox.SelectedItem is SearchResultItem sr)
                 OpenSearchResultDetailPage(sr);
-            else if (!string.IsNullOrWhiteSpace(SearchBox.Text))
+            else if (!string.IsNullOrWhiteSpace(SearchBox.Text) && SearchBox.Text.Trim().Length >= 3)
                 await ExecuteSearchAsync(SearchBox.Text);
             else if (GamesListBox.SelectedItem is PluginGame local)
                 OpenGameDetailPage(local);

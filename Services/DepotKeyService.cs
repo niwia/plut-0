@@ -137,4 +137,91 @@ public class DepotKeyService
         await File.WriteAllLinesAsync(tempPath, lines);
         return tempPath;
     }
+
+    /// <summary>
+    /// Persists AES decryption keys and optional AppToken into depot_keys.db.
+    /// Compatible with ASSella's SQLite schema and tables.
+    /// </summary>
+    public void SaveDepotKeys(string appId, IDictionary<string, string> keys, string? appToken = null)
+    {
+        if (keys.Count == 0 && string.IsNullOrWhiteSpace(appToken)) return;
+
+        try
+        {
+            var dir = Path.GetDirectoryName(_dbPath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+            var connStr = new SqliteConnectionStringBuilder
+            {
+                DataSource = _dbPath,
+                Mode = SqliteOpenMode.ReadWriteCreate
+            }.ToString();
+
+            using var conn = new SqliteConnection(connStr);
+            conn.Open();
+
+            using (var initCmd = conn.CreateCommand())
+            {
+                initCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS depot_keys (
+                        appid TEXT NOT NULL,
+                        depot_id TEXT NOT NULL,
+                        aes_key TEXT NOT NULL,
+                        updated_at INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY (appid, depot_id)
+                    );
+                    CREATE TABLE IF NOT EXISTS app_tokens (
+                        appid TEXT PRIMARY KEY,
+                        token TEXT NOT NULL,
+                        updated_at INTEGER NOT NULL DEFAULT 0
+                    );";
+                initCmd.ExecuteNonQuery();
+            }
+
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            using var tx = conn.BeginTransaction();
+
+            foreach (var kvp in keys)
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key) || string.IsNullOrWhiteSpace(kvp.Value)) continue;
+
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = @"
+                    INSERT INTO depot_keys (appid, depot_id, aes_key, updated_at)
+                    VALUES (@appid, @depot_id, @aes_key, @updated_at)
+                    ON CONFLICT(appid, depot_id) DO UPDATE SET
+                        aes_key = excluded.aes_key,
+                        updated_at = excluded.updated_at;";
+                cmd.Parameters.AddWithValue("@appid", appId);
+                cmd.Parameters.AddWithValue("@depot_id", kvp.Key.Trim());
+                cmd.Parameters.AddWithValue("@aes_key", kvp.Value.Trim().ToLowerInvariant());
+                cmd.Parameters.AddWithValue("@updated_at", now);
+                cmd.ExecuteNonQuery();
+            }
+
+            if (!string.IsNullOrWhiteSpace(appToken))
+            {
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = @"
+                    INSERT INTO app_tokens (appid, token, updated_at)
+                    VALUES (@appid, @token, @updated_at)
+                    ON CONFLICT(appid) DO UPDATE SET
+                        token = excluded.token,
+                        updated_at = excluded.updated_at;";
+                cmd.Parameters.AddWithValue("@appid", appId);
+                cmd.Parameters.AddWithValue("@token", appToken.Trim());
+                cmd.Parameters.AddWithValue("@updated_at", now);
+                cmd.ExecuteNonQuery();
+            }
+
+            tx.Commit();
+            PlutoLogger.Info("DepotKeys", $"Saved {keys.Count} keys and token={(appToken != null ? "yes" : "no")} for AppID {appId} into depot_keys.db");
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("DepotKeys", $"Failed to save depot keys for app {appId}", ex);
+        }
+    }
 }

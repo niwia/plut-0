@@ -84,7 +84,7 @@ public sealed class DepotDownloaderService
             CreateNoWindow = true
         };
 
-        PlutoLogger.Info("DepotDownloader", $"Starting download: AppID {options.AppId}, Depot {options.DepotId} -> {options.InstallDirectory}");
+        PlutoLogger.Info("DepotDownloader", $"Executing: dotnet {argumentsString}");
 
         using var process = new Process { StartInfo = psi };
 
@@ -97,6 +97,7 @@ public sealed class DepotDownloaderService
             if (string.IsNullOrWhiteSpace(e.Data)) return;
 
             var line = e.Data.Trim();
+            PlutoLogger.Info("DepotDownloader", line);
             LogMessageReceived?.Invoke(line);
 
             // Parse Percentage
@@ -138,8 +139,9 @@ public sealed class DepotDownloaderService
         {
             if (!string.IsNullOrWhiteSpace(e.Data))
             {
-                PlutoLogger.Error("DepotDownloader", e.Data);
-                LogMessageReceived?.Invoke($"[Error] {e.Data}");
+                var line = e.Data.Trim();
+                PlutoLogger.Error("DepotDownloader", line);
+                LogMessageReceived?.Invoke($"[Error] {line}");
             }
         };
 

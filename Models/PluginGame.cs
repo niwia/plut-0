@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace Pluto.Models;
 
-public class PluginGame
+public class PluginGame : System.ComponentModel.INotifyPropertyChanged
 {
     [JsonPropertyName("appid")]
     public string AppId { get; set; } = string.Empty;
@@ -81,5 +81,43 @@ public class PluginGame
                 return UpdatedAt.ToString();
             }
         }
+    }
+
+    private bool _isDownloading;
+    [JsonIgnore]
+    public bool IsDownloading
+    {
+        get => _isDownloading;
+        set { if (_isDownloading != value) { _isDownloading = value; OnPropertyChanged(nameof(IsDownloading)); } }
+    }
+
+    private double _downloadPercentage;
+    [JsonIgnore]
+    public double DownloadPercentage
+    {
+        get => _downloadPercentage;
+        set { if (Math.Abs(_downloadPercentage - value) > 0.05) { _downloadPercentage = value; OnPropertyChanged(nameof(DownloadPercentage)); } }
+    }
+
+    private string _downloadStatusText = string.Empty;
+    [JsonIgnore]
+    public string DownloadStatusText
+    {
+        get => _downloadStatusText;
+        set { if (_downloadStatusText != value) { _downloadStatusText = value; OnPropertyChanged(nameof(DownloadStatusText)); } }
+    }
+
+    private bool _isNew;
+    [JsonIgnore]
+    public bool IsNew
+    {
+        get => _isNew;
+        set { if (_isNew != value) { _isNew = value; OnPropertyChanged(nameof(IsNew)); } }
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+    {
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
     }
 }

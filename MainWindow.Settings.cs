@@ -16,11 +16,27 @@ namespace Pluto;
 // MainWindow partial — settings page, themes, toggles, gamepad for settings
 public partial class MainWindow
 {
+    // DDM Settings
+    private int    _settingDdmMaxDownloads = 4;
+    private bool   _settingDdmValidate     = true;
+    private bool   _settingDdmLanCache     = true;
+    private string _settingDdmPlatformPref = "linux";
+    private bool   _settingDdmFilterOst    = true;
+    private bool   _settingDdmFilterExtras = true;
+
     // Load settings from AccelaConfigService
     private void LoadSettingsFromConfig()
     {
         try
         {
+            _settingDdmMaxDownloads = _configService.GetInt("ddm_max_downloads", 4);
+            if (_settingDdmMaxDownloads < 1) _settingDdmMaxDownloads = 4;
+            _settingDdmValidate     = _configService.GetBool("ddm_validate", true);
+            _settingDdmLanCache     = _configService.GetBool("ddm_use_lancache", true);
+            _settingDdmPlatformPref = _configService.GetValue("ddm_platform_pref", "linux");
+            _settingDdmFilterOst    = _configService.GetBool("filter_soundtracks", true);
+            _settingDdmFilterExtras = _configService.GetBool("hide_artbooks_depots", true);
+
             _settingVaporEnabled    = _configService.GetBool("enable_vapor", true) || _configService.GetBool("enable_at0m", true);
             _settingDownloadAction  = _configService.GetValue("vapor_default_download_action", "native");
             _settingDisableUpdates  = _configService.GetBool("vapor_disable_updates", false) || _configService.GetBool("at0m_disable_updates", false);
@@ -93,6 +109,31 @@ public partial class MainWindow
             ToggleSearchResetBtn.Foreground = _settingSearchResetOnAccess
                 ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
         }
+
+        if (ToggleDdmMaxDownloadsBtn != null)
+            ToggleDdmMaxDownloadsBtn.Content = $"{_settingDdmMaxDownloads} downloads";
+        if (ToggleDdmValidateBtn != null)
+        {
+            ToggleDdmValidateBtn.Content    = _settingDdmValidate ? "enabled" : "disabled";
+            ToggleDdmValidateBtn.Foreground = _settingDdmValidate ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+        if (ToggleDdmLanCacheBtn != null)
+        {
+            ToggleDdmLanCacheBtn.Content    = _settingDdmLanCache ? "enabled" : "disabled";
+            ToggleDdmLanCacheBtn.Foreground = _settingDdmLanCache ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+        if (ToggleDdmPlatformPrefBtn != null)
+            ToggleDdmPlatformPrefBtn.Content = _settingDdmPlatformPref == "linux" ? "native linux first" : "windows (proton)";
+        if (ToggleDdmFilterOstBtn != null)
+        {
+            ToggleDdmFilterOstBtn.Content    = _settingDdmFilterOst ? "hidden by default" : "visible in selector";
+            ToggleDdmFilterOstBtn.Foreground = _settingDdmFilterOst ? Avalonia.Media.Brushes.CornflowerBlue : Avalonia.Media.Brushes.Gray;
+        }
+        if (ToggleDdmFilterExtrasBtn != null)
+        {
+            ToggleDdmFilterExtrasBtn.Content    = _settingDdmFilterExtras ? "hidden by default" : "visible in selector";
+            ToggleDdmFilterExtrasBtn.Foreground = _settingDdmFilterExtras ? Avalonia.Media.Brushes.CornflowerBlue : Avalonia.Media.Brushes.Gray;
+        }
     }
 
     // Tab activation
@@ -105,12 +146,14 @@ public partial class MainWindow
         if (SettingsTabSlsBtn     != null) SettingsTabSlsBtn.Classes.Set("active",     tab == SettingsTab.Sls);
         if (SettingsTabVisualsBtn != null) SettingsTabVisualsBtn.Classes.Set("active", tab == SettingsTab.Visuals);
         if (SettingsTabHealthBtn  != null) SettingsTabHealthBtn.Classes.Set("active",  tab == SettingsTab.Health);
+        if (SettingsTabDdmBtn     != null) SettingsTabDdmBtn.Classes.Set("active",     tab == SettingsTab.Ddm);
 
         if (SettingsThemePanel   != null) SettingsThemePanel.IsVisible   = tab == SettingsTab.Theme;
         if (SettingsApiPanel     != null) SettingsApiPanel.IsVisible     = tab == SettingsTab.Api;
         if (SettingsSlsPanel     != null) SettingsSlsPanel.IsVisible     = tab == SettingsTab.Sls;
         if (SettingsVisualsPanel != null) SettingsVisualsPanel.IsVisible = tab == SettingsTab.Visuals;
         if (SettingsHealthPanel  != null) SettingsHealthPanel.IsVisible  = tab == SettingsTab.Health;
+        if (SettingsDdmPanel     != null) SettingsDdmPanel.IsVisible     = tab == SettingsTab.Ddm;
 
         if (tab == SettingsTab.Health)
         {
@@ -129,6 +172,60 @@ public partial class MainWindow
     private void OnSettingsTabSlsClicked(object? sender, RoutedEventArgs e)     => SetActiveSettingsTab(SettingsTab.Sls);
     private void OnSettingsTabVisualsClicked(object? sender, RoutedEventArgs e) => SetActiveSettingsTab(SettingsTab.Visuals);
     private void OnSettingsTabHealthClicked(object? sender, RoutedEventArgs e)  => SetActiveSettingsTab(SettingsTab.Health);
+    private void OnSettingsTabDdmClicked(object? sender, RoutedEventArgs e)     => SetActiveSettingsTab(SettingsTab.Ddm);
+
+    // ── DDM Settings Handlers ────────────────────────────────────────────────
+    private void OnToggleDdmMaxDownloadsClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDdmMaxDownloads = _settingDdmMaxDownloads switch
+        {
+            <= 1  => 2,
+            <= 2  => 4,
+            <= 4  => 8,
+            <= 8  => 12,
+            <= 12 => 16,
+            <= 16 => 24,
+            <= 24 => 30,
+            _     => 1
+        };
+        UpdateSettingsUi();
+        _configService.SetInt("ddm_max_downloads", _settingDdmMaxDownloads);
+    }
+
+    private void OnToggleDdmValidateClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDdmValidate = !_settingDdmValidate;
+        UpdateSettingsUi();
+        _configService.SetBool("ddm_validate", _settingDdmValidate);
+    }
+
+    private void OnToggleDdmLanCacheClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDdmLanCache = !_settingDdmLanCache;
+        UpdateSettingsUi();
+        _configService.SetBool("ddm_use_lancache", _settingDdmLanCache);
+    }
+
+    private void OnToggleDdmPlatformPrefClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDdmPlatformPref = _settingDdmPlatformPref == "linux" ? "windows" : "linux";
+        UpdateSettingsUi();
+        _configService.SetValue("ddm_platform_pref", _settingDdmPlatformPref);
+    }
+
+    private void OnToggleDdmFilterOstClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDdmFilterOst = !_settingDdmFilterOst;
+        UpdateSettingsUi();
+        _configService.SetBool("filter_soundtracks", _settingDdmFilterOst);
+    }
+
+    private void OnToggleDdmFilterExtrasClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingDdmFilterExtras = !_settingDdmFilterExtras;
+        UpdateSettingsUi();
+        _configService.SetBool("hide_artbooks_depots", _settingDdmFilterExtras);
+    }
 
     // SLS Config toggles
     private void OnToggleVaporClicked(object? sender, RoutedEventArgs e)
@@ -375,6 +472,14 @@ public partial class MainWindow
                 if (SanitationResyncSlsBtn != null)       list.Add(SanitationResyncSlsBtn);
                 if (HealthRefreshBtn != null)             list.Add(HealthRefreshBtn);
                 break;
+            case SettingsTab.Ddm:
+                if (ToggleDdmMaxDownloadsBtn != null) list.Add(ToggleDdmMaxDownloadsBtn);
+                if (ToggleDdmValidateBtn     != null) list.Add(ToggleDdmValidateBtn);
+                if (ToggleDdmLanCacheBtn     != null) list.Add(ToggleDdmLanCacheBtn);
+                if (ToggleDdmPlatformPrefBtn != null) list.Add(ToggleDdmPlatformPrefBtn);
+                if (ToggleDdmFilterOstBtn    != null) list.Add(ToggleDdmFilterOstBtn);
+                if (ToggleDdmFilterExtrasBtn != null) list.Add(ToggleDdmFilterExtrasBtn);
+                break;
         }
         return list;
     }
@@ -388,7 +493,9 @@ public partial class MainWindow
         ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,
         ToggleSearchThumbnailsBtn, ToggleAutoRotateBtn, ToggleAutoRotateIntervalBtn,
         AssfixerCheckBtn, AssfixerRepairBtn, AssfixerRestoreBtn,
-        SanitationClearThumbnailsBtn, SanitationResyncSlsBtn, HealthRefreshBtn
+        SanitationClearThumbnailsBtn, SanitationResyncSlsBtn, HealthRefreshBtn,
+        ToggleDdmMaxDownloadsBtn, ToggleDdmValidateBtn, ToggleDdmLanCacheBtn,
+        ToggleDdmPlatformPrefBtn, ToggleDdmFilterOstBtn, ToggleDdmFilterExtrasBtn
     };
 
     // Full re-render of settings focus ring
@@ -414,7 +521,7 @@ public partial class MainWindow
 
     internal void CycleSettingsTab(int offset)
     {
-        const int count = 5;
+        const int count = 6;
         int next = (((int)_activeSettingsTab + offset) % count + count) % count;
         SetActiveSettingsTab((SettingsTab)next);
     }

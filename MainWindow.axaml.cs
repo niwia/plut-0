@@ -67,7 +67,7 @@ public partial class MainWindow : Window
     private int _settingsOptionIndex = 0;
 
     // Settings submenu state
-    private enum SettingsTab { Theme, Api, Sls, Visuals, Health }
+    private enum SettingsTab { Theme, Api, Sls, Visuals, Health, Ddm }
     private SettingsTab _activeSettingsTab = SettingsTab.Theme;
 
     // Detail page state
@@ -143,7 +143,7 @@ public partial class MainWindow : Window
         _mainBackdropTimer = new DispatcherTimer();
         _mainBackdropTimer.Tick += OnMainBackdropTimerTick;
 
-        _liveSearchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _liveSearchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(650) };
         _liveSearchTimer.Tick += OnLiveSearchTimerTick;
 
         _placeholderTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(3500) };
