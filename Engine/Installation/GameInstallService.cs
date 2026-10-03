@@ -175,10 +175,19 @@ public sealed class GameInstallService
             }
             else
             {
-                var candidate1 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "ACCELA", "manifests", $"{depot.DepotId}_{manifestGid}.manifest");
+                var candidate1 = Path.Combine(PlutoPaths.AccelaData, "manifests", $"{depot.DepotId}_{manifestGid}.manifest");
                 var candidate2 = Path.Combine(Path.GetTempPath(), "mistwalker_manifests", $"{depot.DepotId}_{manifestGid}.manifest");
                 if (File.Exists(candidate1)) manifestFilePath = candidate1;
                 else if (File.Exists(candidate2)) manifestFilePath = candidate2;
+            }
+
+            if (manifestGid == 0)
+            {
+                // DepotDownloader needs a concrete manifest; without one it either
+                // downloads the wrong content or fails deep in the pipeline.
+                PlutoLogger.Warn("GameInstallService",
+                    $"No manifest resolved for depot {depot.DepotId}; skipping it");
+                continue;
             }
 
             PlutoLogger.Info("GameInstallService",
@@ -187,7 +196,7 @@ public sealed class GameInstallService
 
             progress?.Report(new InstallStepProgress(
                 $"Downloading Depot {i + 1}/{totalDepots}",
-                20 + (int)((double)completedDepots / totalDepots * 60),
+                20 + (int)((double)completedDepots / Math.Max(1, totalDepots) * 60),
                 0,
                 0,
                 $"Depot {depot.DepotId}: {depot.Name}"));
