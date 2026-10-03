@@ -45,28 +45,52 @@ public class SlsSteamService
     /// <summary>
     /// Checks whether an AppID is currently listed in SLSsteam AdditionalApps.
     /// </summary>
-    public bool IsAppConfigured(string appId)
+    public bool IsAppConfigured(string appId) => GetConfiguredAppIds().Contains(appId);
+
+    /// <summary>
+    /// Returns every AppID currently listed in SLSsteam's AdditionalApps.
+    ///
+    /// Callers that need to know the sync state of a whole library must use this
+    /// rather than <see cref="IsAppConfigured"/> per game: that method reads the
+    /// entire config file on every call, so checking 188 games meant 188 reads of
+    /// a 30KB file on the UI thread. This reads once and returns a lookup set.
+    /// </summary>
+    public HashSet<string> GetConfiguredAppIds()
     {
-        if (!File.Exists(_configPath)) return false;
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!File.Exists(_configPath)) return ids;
 
         try
         {
             var content = File.ReadAllText(_configPath);
             var bounds = GetSectionBounds(content, "AdditionalApps");
-            if (!bounds.HasValue) return false;
+            if (!bounds.HasValue) return ids;
 
-            var secContent = content.Substring(bounds.Value.contentStart, bounds.Value.sectionEnd - bounds.Value.contentStart);
-            var pattern = new Regex($@"^[ \t]*-[ \t]*['""]?{Regex.Escape(appId)}['""]?(?:[ \t]*#.*)?$", RegexOptions.Multiline);
-            return pattern.IsMatch(secContent);
+            var section = content.Substring(bounds.Value.contentStart,
+                                            bounds.Value.sectionEnd - bounds.Value.contentStart);
+
+            // One pass over the section rather than one regex per candidate ID.
+            foreach (Match m in ListEntryPattern.Matches(section))
+            {
+                var id = m.Groups["id"].Value.Trim();
+                if (id.Length > 0) ids.Add(id);
+            }
         }
         catch (Exception ex)
         {
-            // A malformed config.yaml means "unknown", not "not configured".
-            // Returning false here would wrongly offer to re-sync.
+            // A malformed config.yaml means "unknown", not "nothing configured".
+            // An empty result here would wrongly mark every game unsynced.
             PlutoLogger.Warn("SLS", $"Could not read AdditionalApps from {_configPath}: {ex.Message}");
-            return false;
         }
+
+        return ids;
     }
+
+    /// <summary>Matches "- 12345" or "- 12345 # comment" entries in a list section.</summary>
+    private static readonly Regex ListEntryPattern = new(
+        @"^[ \t]*-[ \t]*(?<id>[^#\r\n]+?)[ \t]*(?:#[^\r\n]*)?$",
+        RegexOptions.Compiled | RegexOptions.Multiline);
 
     /// <summary>
     /// In-place sync of a game's AppID, Depots, and DecryptionKeys into config.yaml.

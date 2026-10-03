@@ -30,6 +30,14 @@ public partial class MainWindow
 
         ResetDetailUi();
 
+        // Opening the game counts as seeing it, so the "New" badge clears now
+        // rather than waiting for the next launch.
+        if (game.IsNew)
+        {
+            game.IsNew = false;
+            MarkNewGameSeen(game.AppId);
+        }
+
         if (DetailGameTitle    != null) { DetailGameTitle.Text    = game.Name; DetailGameTitle.IsVisible = true; }
         if (DetailGameSubtitle != null) DetailGameSubtitle.Text   = $"{game.AppId}  |  {(game.IsAccela ? "assella" : "native")}";
 
@@ -881,6 +889,9 @@ public partial class MainWindow
             targetGame.IsNew = true;
         }
 
+        // Recorded so the badge clears on the next launch instead of persisting.
+        MarkNewGameSeen(appId.ToString());
+
         targetGame.IsDownloading = true;
         targetGame.DownloadPercentage = 0;
         targetGame.DownloadStatusText = "0%";
@@ -937,7 +948,8 @@ public partial class MainWindow
 
             targetGame.IsDownloading = false;
             targetGame.DownloadStatusText = string.Empty;
-            targetGame.IsNew = true; // Stays New till next boot of Pluto!
+            targetGame.IsNew = true;
+            MarkNewGameSeen(appId.ToString());
 
             if (GlobalDownloadBar != null) GlobalDownloadBar.IsVisible = false;
 

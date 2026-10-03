@@ -47,42 +47,30 @@ public class PluginGame : System.ComponentModel.INotifyPropertyChanged
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString)]
     public long UpdatedAt { get; set; }
 
+    /// <summary>
+    /// Whether this game's AppID is currently listed in SLSsteam's AdditionalApps.
+    /// Refreshed on every library reload and shown in the list, so a game that is
+    /// registered but not injected is visible at a glance.
+    /// </summary>
     [JsonIgnore]
-    public bool IsSlsSynced { get; set; }
-
-    [JsonIgnore]
-    public int DepotCount => Depots?.Count ?? 0;
-
-    [JsonIgnore]
-    public int KeyCount => Keys?.Count ?? 0;
-
-    [JsonIgnore]
-    public string ModeBadgeText => IsAccela ? "assella" : "native";
-
-    [JsonIgnore]
-    public string DisplayColorHex => IsAccela ? "#4A6B8A" : "#444444";
-
-    [JsonIgnore]
-    public string SelectedColorHex => IsAccela ? "#60A5FA" : "#FFFFFF";
-
-    [JsonIgnore]
-    public string UpdatedAtString
+    public bool IsSlsSynced
     {
-        get
+        get => _isSlsSynced;
+        set
         {
-            if (UpdatedAt <= 0) return "unknown";
-            try
+            if (_isSlsSynced != value)
             {
-                var dt = DateTimeOffset.FromUnixTimeSeconds(UpdatedAt).ToLocalTime();
-                return dt.ToString("yyyy-MM-dd HH:mm");
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                // Timestamp outside the representable range; show the raw value.
-                return UpdatedAt.ToString();
+                _isSlsSynced = value;
+                OnPropertyChanged(nameof(IsSlsSynced));
+                OnPropertyChanged(nameof(SyncBadgeText));
             }
         }
     }
+    private bool _isSlsSynced;
+
+    /// <summary>Short sync indicator shown on each library row.</summary>
+    [JsonIgnore]
+    public string SyncBadgeText => IsSlsSynced ? "synced" : "not synced";
 
     private bool _isDownloading;
     [JsonIgnore]

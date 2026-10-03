@@ -216,8 +216,24 @@ public partial class MainWindow : Window
     private async Task ReloadLibraryAsync()
     {
         var games = await _libraryService.LoadGamesAsync();
+
+        // One read of config.yaml for the whole library. Previously each game
+        // called IsAppConfigured, which re-read the entire file, so 188 games
+        // meant 188 reads (~5.5MB) and ~70ms of blocking work on the UI thread
+        // on every watcher event.
+        var syncedAppIds = _slsService.GetConfiguredAppIds();
+
+        var seenNewIds = LoadSeenNewGames();
+
         foreach (var g in games)
-            g.IsSlsSynced = _slsService.IsAppConfigured(g.AppId);
+        {
+            g.IsSlsSynced = syncedAppIds.Contains(g.AppId);
+
+            // The "New" badge is shown once, then remembered as seen so it clears
+            // on the next launch instead of persisting until the file is touched.
+            g.IsNew = !seenNewIds.Contains(g.AppId) && g.UpdatedAt > 0
+                      && DateTimeOffset.FromUnixTimeSeconds(g.UpdatedAt) > _sessionStartUtc.AddDays(-1);
+        }
 
         _allGames         = games;
         _mainBackdropPool = _allGames.Select(g => g.AppId).Distinct().ToList();
@@ -238,7 +254,56 @@ public partial class MainWindow : Window
             $"Library updated: {_allGames.Count} total ({_allGames.Count(g => !g.IsAccela)} plugin, {_allGames.Count(g => g.IsAccela)} assella)");
     }
 
-    // Local filter
+    private static readonly string SeenNewGamesPath = PlutoPaths.PlutoConfig + "/seen_new_games.txt";
+
+    private static readonly DateTimeOffset _sessionStartUtc = DateTimeOffset.UtcNow;
+
+    /// <summary>
+    /// Loads AppIDs whose "New" badge has already been shown.
+    ///
+    /// The badge used to persist for the life of the list and was only cleared by
+    /// restarting Pluto and re-adding the game. Recording it here lets the badge
+    /// clear on the next launch instead.
+    /// </summary>
+    private static HashSet<string> LoadSeenNewGames()
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            if (!File.Exists(SeenNewGamesPath)) return seen;
+
+            foreach (var line in File.ReadAllLines(SeenNewGamesPath))
+            {
+                var id = line.Trim();
+                if (!string.IsNullOrEmpty(id)) seen.Add(id);
+            }
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("Pluto", $"Could not read seen-new list: {ex.Message}");
+        }
+        return seen;
+    }
+
+    private static void MarkNewGameSeen(string appId)
+    {
+        try
+        {
+            PlutoPaths.EnsureDirectory(Path.GetDirectoryName(SeenNewGamesPath)!);
+            File.AppendAllText(SeenNewGamesPath, appId + Environment.NewLine);
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("Pluto", $"Could not record seen game {appId}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Local filter over the in-memory library.
+    ///
+    /// Sort order and mode filter are applied here rather than in the list
+    /// template so the ordering is explicit and testable.
+    /// </summary>
     private void ApplyFilter(string? query)
     {
         var trimmed = query?.Trim();
