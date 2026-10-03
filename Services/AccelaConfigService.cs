@@ -159,9 +159,20 @@ public class AccelaConfigService
                     lines.Insert(1, newLine);
                 }
 
-                var tempPath = _configPath + ".tmp";
-                File.WriteAllLines(tempPath, lines);
-                File.Move(tempPath, _configPath, overwrite: true);
+                // Write in place rather than temp-file-plus-rename. ACCELA reads this file
+                // through QSettings, which holds the path open; renaming a new file
+                // over it swaps the inode and QSettings silently keeps writing to
+                // the orphaned one. This is the same hazard HANDOVER.md documents
+                // for SLSsteam's config.yaml. Truncate-and-rewrite keeps the inode.
+                var payload = string.Join(Environment.NewLine, lines) + Environment.NewLine;
+                var bytes = System.Text.Encoding.UTF8.GetBytes(payload);
+
+                using (var fs = new FileStream(_configPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
+                {
+                    fs.SetLength(0);
+                    fs.Write(bytes, 0, bytes.Length);
+                    fs.Flush(true);
+                }
 
                 PlutoLogger.Info("Config", $"Updated setting {key} = {value}");
                 return true;
