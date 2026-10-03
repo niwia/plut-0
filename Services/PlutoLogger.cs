@@ -21,6 +21,23 @@ public static class PlutoLogger
 
     public static void Warn(string category, string message) => Log("WARN", category, message);
 
+    /// <summary>
+    /// Diagnostic detail that is only interesting while chasing a specific issue.
+    /// Kept out of the normal log because the per-depot scans are chatty.
+    /// </summary>
+    public static void Debug(string category, string message)
+    {
+        if (!VerboseLogging) return;
+        Log("DEBUG", category, message);
+    }
+
+    /// <summary>
+    /// Set PLUTO_VERBOSE=1 to include <see cref="Debug"/> output. Off by default
+    /// because routine depot scans would otherwise flood the log.
+    /// </summary>
+    public static bool VerboseLogging { get; set; } =
+        Environment.GetEnvironmentVariable("PLUTO_VERBOSE") is "1" or "true" or "TRUE";
+
     public static void Error(string category, string message, Exception? ex = null)
     {
         var msg = ex != null ? $"{message} (Exception: {ex.Message})" : message;

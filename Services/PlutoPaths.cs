@@ -65,14 +65,16 @@ public static class PlutoPaths
 
     // ---- IPC endpoints ---------------------------------------------------------
 
-    /// <summary>SLSsteam command pipe. Not a real FIFO - a regular file SLSsteam polls.</summary>
+    /// <summary>
+    /// SLSsteam command pipe. Not a real FIFO - a regular file SLSsteam polls.
+    ///
+    /// This is the only channel Pluto uses. The two-way "bridge" socket and
+    /// command file (/tmp/assella_ipc.sock, /tmp/assella_cmd.json) described in
+    /// earlier revisions were removed: assella_bridge.lua was never implemented
+    /// on either side, so nothing bound the socket or read the file. SLSsteam
+    /// detects config.yaml changes through its own inotify watcher instead.
+    /// </summary>
     public static string SlsApiPipe => "/tmp/SLSsteam.API";
-
-    /// <summary>UNIX socket used by the Lua bridge for two-way IPC.</summary>
-    public static string AssellaIpcSocket => "/tmp/assella_ipc.sock";
-
-    /// <summary>One-shot command file polled by the Lua bridge when no socket is bound.</summary>
-    public static string AssellaCmdFile => "/tmp/assella_cmd.json";
 
     // ---- API keys --------------------------------------------------------------
 

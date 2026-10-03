@@ -1,7 +1,7 @@
 # PLUTO // ACCELA & AT0-M System Integration & Handover Guide
 
 > **Target Audience**: Developers, subagents, and tools building or extending **Pluto** (C# .NET 10 / Avalonia UI).  
-> **Purpose**: This document specifies how Pluto can read ACCELA-managed games, seamlessly transition games between **ACCELA Managed** mode and **AT0-M (Plugin Native)** mode, interact with Steam `appmanifest_<appid>.acf` files, and communicate with the **SLSsteam Bridge** (`assella_bridge.lua`).
+> **Purpose**: This document specifies how Pluto can read ACCELA-managed games, seamlessly transition games between **ACCELA Managed** mode and **AT0-M (Plugin Native)** mode, interact with Steam `appmanifest_<appid>.acf` files, and edit **SLSsteam's** `config.yaml` in place so its inotify watcher reloads settings.
 
 ---
 
@@ -15,7 +15,7 @@
 5. [The Steam ACF Manifest Contract (`appmanifest_<appid>.acf`)](#5-the-steam-acf-manifest-contract)
 6. [AT0-M / Vapor Global Settings](#6-at0-m--vapor-global-settings)
 7. [Best Architecture for Pluto to Manage ASSella Games](#7-best-architecture-for-pluto-to-manage-assella-games)
-8. [SLSsteam & Bridge Integration (`assella_bridge.lua`)](#8-slssteam--bridge-integration)
+8. [SLSsteam Integration](#8-slssteam-integration)
 9. [Implementation Blueprint for Pluto (C# Services)](#9-implementation-blueprint-for-pluto)
 10. [Critical Gotchas & Guardrails](#10-critical-gotchas--guardrails)
 
@@ -56,10 +56,8 @@
 | **Steam Libraries VDF**| `~/.local/share/Steam/steamapps/libraryfolders.vdf` | Steam's official registry of all mounted library paths (internal, microSD, external drives). |
 | **ACCELA / AT0-M Settings**| `~/.config/Tachibana Labs/ACCELA.conf` | INI configuration file storing AT0-M/Vapor settings, download behavior, and UI preferences. |
 | **SLSsteam Config** | `~/.config/SLSsteam/config.yaml` | Active SLS configuration containing `AdditionalApps`, `AdditionalDepots`, and `DecryptionKeys`. |
-| **SLSsteam Plugins** | `~/.config/SLSsteam/plugins/` | Location of Lua plugins, including `assella_bridge.lua`. |
+| **SLSsteam Plugins** | `~/.config/SLSsteam/plugins/` | Location of Lua plugins (`download.lua`, `spliced-tickets.lua`). |
 | **SLSsteam API Pipe** | `/tmp/SLSsteam.API` | Named FIFO / text pipe used to send commands directly to SLSsteam (e.g., `reloadlua`). |
-| **Bridge IPC Socket** | `/tmp/assella_ipc.sock` | UNIX domain stream socket for two-way communication with `assella_bridge.lua`. |
-| **Bridge Fallback File**| `/tmp/assella_cmd.json` | One-shot JSON command file polled by `assella_bridge.lua` if socket is not bound. |
 
 ---
 
@@ -351,61 +349,48 @@ When a user selects a game in Pluto and presses `[X]` (or clicks "Toggle Mode"):
   4. Send `reloadlua\n` to `/tmp/SLSsteam.API`.
 
 
-## 8. SLSsteam & Bridge Integration
+## 8. SLSsteam Integration
 
 SLSsteam hooks into the Steam client process and controls license emulation and depot unlocking.
 
-### Communication Channels
+### Communication Channel
 
 ```
 Pluto / ASSella
    │
-   ├─► Write In-Place: ~/.config/SLSsteam/config.yaml (inotify)
-   ├─► Pipe:           /tmp/SLSsteam.API ("reloadlua\n")
-   └─► UNIX Socket:    /tmp/assella_ipc.sock (Two-way IPC)
-                               ▲
-                               │
-                       assella_bridge.lua
-                       (inside SLSsteam)
+   └─► Write In-Place: ~/.config/SLSsteam/config.yaml (SLSsteam inotify watcher)
 ```
 
-### 1. The Named Pipe (`/tmp/SLSsteam.API`)
-Whenever you update `config.yaml` or want SLSsteam to reload Lua scripts, write the command followed by a newline:
+SLSsteam watches `config.yaml` with `inotify` and hot-reloads on change, so **no explicit
+reload signal is required** after editing the config. Rewriting the file in place (rather than
+replacing it via rename) is mandatory: a new inode leaves the watcher attached to the orphaned
+file and it never fires again until SLSsteam restarts.
+
+### The Named Pipe (`/tmp/SLSsteam.API`)
+
+Used only when a command must be delivered explicitly:
+
 ```csharp
 File.WriteAllText("/tmp/SLSsteam.API", "reloadlua\n");
 ```
+
 Supported API pipe commands:
 - `reloadlua` — Re-executes all Lua plugins in `~/.config/SLSsteam/plugins/`.
 - `install <appid>` — Emulates Steam game install.
 - `uninstall <appid>` — Emulates Steam game uninstall.
 
-### 2. The Lua Bridge (`assella_bridge.lua`)
-Located at `~/.config/SLSsteam/plugins/assella_bridge.lua`.
-- **Dynamic Depot Injection**: Instead of editing `config.yaml`, the bridge supports injecting depots at runtime:
-  ```json
-  {"cmd": "add_depot", "depot_id": 2756921}
-  ```
-- **Dynamic Decryption Key Injection**:
-  ```json
-  {"cmd": "add_key", "depot_id": 2756921, "key": "6c44243b...0f4"}
-  ```
-- **Reload Trigger**:
-  ```json
-  {"cmd": "reload_config"}
-  ```
+### Removed: the Lua Bridge
 
-### 3. IPC Server Implementation
-If Pluto opens a UNIX domain socket at `/tmp/assella_ipc.sock`, `assella_bridge.lua` will automatically send JSON events upon connection:
-```json
-{
-  "event": "pluginLoaded",
-  "steam_active": true,
-  "downloader_loaded": true,
-  "depots_count": 14,
-  "keys_count": 8
-}
-```
-If Pluto does not run an IPC server, Pluto can simply write commands to `/tmp/assella_cmd.json`, which the bridge reads and unlinks when SLS triggers a reload.
+Earlier revisions of this document specified a two-way IPC bridge
+(`/tmp/assella_ipc.sock`, `/tmp/assella_cmd.json`, `assella_bridge.lua`) for runtime depot and
+key injection. **That component was never implemented on either side** and has been removed:
+
+- `assella_bridge.lua` does not exist in `~/.config/SLSsteam/plugins/` (which contains only
+  `download.lua` and `spliced-tickets.lua`), and ASSella's deployer only ships those two.
+- Nothing bound the socket or read the command file, so the documented protocol was unreachable.
+
+Depots and keys are therefore configured exclusively by editing `config.yaml` in place. Do not
+reintroduce bridge code without first shipping the Lua side.
 
 ---
 
@@ -552,7 +537,7 @@ public class GameTransitionService
 2. **Lua FFI Type Redefinition**:
    - SLSsteam reloads Lua plugins inside the **same persistent LuaJIT state**.
    - Any FFI C-declarations must be guarded with `pcall(ffi.cdef, [[ ... ]])`.
-   - This was patched in `assella_bridge.lua`, making `reloadlua` calls 100% safe.
+   - Apply this to any Lua plugin added under `~/.config/SLSsteam/plugins/`.
 
 3. **Steam Client State Flags**:
    - Never set `StateFlags` to `"0"` in `appmanifest_<appid>.acf`. Keep `"StateFlags" "4"` so Steam treats the game as fully installed.

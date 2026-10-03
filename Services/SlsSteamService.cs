@@ -102,8 +102,34 @@ public class SlsSteamService
                     continue;
                 }
 
+                // Never write a base game AppID into AdditionalDepots. SLSsteam
+                // treats it as a depot and it can conflict with the app it names.
+                // Real data hits this: plugin_library.json lists Project Zomboid
+                // (108600) with 108600 among its own depots.
+                if (depot == appId)
+                {
+                    PlutoLogger.Warn("SLS",
+                        $"Refusing to add base AppID '{appId}' to AdditionalDepots for {game.Name}");
+                    continue;
+                }
+
+                // An ID already listed in AdditionalApps belongs there, not in
+                // AdditionalDepots - unless it is DLC, which legitimately appears
+                // in both sections.
+                if (IsBaseAppInAdditionalApps(content, depot, out var appComment))
+                {
+                    PlutoLogger.Warn("SLS",
+                        $"Refusing to add '{depot}' to AdditionalDepots: already in AdditionalApps as '{appComment}'");
+                    continue;
+                }
+
                 game.DepotNames.TryGetValue(depot, out var dName);
-                var comment = string.IsNullOrWhiteSpace(dName) ? $"{game.Name} ({depot})" : $"{game.Name} - {dName} ({depot})";
+
+                // Tag redistributables so their shared nature stays legible in the file.
+                var comment = SharedDepotService.IsSharedRedistributable(depot)
+                    ? SharedDepotService.SharedDepotComment
+                    : (string.IsNullOrWhiteSpace(dName) ? $"{game.Name} ({depot})" : $"{game.Name} - {dName} ({depot})");
+
                 content = EnsureAdditionalDepot(content, depot, comment);
             }
 
@@ -143,8 +169,17 @@ public class SlsSteamService
 
     /// <summary>
     /// Removes the AppID and unshared depots/keys from SLS config.yaml.
+    ///
+    /// A depot is only removed when nothing else needs it: no other registered game
+    /// references it, no installed game's manifest lists it, and it isn't one of
+    /// Steam's shared redistributable runtimes. The previous implementation checked
+    /// only registered games, which could strip a redistributable or a depot a
+    /// vanilla Steam install still relies on.
     /// </summary>
-    public async Task<bool> RemoveGameFromConfigAsync(PluginGame game, List<PluginGame> allOtherGames)
+    public async Task<bool> RemoveGameFromConfigAsync(
+        PluginGame game,
+        List<PluginGame> allOtherGames,
+        SharedDepotService? sharedDepots = null)
     {
         if (!File.Exists(_configPath)) return false;
 
@@ -163,20 +198,35 @@ public class SlsSteamService
             var remainingDepots = new HashSet<string>(allOtherGames.Where(g => g.AppId != game.AppId).SelectMany(g => g.Depots));
             var remainingKeys = new HashSet<string>(allOtherGames.Where(g => g.AppId != game.AppId).SelectMany(g => g.Keys.Keys));
 
+            var sharing = sharedDepots ?? new SharedDepotService();
+
             foreach (var depot in game.Depots)
             {
-                if (!remainingDepots.Contains(depot))
+                if (remainingDepots.Contains(depot)) continue;
+
+                if (sharing.IsDepotShared(depot, game.AppId))
                 {
-                    content = RemoveAdditionalDepot(content, depot);
+                    PlutoLogger.Info("SLS",
+                        $"Keeping depot {depot} for {game.Name}: {sharing.DescribeSharing(depot, game.AppId)}");
+                    continue;
                 }
+
+                content = RemoveAdditionalDepot(content, depot);
             }
 
             foreach (var depot in game.Keys.Keys)
             {
-                if (!remainingKeys.Contains(depot))
+                if (remainingKeys.Contains(depot)) continue;
+
+                // A redistributable depot's key is shared just as the depot is.
+                if (sharing.IsDepotShared(depot, game.AppId))
                 {
-                    content = RemoveDecryptionKey(content, depot);
+                    PlutoLogger.Info("SLS",
+                        $"Keeping key {depot} for {game.Name}: {sharing.DescribeSharing(depot, game.AppId)}");
+                    continue;
                 }
+
+                content = RemoveDecryptionKey(content, depot);
             }
 
             if (!WriteInPlace(_configPath, content, $"remove {game.AppId}"))
@@ -270,6 +320,34 @@ public class SlsSteamService
     /// Adds or updates a list entry ("  - id # comment") in a top-level section,
     /// preserving the section's existing contents and comments.
     /// </summary>
+    /// <summary>
+    /// True when an ID appears in AdditionalApps as a base game rather than as DLC.
+    ///
+    /// DLC entries legitimately live in both AdditionalApps and AdditionalDepots, so
+    /// the trailing comment is what distinguishes the two cases. ASSella applies the
+    /// same test.
+    /// </summary>
+    private static bool IsBaseAppInAdditionalApps(string content, string id, out string comment)
+    {
+        comment = string.Empty;
+
+        var bounds = GetSectionBounds(content, "AdditionalApps");
+        if (!bounds.HasValue) return false;
+
+        var (_, contentStart, sectionEnd) = bounds.Value;
+        var section = content[contentStart..sectionEnd];
+
+        var match = Regex.Match(
+            section,
+            $@"^[ \t]*-[ \t]*{Regex.Escape(id)}[ \t]*(?:#[ \t]*(?<c>[^\r\n]*))?$",
+            RegexOptions.Multiline);
+
+        if (!match.Success) return false;
+
+        comment = match.Groups["c"].Value.Trim();
+        return !comment.Contains("dlc", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string EnsureListEntry(string content, string sectionName, string id, string comment)
     {
         // A flow-style header ("Apps: []") must become block form first, or the

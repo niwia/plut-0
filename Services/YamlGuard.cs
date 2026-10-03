@@ -116,12 +116,23 @@ public static class YamlGuard
     /// <summary>
     /// Best-effort structural validation of the document.
     ///
-    /// Deliberately conservative: a full YAML parse would reject things SLSsteam
-    /// accepts, and false rejections would block legitimate edits. This catches the
-    /// failures our text edits can actually cause - unbalanced flow collections and
-    /// duplicate keys.
+    /// Two layers. The heuristics catch the failures our text edits can actually
+    /// cause - unbalanced flow collections and duplicate top-level keys - and are
+    /// always applied. On top of that, a real YamlDotNet parse is attempted when
+    /// a baseline document is supplied.
+    ///
+    /// The parse is deliberately one-sided: a failure only blocks the write if the
+    /// <em>original</em> document parsed cleanly. SLSsteam's config is hand-edited
+    /// and may use dialect this library rejects, and blocking writes to a file we
+    /// merely don't understand would be worse than the risk of a bad write we have
+    /// already checked for heuristically.
     /// </summary>
-    public static bool ValidateContent(string content, out string reason)
+    /// <param name="content">Candidate content about to be written.</param>
+    /// <param name="reason">Set to a human-readable explanation when validation fails.</param>
+    /// <param name="baseline">
+    /// The current on-disk content, if available. Enables the parse layer.
+    /// </param>
+    public static bool ValidateContent(string content, out string reason, string? baseline = null)
     {
         reason = "";
 
@@ -150,7 +161,34 @@ public static class YamlGuard
             }
         }
 
+        if (baseline != null && TryParses(baseline, out _) && !TryParses(content, out var parseError))
+        {
+            reason = $"YAML parse failed: {parseError}";
+            return false;
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Attempts a real YAML parse. Returns false with a reason when the content
+    /// is not parseable; a <c>baseline</c> that is itself unparseable simply
+    /// disables this layer for the comparison.
+    /// </summary>
+    private static bool TryParses(string content, out string error)
+    {
+        error = "";
+        try
+        {
+            var deserializer = new YamlDotNet.Serialization.DeserializerBuilder().Build();
+            deserializer.Deserialize<object>(new StringReader(content));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message.Split('\n')[0];
+            return false;
+        }
     }
 
     /// <summary>
@@ -188,7 +226,19 @@ public static class YamlGuard
     /// </summary>
     public static bool Commit(string path, string content, string operation)
     {
-        if (!ValidateContent(content, out var reason))
+        // Capture the current document so the parse layer can tell "we broke it"
+        // apart from "it was never strict YAML to begin with".
+        string? baseline = null;
+        try
+        {
+            if (File.Exists(path)) baseline = File.ReadAllText(path);
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Debug("Yaml", $"Could not read current {path} for validation baseline: {ex.Message}");
+        }
+
+        if (!ValidateContent(content, out var reason, baseline))
         {
             // Never write content we could not verify: this file is read by SLSsteam
             // on startup and by ASSella, and a bad write is expensive to recover from.
