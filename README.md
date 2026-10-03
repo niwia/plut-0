@@ -28,7 +28,8 @@ managed by one is fully managed by the other.
 - **Metadata**: SteamGridDB logos and hero art, RAWG descriptions and ratings, SteamDB tags,
   and an auto-rotating screenshot gallery.
 - **Per-game tooling**: EOS proxy apply/remove, Steamless unpack, system health diagnostics,
-  and SLSsteam IPC via `/tmp/SLSsteam.API`.
+  quick actions (sync to SLS, open install dir, copy AppID, list depots), and SLSsteam IPC
+  via `/tmp/SLSsteam.API`.
 - **Landscape UI**: compact layout tuned for 16:9 and 16:10, minimum 760x440.
 
 ---
@@ -39,12 +40,25 @@ managed by one is fully managed by the other.
 | :--- | :--- | :--- |
 | **Navigate** | D-Pad Up/Down or Left Stick | Arrow Up / Down |
 | **Launch** | **(A)** / Cross | Enter |
-| **Manage / Details** | **(X)** / Square | `X` |
+| **Quick Actions** | **(X)** / Square | `X` |
 | **Focus Search** | **(Y)** / Triangle | `Y` or `/` |
 | **Back / Clear** | **(B)** / Circle | Escape |
-| **Fast Scroll** | **LB** / **RB** | Page Up / Page Down |
+| **Fast Scroll** (library) | **LB** / **RB** | Page Up / Page Down |
+| **Previous / Next Screenshot** (detail) | **LB** / **RB** | — |
+| **Cycle Sort** (library) | **D-Pad Right** | Click sort chip |
+| **Cycle Mode Filter** (library) | **D-Pad Left** | Click mode chip |
+| **Settings** | **Back** / Select | `Tab` or `F1` |
 | **Sync All Games** | **Start** / Menu | Sync All button |
 | **Refresh Library** | Automatic via file watcher | `F5` / Refresh button |
+
+### Library
+
+- **Sort** by name, recently updated, or appid.
+- **Filter** by sync state (synced / not synced) or management mode (plugin / assella).
+- Each row shows its capsule artwork (opt-in, under Visuals) and whether it is
+  currently registered in SLSsteam's `config.yaml`.
+- The **New** badge clears once the game has been opened, and does not reappear
+  on later launches.
 
 ---
 
@@ -59,6 +73,9 @@ Pluto/
 │   ├── PlutoPaths.cs             Every filesystem path, in one place
 │   ├── PluginLibraryService.cs   Dual-source library merge + file watchers
 │   ├── SlsSteamService.cs        In-place config.yaml editing, IPC pipe, launch
+│   ├── YamlGuard.cs              Config write validation and section helpers
+│   ├── SharedDepotService.cs     Decides whether a depot can be safely removed
+│   ├── LibraryThumbnailLoader.cs Lazy row artwork, cache-first, UI-thread marshalled
 │   ├── SteamAcfService.cs        appmanifest_<appid>.acf parse/repair (VDF)
 │   ├── DepotKeyService.cs        AES key lookup in depot_keys.db
 │   ├── AccelaConfigService.cs    ACCELA.conf reader/writer
