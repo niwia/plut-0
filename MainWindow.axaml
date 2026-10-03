@@ -472,7 +472,7 @@
                                              <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
                                                         FontSize="12"
                                                         Foreground="#555555" />
-                                             <TextBlock Text="{Binding StatusText, StringFormat='•  {0}'}"
+                                             <TextBlock Text="{Binding StatusText, StringFormat='|  {0}'}"
                                                         FontSize="12"
                                                         Foreground="{Binding StatusColorHex}" />
                                          </StackPanel>
@@ -579,7 +579,7 @@
                                        Foreground="#FFFFFF" />
 
                             <TextBlock x:Name="DetailGameSubtitle"
-                                       Text="3473250  •  native"
+                                       Text="3473250  |  native"
                                        FontSize="12"
                                        FontWeight="Normal"
                                        Foreground="#777777" />
@@ -599,7 +599,10 @@
                                             Spacing="6"
                                             VerticalAlignment="Center"
                                             IsVisible="False">
-                                    <TextBlock Text="★" FontSize="13" Foreground="#FBBF24" VerticalAlignment="Center" />
+                                    <TextBlock Text="rating"
+                                               FontSize="12"
+                                               Foreground="#FBBF24"
+                                               VerticalAlignment="Center" />
                                     <TextBlock x:Name="DetailRatingScoreText"
                                                Text="4.2 / 5"
                                                FontSize="12"
@@ -607,7 +610,7 @@
                                                Foreground="#FFFFFF"
                                                VerticalAlignment="Center" />
                                     <TextBlock x:Name="DetailRatingSubText"
-                                               Text="2.4k reviews • exceptional"
+                                               Text="2.4k reviews - exceptional"
                                                FontSize="12"
                                                FontWeight="Normal"
                                                Foreground="#888888"
@@ -804,7 +807,7 @@
                         <!-- Row 3: Controller Hints Footer Bar -->
                         <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,14,0,0" VerticalAlignment="Bottom">
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                                <TextBlock Classes="ctrlPrompt" Text="(↑↓) navigate" />
+                                <TextBlock Classes="ctrlPrompt" Text="(dpad) navigate" />
                                 <TextBlock Classes="ctrlPrompt" Text="(A) select" />
                                 <TextBlock Classes="ctrlPrompt" Text="(B) back" />
                                 <TextBlock Classes="ctrlPrompt" Text="(X) options" />
@@ -847,7 +850,7 @@
                            Foreground="#555555" />
             </StackPanel>
 
-            <!-- Row 2: Submenu Tab Navigation Bar with [←→] switch tab hint -->
+            <!-- Row 2: Submenu Tab Navigation Bar with d-pad switch tab hint -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="28" Margin="0,0,0,28" VerticalAlignment="Center">
                 <Button x:Name="SettingsTabThemeBtn"
                         Classes="settingsTabBtn active"
@@ -1237,8 +1240,8 @@
 
             <!-- Row 4: Controller Hints Footer Bar -->
             <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="18" Margin="0,16,0,0" VerticalAlignment="Center">
-                <TextBlock Classes="ctrlPrompt" Text="(←→) tabs" />
-                <TextBlock Classes="ctrlPrompt" Text="(↑↓) navigate" />
+                <TextBlock Classes="ctrlPrompt" Text="(dpad) tabs" />
+                <TextBlock Classes="ctrlPrompt" Text="(dpad) navigate" />
                 <TextBlock Classes="ctrlPrompt" Text="(A) toggle" />
                 <TextBlock Classes="ctrlPrompt" Text="(B) back" />
             </StackPanel>

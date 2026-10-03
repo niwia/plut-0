@@ -121,7 +121,22 @@ public partial class MainWindow
                 }
             }
 
-            if (results.Count > 0)
+            // Check the rate-limit state before the results count. When rate limited,
+            // SearchAsync falls back to local library matches, so results.Count is
+            // non-zero and the "found N games" branch would report a successful
+            // search that never actually reached the API.
+            if (_hubcapSearchService.LastError == "rate_limit")
+            {
+                if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+                if (GamesListBox         != null) GamesListBox.IsVisible         = true;
+                if (EmptyStateText       != null) EmptyStateText.IsVisible       = false;
+                if (SearchStatusText     != null)
+                {
+                    SearchStatusText.Text      = "search rate limited | press enter to retry";
+                    SearchStatusText.IsVisible = true;
+                }
+            }
+            else if (results.Count > 0)
             {
                 if (SearchResultsListBox != null)
                 {
@@ -138,17 +153,7 @@ public partial class MainWindow
             }
             else
             {
-                if (_hubcapSearchService.LastError == "rate_limit")
-                {
-                    if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
-                    if (GamesListBox         != null) GamesListBox.IsVisible         = true;
-                    if (SearchStatusText     != null)
-                    {
-                        SearchStatusText.Text      = "search rate limited • press enter to retry";
-                        SearchStatusText.IsVisible = true;
-                    }
-                }
-                else if (_displayedGames.Count > 0)
+                if (_displayedGames.Count > 0)
                 {
                     if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
                     if (GamesListBox         != null) GamesListBox.IsVisible         = true;
@@ -175,7 +180,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             PlutoLogger.Warn("Search", $"Search failed: {ex.Message}");
-            if (SearchStatusText != null) SearchStatusText.Text = "search error • press enter to retry";
+            if (SearchStatusText != null) SearchStatusText.Text = "search error | press enter to retry";
         }
     }
 

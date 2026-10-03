@@ -629,7 +629,7 @@ public partial class MainWindow
     {
         if (HealthSummaryStatusText != null)
         {
-            HealthSummaryStatusText.Text = $"{health.OverallState} • Steam: {(health.SteamRunning ? "Online" : "Offline")} • SLS: {(health.SlsProcessActive ? "Active" : "Inactive")}";
+            HealthSummaryStatusText.Text = $"{health.OverallState} | Steam: {(health.SteamRunning ? "Online" : "Offline")} | SLS: {(health.SlsProcessActive ? "Active" : "Inactive")}";
             HealthSummaryStatusText.Foreground = health.IsOptimal 
                 ? Avalonia.Media.Brushes.MediumSpringGreen 
                 : (health.OverallState == "Attention" ? Avalonia.Media.Brushes.Goldenrod : Avalonia.Media.Brushes.IndianRed);
@@ -639,7 +639,7 @@ public partial class MainWindow
         {
             if (health.Issues.Count > 0)
             {
-                HealthIssuesListText.Text = "Status Notes:\n• " + string.Join("\n• ", health.Issues);
+                HealthIssuesListText.Text = "Status Notes:\n- " + string.Join("\n- ", health.Issues);
                 HealthIssuesListText.IsVisible = true;
             }
             else
@@ -653,7 +653,7 @@ public partial class MainWindow
         {
             if (health.Hubcap.IsConfigured)
             {
-                HealthHubcapQuotaText.Text = $"User: {health.Hubcap.Username}  •  Daily Calls: {health.Hubcap.DailyUsage} / {health.Hubcap.DailyLimit}  •  Total Calls: {health.Hubcap.TotalCalls}";
+                HealthHubcapQuotaText.Text = $"User: {health.Hubcap.Username}  |  Daily Calls: {health.Hubcap.DailyUsage} / {health.Hubcap.DailyLimit}  |  Total Calls: {health.Hubcap.TotalCalls}";
             }
             else
             {

@@ -31,7 +31,7 @@ public partial class MainWindow
         ResetDetailUi();
 
         if (DetailGameTitle    != null) { DetailGameTitle.Text    = game.Name; DetailGameTitle.IsVisible = true; }
-        if (DetailGameSubtitle != null) DetailGameSubtitle.Text   = $"{game.AppId}  •  {(game.IsAccela ? "assella" : "native")}";
+        if (DetailGameSubtitle != null) DetailGameSubtitle.Text   = $"{game.AppId}  |  {(game.IsAccela ? "assella" : "native")}";
 
         if (game.IsAccela)
         {
@@ -89,7 +89,7 @@ public partial class MainWindow
         ResetDetailUi();
 
         if (DetailGameTitle    != null) { DetailGameTitle.Text    = item.Name; DetailGameTitle.IsVisible = true; }
-        if (DetailGameSubtitle != null) DetailGameSubtitle.Text   = $"{item.AppId}  •  online";
+        if (DetailGameSubtitle != null) DetailGameSubtitle.Text   = $"{item.AppId}  |  online";
 
         DetailSwitchModeBtn.Content    = "add to plugin";
         DetailSwitchModeBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
@@ -279,7 +279,7 @@ public partial class MainWindow
                                 var parts = new List<string>();
                                 if (!string.IsNullOrEmpty(meta.FormattedReviewsCount)) parts.Add(meta.FormattedReviewsCount);
                                 if (!string.IsNullOrEmpty(meta.Verdict))               parts.Add(meta.Verdict);
-                                DetailRatingSubText.Text  = parts.Count > 0 ? string.Join("  •  ", parts) : "";
+                                DetailRatingSubText.Text  = parts.Count > 0 ? string.Join("  |  ", parts) : "";
                                 DetailRatingRow.IsVisible = true;
                             }
 
@@ -290,7 +290,7 @@ public partial class MainWindow
 
                             if (metaParts.Count > 0 && DetailRawgMeta != null)
                             {
-                                DetailRawgMeta.Text      = string.Join("  •  ", metaParts);
+                                DetailRawgMeta.Text      = string.Join("  |  ", metaParts);
                                 DetailRawgMeta.IsVisible = true;
                             }
 
@@ -445,7 +445,7 @@ public partial class MainWindow
                 _selectedSearchResult.IsInstalled  = true;
                 _selectedSearchResult.InstallMode  = "native";
 
-                DetailGameSubtitle.Text            = $"{appId}  •  native";
+                DetailGameSubtitle.Text            = $"{appId}  |  native";
                 DetailSwitchModeBtn.Content        = "move to assella";
                 DetailSwitchModeBtn.Foreground     = Avalonia.Media.Brushes.LightSkyBlue;
                 DetailSwitchModeBtn.IsEnabled      = true;
@@ -486,7 +486,7 @@ public partial class MainWindow
                 _selectedGame.IsAccela = true;
             }
 
-            DetailGameSubtitle.Text        = $"{_selectedGame.AppId}  •  {(_selectedGame.IsAccela ? "assella" : "native")}";
+            DetailGameSubtitle.Text        = $"{_selectedGame.AppId}  |  {(_selectedGame.IsAccela ? "assella" : "native")}";
             DetailSwitchModeBtn.Content    = _selectedGame.IsAccela ? "add to plugin" : "move to assella";
             DetailSwitchModeBtn.Foreground = _selectedGame.IsAccela
                 ? Avalonia.Media.Brushes.MediumSpringGreen

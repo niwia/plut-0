@@ -51,7 +51,7 @@ public class RawgGameMetadata
             var parts = new List<string>();
             if (!string.IsNullOrEmpty(Developers)) parts.Add(Developers);
             else if (!string.IsNullOrEmpty(Publishers)) parts.Add(Publishers);
-            return string.Join("  •  ", parts);
+            return string.Join("  |  ", parts);
         }
     }
 
@@ -65,7 +65,7 @@ public class RawgGameMetadata
             if (MetacriticScore.HasValue && MetacriticScore.Value > 0) parts.Add($"{MetacriticScore.Value} metacritic");
             if (Rating.HasValue && Rating.Value > 0) parts.Add($"{Rating.Value:0.0} rating");
             if (!string.IsNullOrEmpty(Verdict)) parts.Add(Verdict);
-            return string.Join("  •  ", parts);
+            return string.Join("  |  ", parts);
         }
     }
 }
@@ -499,8 +499,21 @@ public class RawgService
     private static string CleanGameTitle(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+
         var clean = Regex.Replace(raw, @"\b(GOTY|Game of the Year|Deluxe Edition|Remastered|Definitive Edition|Standard Edition|Enhanced Edition)\b", "", RegexOptions.IgnoreCase);
-        clean = Regex.Replace(clean, @"\p{Cs}|\p{So}", ""); // Remove emoji
-        return clean.Trim();
+
+        // Strip emoji by explicit code point ranges. The previous \p{So} catch-all
+        // also removed legitimate symbols such as the trademark sign, mangling
+        // titles like "Half-Life(TM)" into "Half-Life".
+        clean = EmojiPattern.Replace(clean, string.Empty);
+
+        return Regex.Replace(clean, @"\s{2,}", " ").Trim(' ', '-', ',', ':');
     }
+
+    /// <summary>Emoji and pictograph ranges, including the ZWJ/variation-selector extensions.</summary>
+    private static readonly Regex EmojiPattern = new(
+        @"[\u2190-\u21FF\u2300-\u23FF\u2460-\u24FF\u25A0-\u27BF" +
+        @"\u2900-\u297F\u2B00-\u2BFF\uFE0F\u200D" +
+        @"\U0001F000-\U0001FAFF\U0001F1E6-\U0001F1FF]",
+        RegexOptions.Compiled);
 }

@@ -29,6 +29,15 @@ public class GamepadService : IDisposable
     private bool _running;
     private readonly Dictionary<int, IntPtr> _openControllers = new();
     private readonly Dictionary<int, IntPtr> _openJoysticks = new();
+
+    /// <summary>
+    /// Minimum gap between device rescans. Opening a device triggers SDL's
+    /// device-added event, which would otherwise cause an open/rescan feedback
+    /// loop at startup.
+    /// </summary>
+    private static readonly TimeSpan RescanDebounce = TimeSpan.FromMilliseconds(500);
+
+    private DateTime _lastScanUtc = DateTime.MinValue;
     private string _activeControllerName = "No controller detected";
     private bool _hasConnectedController;
 
@@ -200,6 +209,21 @@ public class GamepadService : IDisposable
 
     private void ScanAndOpenDevices()
     {
+        // Opening a device makes SDL emit a device-added event, which lands back
+        // here and re-opens everything. Coalesce those bursts into one rescan so
+        // a single controller doesn't get opened repeatedly at startup.
+        var now = DateTime.UtcNow;
+        if (now - _lastScanUtc < RescanDebounce)
+        {
+            return;
+        }
+        _lastScanUtc = now;
+
+        // Close the handles we already hold before re-opening. Without this,
+        // re-opening the same device leaks a native SDL object each time and the
+        // previous pointer is orphaned in the dictionary.
+        CloseAllDevices();
+
         int numJoysticks = SDL.SDL_NumJoysticks();
         bool anyFound = false;
         string firstName = "";

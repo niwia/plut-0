@@ -401,9 +401,9 @@ public class HealthService
 
             if (issues.Count > 0)
             {
-                var summary = string.Join("\n• ", issues.Take(6));
+                var summary = string.Join("\n- ", issues.Take(6));
                 if (issues.Count > 6) summary += $"\n... and {issues.Count - 6} more issue(s)";
-                return (false, $"Found {issues.Count} issue(s):\n• {summary}");
+                return (false, $"Found {issues.Count} issue(s):\n- {summary}");
             }
 
             return (true, $"Config healthy: {gameCount} game entries verified, clean YAML indentation, 0 duplicate keys.");
