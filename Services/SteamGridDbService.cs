@@ -30,6 +30,8 @@ public class SteamGridDbService
         InitializeKey();
     }
 
+    
+
     private void InitializeKey()
     {
         if (string.IsNullOrWhiteSpace(_configService.GetValue("steamgriddb_api_key")))

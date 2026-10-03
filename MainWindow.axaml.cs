@@ -123,6 +123,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        PlutoLogger.Info("Startup", $"Pluto {PlutoVersion.FullVersion} starting (log: {PlutoLogger.LogFilePath})");
+
         _libraryService      = new PluginLibraryService();
         _slsService          = new SlsSteamService();
         _depotKeyService     = new DepotKeyService();
@@ -191,6 +193,9 @@ public partial class MainWindow : Window
             _screenshotAutoRotateTimer.Stop();
             _mainBackdropTimer.Stop();
             _searchCts?.Cancel();
+            _detailCts?.Cancel();
+            _visorTimer.Stop();
+            _downloadCts?.Cancel();
             _gamepadService.Dispose();
             _libraryService.Dispose();
         };

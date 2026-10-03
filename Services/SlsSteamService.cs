@@ -24,7 +24,22 @@ public class SlsSteamService
 
     private static readonly Regex TopLevelSectionPattern = new(@"^[A-Za-z0-9_]+[ \t]*:", RegexOptions.Multiline);
 
-    public bool IsSlsConfigPresent => File.Exists(SlsConfigPath);
+    /// <summary>
+    /// Config path this instance operates on. Defaults to the live SLSsteam
+    /// config; overridable so the write logic can be tested against a copy
+    /// instead of mutating the real file.
+    /// </summary>
+    private readonly string _configPath;
+
+    public SlsSteamService(string? configPathOverride = null)
+    {
+        _configPath = configPathOverride ?? SlsConfigPath;
+    }
+
+    /// <summary>Effective config path for this instance.</summary>
+    public string ConfigPath => _configPath;
+
+    public bool IsSlsConfigPresent => File.Exists(_configPath);
     public bool IsSlsPipePresent => File.Exists(SlsApiPipe);
 
     /// <summary>
@@ -32,11 +47,11 @@ public class SlsSteamService
     /// </summary>
     public bool IsAppConfigured(string appId)
     {
-        if (!File.Exists(SlsConfigPath)) return false;
+        if (!File.Exists(_configPath)) return false;
 
         try
         {
-            var content = File.ReadAllText(SlsConfigPath);
+            var content = File.ReadAllText(_configPath);
             var bounds = GetSectionBounds(content, "AdditionalApps");
             if (!bounds.HasValue) return false;
 
@@ -48,7 +63,7 @@ public class SlsSteamService
         {
             // A malformed config.yaml means "unknown", not "not configured".
             // Returning false here would wrongly offer to re-sync.
-            PlutoLogger.Warn("SLS", $"Could not read AdditionalApps from {SlsConfigPath}: {ex.Message}");
+            PlutoLogger.Warn("SLS", $"Could not read AdditionalApps from {_configPath}: {ex.Message}");
             return false;
         }
     }
@@ -59,11 +74,11 @@ public class SlsSteamService
     /// </summary>
     public async Task<bool> SyncGameToConfigAsync(PluginGame game)
     {
-        if (!File.Exists(SlsConfigPath)) return false;
+        if (!File.Exists(_configPath)) return false;
 
         try
         {
-            var content = await File.ReadAllTextAsync(SlsConfigPath);
+            var content = await File.ReadAllTextAsync(_configPath);
 
             // 1. Ensure AdditionalApps contains the AppID
             content = EnsureAdditionalApp(content, game.AppId, game.Name);
@@ -87,7 +102,7 @@ public class SlsSteamService
             }
 
             // 4. In-place write to keep existing inode (SLSsteam inotify FileWatcher automatically detects IN_CLOSE_WRITE)
-            await WriteInPlaceAsync(SlsConfigPath, content);
+            await WriteInPlaceAsync(_configPath, content);
             PlutoLogger.Info("SLS", $"In-place updated config.yaml for game {game.AppId} ({game.Name})");
             return true;
         }
@@ -103,11 +118,11 @@ public class SlsSteamService
     /// </summary>
     public async Task<bool> RemoveGameFromConfigAsync(PluginGame game, List<PluginGame> allOtherGames)
     {
-        if (!File.Exists(SlsConfigPath)) return false;
+        if (!File.Exists(_configPath)) return false;
 
         try
         {
-            var content = await File.ReadAllTextAsync(SlsConfigPath);
+            var content = await File.ReadAllTextAsync(_configPath);
 
             // Remove AppId
             content = RemoveAdditionalApp(content, game.AppId);
@@ -132,7 +147,7 @@ public class SlsSteamService
                 }
             }
 
-            await WriteInPlaceAsync(SlsConfigPath, content);
+            await WriteInPlaceAsync(_configPath, content);
             PlutoLogger.Info("SLS", $"In-place removed game {game.AppId} ({game.Name}) from config.yaml");
             return true;
         }
@@ -352,10 +367,10 @@ public class SlsSteamService
     /// </summary>
     public bool IsSlsOnline(string appId)
     {
-        if (!File.Exists(SlsConfigPath)) return false;
+        if (!File.Exists(_configPath)) return false;
         try
         {
-            var content = File.ReadAllText(SlsConfigPath);
+            var content = File.ReadAllText(_configPath);
             var bounds = GetSectionBounds(content, "FakeAppIds");
             if (!bounds.HasValue) return false;
 
@@ -371,10 +386,10 @@ public class SlsSteamService
     /// </summary>
     public async Task<bool> SetSlsOnlineAsync(string appId, string gameName, bool enable)
     {
-        if (!File.Exists(SlsConfigPath)) return false;
+        if (!File.Exists(_configPath)) return false;
         try
         {
-            var content = await File.ReadAllTextAsync(SlsConfigPath);
+            var content = await File.ReadAllTextAsync(_configPath);
             if (enable)
             {
                 content = EnsureFakeAppId(content, appId, "480", $"{gameName} -> Spacewar");
@@ -385,7 +400,7 @@ public class SlsSteamService
                 content = RemoveLaunchOption(content, appId); // Disable netsock if online disabled
             }
 
-            await WriteInPlaceAsync(SlsConfigPath, content);
+            await WriteInPlaceAsync(_configPath, content);
             PlutoLogger.Info("SLS", $"Set SLSonline for {appId} ({gameName}) to {enable}");
             return true;
         }
@@ -401,10 +416,10 @@ public class SlsSteamService
     /// </summary>
     public bool IsNetsock(string appId)
     {
-        if (!File.Exists(SlsConfigPath)) return false;
+        if (!File.Exists(_configPath)) return false;
         try
         {
-            var content = File.ReadAllText(SlsConfigPath);
+            var content = File.ReadAllText(_configPath);
             var bounds = GetSectionBounds(content, "LaunchOptions");
             if (!bounds.HasValue) return false;
 
@@ -489,10 +504,10 @@ public class SlsSteamService
     /// </summary>
     public async Task<bool> SetNetsockAsync(string appId, bool enable)
     {
-        if (!File.Exists(SlsConfigPath)) return false;
+        if (!File.Exists(_configPath)) return false;
         try
         {
-            var content = await File.ReadAllTextAsync(SlsConfigPath);
+            var content = await File.ReadAllTextAsync(_configPath);
             if (enable)
             {
                 await EnsureNetsockBinaryAsync();
@@ -505,7 +520,7 @@ public class SlsSteamService
                 content = RemoveLaunchOption(content, appId);
             }
 
-            await WriteInPlaceAsync(SlsConfigPath, content);
+            await WriteInPlaceAsync(_configPath, content);
             PlutoLogger.Info("SLS", $"Set Netsock for {appId} to {enable}");
             return true;
         }
