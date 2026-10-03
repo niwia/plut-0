@@ -72,6 +72,31 @@ public class PluginGame : System.ComponentModel.INotifyPropertyChanged
     [JsonIgnore]
     public string SyncBadgeText => IsSlsSynced ? "synced" : "not synced";
 
+    /// <summary>Accent colour for the sync badge, matching the detail page palette.</summary>
+    [JsonIgnore]
+    public string SyncBadgeColorHex => IsSlsSynced ? "#5EEAD4" : "#7A7A7A";
+
+    private Avalonia.Media.Imaging.Bitmap? _thumbnail;
+
+    /// <summary>
+    /// Capsule artwork for the library row. Populated lazily by
+    /// <c>LibraryThumbnailLoader</c> - never fetched during library load, since a
+    /// full library is hundreds of network requests.
+    /// </summary>
+    [JsonIgnore]
+    public Avalonia.Media.Imaging.Bitmap? Thumbnail
+    {
+        get => _thumbnail;
+        set
+        {
+            if (!ReferenceEquals(_thumbnail, value))
+            {
+                _thumbnail = value;
+                OnPropertyChanged(nameof(Thumbnail));
+            }
+        }
+    }
+
     private bool _isDownloading;
     [JsonIgnore]
     public bool IsDownloading

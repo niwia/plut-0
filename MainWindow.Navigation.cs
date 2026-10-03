@@ -24,6 +24,7 @@ public partial class MainWindow
 
         _detailCts?.Cancel();
         _screenshotAutoRotateTimer.Stop();
+        CloseQuickActions();
         ClearDetailActionFocus();  // restore all button opacity
 
         // Show main backdrop
@@ -50,6 +51,7 @@ public partial class MainWindow
         _currentView = ActiveView.Settings;
         _screenshotAutoRotateTimer.Stop();
         _mainBackdropTimer.Stop();
+        CloseQuickActions();
         ClearDetailActionFocus();  // restore detail button opacity
 
         // Hide main backdrop so it doesn't bleed through
@@ -216,6 +218,23 @@ public partial class MainWindow
     // Gamepad handler — routes actions to per-view logic
     private void HandleGamepadAction(GamepadAction action)
     {
+        // The quick actions panel is modal: while it is open it takes over
+        // navigation and confirmation, and (B) closes it.
+        bool quickActionsOpen = QuickActionsPanel != null && QuickActionsPanel.IsVisible;
+
+        if (quickActionsOpen)
+        {
+            switch (action)
+            {
+                case GamepadAction.NavigateUp:   NavigateQuickActions(-1); break;
+                case GamepadAction.NavigateDown: NavigateQuickActions(1);  break;
+                case GamepadAction.Confirm:      TriggerQuickAction();     break;
+                case GamepadAction.ManageGame:
+                case GamepadAction.BackOrCancel: CloseQuickActions();      break;
+            }
+            return;
+        }
+
         switch (action)
         {
             case GamepadAction.NavigateUp:
@@ -254,40 +273,51 @@ public partial class MainWindow
                 break;
 
             case GamepadAction.NavigateLeft:
-                // D-Pad Left: prev action in detail, prev tab in settings, no-op in main list (no controller screenshot navigation)
-                if (_currentView == ActiveView.GameDetail)
+                // D-Pad Left cycles the library mode filter from the main list,
+                // steps actions on the detail page, and moves tabs in settings.
+                if (_currentView == ActiveView.MainList)
+                    CycleLibraryMode();
+                else if (_currentView == ActiveView.GameDetail)
                     NavigateDetailActions(-1);
                 else if (_currentView == ActiveView.Settings)
                     CycleSettingsTab(-1);
                 break;
 
             case GamepadAction.NavigateRight:
-                // D-Pad Right: next action in detail, next tab in settings, no-op in main list (no controller screenshot navigation)
-                if (_currentView == ActiveView.GameDetail)
+                // D-Pad Right cycles the library sort order from the main list.
+                if (_currentView == ActiveView.MainList)
+                    CycleLibrarySort(1);
+                else if (_currentView == ActiveView.GameDetail)
                     NavigateDetailActions(1);
                 else if (_currentView == ActiveView.Settings)
                     CycleSettingsTab(1);
                 break;
 
             case GamepadAction.PageUp:
-                // LB: fast scroll in main list; prev tab in settings
+                // LB: fast scroll in main list, previous screenshot on the detail
+                // page, previous tab in settings
                 if (_currentView == ActiveView.MainList)
                 {
                     if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
                         NavigateSearchResults(-5);
                     else NavigateList(-5);
                 }
+                else if (_currentView == ActiveView.GameDetail)
+                    NavigateGallery(-1);
                 else if (_currentView == ActiveView.Settings)
                     CycleSettingsTab(-1);
                 break;
 
             case GamepadAction.PageDown:
+                // RB: mirror of LB
                 if (_currentView == ActiveView.MainList)
                 {
                     if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
                         NavigateSearchResults(5);
                     else NavigateList(5);
                 }
+                else if (_currentView == ActiveView.GameDetail)
+                    NavigateGallery(1);
                 else if (_currentView == ActiveView.Settings)
                     CycleSettingsTab(1);
                 break;
@@ -313,8 +343,10 @@ public partial class MainWindow
                 break;
 
             case GamepadAction.ManageGame:
-                // X for options (placeholder to be implemented later)
-                PlutoLogger.Info("Gamepad", "Options (X) pressed");
+                // X toggles the quick actions panel for the selected game. It used
+                // to only log, while the README advertised it as "Manage / Details".
+                // While the panel is open, D-pad navigates and (A) activates.
+                ToggleQuickActions();
                 break;
 
             case GamepadAction.FocusSearch:
@@ -415,6 +447,6 @@ public partial class MainWindow
         else if (e.Key == Key.Y || e.Key == Key.OemQuestion)
         { SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; }
         else if (e.Key == Key.X)
-        { PlutoLogger.Info("Keyboard", "Options (X) pressed"); e.Handled = true; }
+        { ToggleQuickActions(); e.Handled = true; }
     }
 }

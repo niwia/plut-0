@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -7,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -353,23 +355,33 @@ public partial class MainWindow
     }
 
     // ── Screenshot gallery ────────────────────────────────────────────────────
-    private void OnPrevScreenshotClicked(object? sender, RoutedEventArgs e)
+
+    /// <summary>
+    /// Steps the screenshot gallery, used by the shoulder buttons.
+    ///
+    /// The gallery was previously reachable only by clicking the on-screen arrows,
+    /// which made it unreachable on a controller. Manual navigation restarts the
+    /// auto-rotate timer so the carousel doesn't immediately jump away.
+    /// </summary>
+    internal void NavigateGallery(int offset)
     {
         if (_currentScreenshots.Count <= 1) return;
-        _currentScreenshotIndex = (_currentScreenshotIndex - 1 + _currentScreenshots.Count) % _currentScreenshots.Count;
+
+        var count = _currentScreenshots.Count;
+        _currentScreenshotIndex = ((_currentScreenshotIndex + offset) % count + count) % count;
+
         _ = ShowScreenshotAtIndexAsync(_currentScreenshotIndex);
+
         if (_settingAutoRotateScreenshots && _currentScreenshots.Count > 1)
-        { _screenshotAutoRotateTimer.Stop(); _screenshotAutoRotateTimer.Start(); }
+        {
+            _screenshotAutoRotateTimer.Stop();
+            _screenshotAutoRotateTimer.Start();
+        }
     }
 
-    private void OnNextScreenshotClicked(object? sender, RoutedEventArgs e)
-    {
-        if (_currentScreenshots.Count <= 1) return;
-        _currentScreenshotIndex = (_currentScreenshotIndex + 1) % _currentScreenshots.Count;
-        _ = ShowScreenshotAtIndexAsync(_currentScreenshotIndex);
-        if (_settingAutoRotateScreenshots && _currentScreenshots.Count > 1)
-        { _screenshotAutoRotateTimer.Stop(); _screenshotAutoRotateTimer.Start(); }
-    }
+    private void OnPrevScreenshotClicked(object? sender, RoutedEventArgs e) => NavigateGallery(-1);
+
+    private void OnNextScreenshotClicked(object? sender, RoutedEventArgs e) => NavigateGallery(1);
 
     private async Task ShowScreenshotAtIndexAsync(int index)
     {
@@ -622,6 +634,213 @@ public partial class MainWindow
         else                                  await _eosProxyService.ApplyProxyAsync(_selectedGame.InstallPath);
         UpdateEosProxyUi();
     }
+
+    // ── Quick actions (X button) ──────────────────────────────────────────────
+    // Previously (X) only logged "Options (X) pressed" on both the gamepad and
+    // keyboard paths while the README advertised it as "Manage / Details". It now
+    // opens a small panel with actions that act on whichever game is selected.
+
+    private int _quickActionIndex = 0;
+
+    private List<Button> GetQuickActionButtons()
+    {
+        var list = new List<Button>();
+        if (QuickActionSyncBtn   != null) list.Add(QuickActionSyncBtn);
+        if (QuickActionOpenBtn   != null) list.Add(QuickActionOpenBtn);
+        if (QuickActionCopyBtn   != null) list.Add(QuickActionCopyBtn);
+        if (QuickActionDetailBtn != null) list.Add(QuickActionDetailBtn);
+        if (QuickActionCloseBtn  != null) list.Add(QuickActionCloseBtn);
+        return list;
+    }
+
+    private PluginGame? GetQuickActionTarget()
+    {
+        return _selectedGame
+            ?? (_selectedSearchResult != null
+                ? new PluginGame
+                {
+                    AppId = _selectedSearchResult.AppId,
+                    Name = _selectedSearchResult.Name,
+                    IsAccela = false
+                }
+                : null);
+    }
+
+    private void ToggleQuickActions()
+    {
+        if (QuickActionsPanel == null) return;
+
+        if (QuickActionsPanel.IsVisible)
+        {
+            CloseQuickActions();
+            return;
+        }
+
+        var target = GetQuickActionTarget();
+        if (target == null)
+        {
+            SetQuickActionStatus("select a game first", warn: true);
+            QuickActionsPanel.IsVisible = true;
+            RefreshQuickActionFocus();
+            return;
+        }
+
+        QuickActionsTitle.Text = $"{target.Name}  ({target.AppId})";
+        QuickActionsStatusTextReset();
+
+        // Reflect current state so the panel isn't misleading.
+        QuickActionSyncBtn.Content = target.IsSlsSynced ? "sync to sls (already synced)" : "sync to sls";
+        QuickActionSyncBtn.IsEnabled = !target.IsSlsSynced;
+
+        QuickActionsPanel.IsVisible = true;
+        _quickActionIndex = 0;
+        RefreshQuickActionFocus();
+    }
+
+    private void CloseQuickActions()
+    {
+        if (QuickActionsPanel != null) QuickActionsPanel.IsVisible = false;
+    }
+
+    private void SetQuickActionStatus(string message, bool warn = false)
+    {
+        if (QuickActionsStatus == null) return;
+        QuickActionsStatus.Text = message;
+        QuickActionsStatus.Foreground = warn
+            ? Avalonia.Media.Brushes.Goldenrod
+            : Avalonia.Media.Brushes.MediumSpringGreen;
+        QuickActionsStatus.IsVisible = !string.IsNullOrEmpty(message);
+    }
+
+    private void QuickActionsStatusTextReset()
+    {
+        if (QuickActionsStatus != null) QuickActionsStatus.IsVisible = false;
+    }
+
+    private void RefreshQuickActionFocus()
+    {
+        var buttons = GetQuickActionButtons();
+        if (buttons.Count == 0) return;
+        _quickActionIndex = Math.Clamp(_quickActionIndex, 0, buttons.Count - 1);
+        for (int i = 0; i < buttons.Count; i++)
+            buttons[i].Opacity = i == _quickActionIndex ? 1.0 : 0.45;
+    }
+
+    internal void NavigateQuickActions(int offset)
+    {
+        var buttons = GetQuickActionButtons();
+        if (buttons.Count == 0) return;
+        _quickActionIndex = ((_quickActionIndex + offset) % buttons.Count + buttons.Count) % buttons.Count;
+        RefreshQuickActionFocus();
+    }
+
+    internal void TriggerQuickAction()
+    {
+        var buttons = GetQuickActionButtons();
+        if (buttons.Count == 0) return;
+        _quickActionIndex = Math.Clamp(_quickActionIndex, 0, buttons.Count - 1);
+        var btn = buttons[_quickActionIndex];
+        btn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, btn));
+    }
+
+    private void OnQuickActionSyncClicked(object? sender, RoutedEventArgs e)
+    {
+        var target = GetQuickActionTarget();
+        if (target == null) { SetQuickActionStatus("no game selected", warn: true); return; }
+
+        var result = new PluginGame
+        {
+            AppId = target.AppId,
+            Name = target.Name,
+            Depots = target.Depots,
+            Keys = target.Keys,
+            DepotNames = target.DepotNames,
+            InstallPath = target.InstallPath,
+            AppmanifestPath = target.AppmanifestPath
+        };
+
+        _ = RunGuardedAsync("sync to sls", async () =>
+        {
+            if (await _slsService.SyncGameToConfigAsync(result))
+            {
+                target.IsSlsSynced = true;
+                SetQuickActionStatus("synced to config.yaml");
+                QuickActionSyncBtn.IsEnabled = false;
+            }
+            else
+            {
+                SetQuickActionStatus("sync failed - see log", warn: true);
+            }
+        });
+    }
+
+    private void OnQuickActionOpenClicked(object? sender, RoutedEventArgs e)
+    {
+        var target = GetQuickActionTarget();
+        var path = target?.InstallPath;
+
+        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+        {
+            SetQuickActionStatus("no install directory on disk", warn: true);
+            return;
+        }
+
+        try
+        {
+            // xdg-open is the portable choice; thunar is the common desktop default
+            // on Steam Deck, but xdg-open resolves whatever the user has configured.
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "xdg-open",
+                Arguments = $"\"{path}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            SetQuickActionStatus($"opened {Path.GetFileName(path)}");
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("UI", $"Could not open install dir {path}", ex);
+            SetQuickActionStatus("could not open directory", warn: true);
+        }
+    }
+
+    private void OnQuickActionCopyClicked(object? sender, RoutedEventArgs e)
+    {
+        var target = GetQuickActionTarget();
+        if (target == null) { SetQuickActionStatus("no game selected", warn: true); return; }
+
+        _ = CopyAppIdAsync(target.AppId);
+    }
+
+    private async Task CopyAppIdAsync(string appId)
+    {
+        try
+        {
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard == null) { SetQuickActionStatus("clipboard unavailable", warn: true); return; }
+
+            await clipboard.SetTextAsync(appId);
+            SetQuickActionStatus($"copied {appId}");
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("UI", $"Could not copy appid {appId}", ex);
+            SetQuickActionStatus("copy failed", warn: true);
+        }
+    }
+
+    private void OnQuickActionDepotsClicked(object? sender, RoutedEventArgs e)
+    {
+        var target = GetQuickActionTarget();
+        if (target == null) { SetQuickActionStatus("no game selected", warn: true); return; }
+
+        var depots = target.Depots.Count > 0 ? string.Join(", ", target.Depots) : "(none recorded)";
+        var keys = target.Keys.Count > 0 ? string.Join(", ", target.Keys.Keys) : "(none)";
+        SetQuickActionStatus($"{target.Depots.Count} depots: {depots}  |  keys: {keys}");
+    }
+
+    private void OnQuickActionCloseClicked(object? sender, RoutedEventArgs e) => CloseQuickActions();
 
     // ── Controller focus system for detail page ───────────────────────────────
     // Rule: visibility is ALWAYS tracked on the button itself (never via parent panel).

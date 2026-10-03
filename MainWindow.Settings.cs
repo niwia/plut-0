@@ -51,6 +51,7 @@ public partial class MainWindow
             if (_settingMainBackdropIntervalSec < 5) _settingMainBackdropIntervalSec = 15;
 
             _settingSearchThumbnailsEnabled = _configService.GetBool("search_thumbnails_enabled", true);
+            _settingLibraryThumbnailsEnabled = _configService.GetBool("library_thumbnails_enabled", false);
             _settingSearchResetOnAccess     = _configService.GetBool("search_reset_on_access", true);
 
             UpdateSettingsUi();
@@ -101,6 +102,13 @@ public partial class MainWindow
         {
             ToggleSearchThumbnailsBtn.Content    = _settingSearchThumbnailsEnabled ? "enabled" : "disabled";
             ToggleSearchThumbnailsBtn.Foreground = _settingSearchThumbnailsEnabled
+                ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
+
+        if (ToggleLibraryThumbnailsBtn != null)
+        {
+            ToggleLibraryThumbnailsBtn.Content    = _settingLibraryThumbnailsEnabled ? "enabled" : "disabled";
+            ToggleLibraryThumbnailsBtn.Foreground = _settingLibraryThumbnailsEnabled
                 ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
         }
 
@@ -353,6 +361,30 @@ public partial class MainWindow
         _configService.SetBool("search_thumbnails_enabled", _settingSearchThumbnailsEnabled);
     }
 
+    /// <summary>
+    /// Toggles capsule artwork on library rows.
+    ///
+    /// Off by default: a full library is a couple hundred CDN requests, so enabling
+    /// it is an explicit choice. Even when on, images already in the local cache
+    /// are used without touching the network.
+    /// </summary>
+    private void OnToggleLibraryThumbnailsClicked(object? sender, RoutedEventArgs e)
+    {
+        _settingLibraryThumbnailsEnabled = !_settingLibraryThumbnailsEnabled;
+        UpdateSettingsUi();
+        _configService.SetBool("library_thumbnails_enabled", _settingLibraryThumbnailsEnabled);
+
+        if (_settingLibraryThumbnailsEnabled)
+        {
+            QueueThumbnailLoad(_displayedGames.ToList());
+        }
+        else
+        {
+            _thumbCts?.Cancel();
+            foreach (var g in _displayedGames) g.Thumbnail = null;
+        }
+    }
+
     // Dynamic main backdrop rotation
     private void OnMainBackdropTimerTick(object? sender, EventArgs e)
     {
@@ -482,6 +514,7 @@ public partial class MainWindow
                 if (ToggleMainBackdropBtn        != null) list.Add(ToggleMainBackdropBtn);
                 if (ToggleMainBackdropIntervalBtn != null) list.Add(ToggleMainBackdropIntervalBtn);
                 if (ToggleSearchThumbnailsBtn    != null) list.Add(ToggleSearchThumbnailsBtn);
+                if (ToggleLibraryThumbnailsBtn   != null) list.Add(ToggleLibraryThumbnailsBtn);
                 if (ToggleAutoRotateBtn          != null) list.Add(ToggleAutoRotateBtn);
                 if (ToggleAutoRotateIntervalBtn  != null) list.Add(ToggleAutoRotateIntervalBtn);
                 break;
@@ -512,7 +545,8 @@ public partial class MainWindow
         ToggleSgdbApiBtn, ToggleRawgBtn, ToggleHubcapApiBtn,
         ToggleVaporBtn, ToggleDownloadActionBtn, ToggleUpdatesBtn,
         ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,
-        ToggleSearchThumbnailsBtn, ToggleAutoRotateBtn, ToggleAutoRotateIntervalBtn,
+        ToggleSearchThumbnailsBtn, ToggleLibraryThumbnailsBtn,
+        ToggleAutoRotateBtn, ToggleAutoRotateIntervalBtn,
         AssfixerCheckBtn, AssfixerRepairBtn, AssfixerRestoreBtn,
         SanitationClearThumbnailsBtn, SanitationResyncSlsBtn, HealthRefreshBtn,
         ToggleDdmMaxDownloadsBtn, ToggleDdmValidateBtn, ToggleDdmLanCacheBtn,

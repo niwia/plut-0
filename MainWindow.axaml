@@ -262,10 +262,72 @@
             <Setter Property="Foreground" Value="#777777" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+
+        <!-- Sort / filter chips: quiet until hovered or focused -->
+        <Style Selector="Button.chip">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#999999" />
+            <Setter Property="Background" Value="#1AFFFFFF" />
+            <Setter Property="BorderBrush" Value="#22FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="10,3" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.chip:pointerover /template/ ContentPresenter">
+            <Setter Property="TextBlock.Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="Button.chip:pointerover">
+            <Setter Property="Background" Value="#33FFFFFF" />
+        </Style>
+        <Style Selector="Button.chip:focus">
+            <Setter Property="Background" Value="#33FFFFFF" />
+            <Setter Property="BorderBrush" Value="#66FFFFFF" />
+        </Style>
+
+        <!-- Per-row sync state -->
+        <Style Selector="TextBlock.syncBadge">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </Window.Styles>
 
     <!-- Root Container -->
     <Grid>
+    <!-- Quick actions panel, opened with (X) -->
+        <Border x:Name="QuickActionsPanel"
+                    IsVisible="False"
+                    Margin="64,48,64,24"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top"
+                    Background="#F2121216"
+                    BorderBrush="#33FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="18,14"
+                    Width="280">
+                <StackPanel Spacing="10">
+                    <TextBlock x:Name="QuickActionsTitle"
+                               FontSize="13"
+                               Foreground="#CCCCCC"
+                               Text="actions" />
+
+                    <Button x:Name="QuickActionSyncBtn"   Classes="chip" Content="sync to sls"      Click="OnQuickActionSyncClicked" />
+                    <Button x:Name="QuickActionOpenBtn"   Classes="chip" Content="open install dir" Click="OnQuickActionOpenClicked" />
+                    <Button x:Name="QuickActionCopyBtn"   Classes="chip" Content="copy appid"       Click="OnQuickActionCopyClicked" />
+                    <Button x:Name="QuickActionDetailBtn" Classes="chip" Content="show depot keys"  Click="OnQuickActionDepotsClicked" />
+                    <Button x:Name="QuickActionCloseBtn"  Classes="chip" Content="close"            Click="OnQuickActionCloseClicked" />
+
+                    <TextBlock x:Name="QuickActionsStatus"
+                               FontSize="11"
+                               Foreground="#7A7A7A"
+                               TextWrapping="Wrap"
+                               MaxWidth="240"
+                               IsVisible="False" />
+                </StackPanel>
+            </Border>
         <!-- Dynamic Rotating Background — only shown on main list, hidden on detail/settings -->
         <Image x:Name="MainBackdropImage"
                Stretch="UniformToFill"
@@ -387,6 +449,22 @@
                            FontWeight="Normal"
                            Foreground="#666666"
                            IsVisible="False" />
+
+                <!-- Sort and mode filter chips -->
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                    <TextBlock Classes="ctrlPromptKey" Text="(X)" Cursor="Hand"
+                               PointerPressed="OnSearchBadgeClicked" VerticalAlignment="Center" />
+
+                    <Button x:Name="SortChipBtn"
+                            Classes="chip"
+                            Content="sort: name"
+                            Click="OnSortChipClicked" />
+
+                    <Button x:Name="ModeChipBtn"
+                            Classes="chip"
+                            Content="all"
+                            Click="OnModeChipClicked" />
+                </StackPanel>
             </StackPanel>
 
             <!-- Bottom: Waterfall List of Games / Search Results (seamless gradual bottom blur/fade) -->
@@ -407,8 +485,29 @@
                          KeyDown="OnGameListKeyDown">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="models:PluginGame">
-                            <Grid Margin="0,1">
-                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <Grid Margin="0,2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Capsule artwork, filled lazily -->
+                                <Border Grid.Column="0"
+                                        Width="92" Height="32"
+                                        CornerRadius="3"
+                                        Margin="0,0,10,0"
+                                        VerticalAlignment="Center"
+                                        Background="#14FFFFFF"
+                                        IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <Image Source="{Binding Thumbnail}"
+                                           Stretch="UniformToFill" />
+                                </Border>
+
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            Spacing="10"
+                                            VerticalAlignment="Center">
                                     <TextBlock Classes="gameTitle"
                                                Classes.accela="{Binding IsAccela}"
                                                Text="{Binding Name}"
@@ -431,6 +530,13 @@
                                                VerticalAlignment="Center"
                                                IsVisible="{Binding IsDownloading}" />
                                 </StackPanel>
+
+                                <!-- Sync state -->
+                                <TextBlock Grid.Column="2"
+                                           Classes="syncBadge"
+                                           Margin="10,0,4,0"
+                                           Text="{Binding SyncBadgeText}"
+                                           Foreground="{Binding SyncBadgeColorHex}" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -1034,6 +1140,17 @@
                                     FontSize="16"
                                     Foreground="#38BDF8"
                                     Click="OnToggleSearchThumbnailsClicked" />
+                        </StackPanel>
+
+                        <!-- Library Row Artwork Toggle -->
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="library artwork (fetches from steam cdn)" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleLibraryThumbnailsBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="disabled"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleLibraryThumbnailsClicked" />
                         </StackPanel>
 
                         <!-- Screenshot Gallery Auto-Rotate Settings -->

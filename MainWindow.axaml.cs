@@ -57,6 +57,8 @@ public partial class MainWindow : Window
     private bool _settingDynamicMainBackdrop     = true;
     private int  _settingMainBackdropIntervalSec = 15;
     private bool _settingSearchThumbnailsEnabled = true;
+    private bool _settingLibraryThumbnailsEnabled = false;
+    private CancellationTokenSource? _thumbCts;
 
     // Backdrop pool
     private List<string> _mainBackdropPool  = new();
@@ -83,6 +85,27 @@ public partial class MainWindow : Window
     private SearchResultItem? _selectedSearchResult;
     private CancellationTokenSource? _searchCts;
     private int _placeholderIndex = 0;
+
+    /// <summary>How the library list is ordered.</summary>
+    public enum LibrarySort
+    {
+        Name,
+        RecentlyUpdated,
+        AppId
+    }
+
+    /// <summary>Which subset of the library is shown.</summary>
+    public enum LibraryMode
+    {
+        All,
+        Synced,
+        NotSynced,
+        Assella,
+        Plugin
+    }
+
+    private LibrarySort _librarySort = LibrarySort.Name;
+    private LibraryMode _libraryMode = LibraryMode.All;
 
     // SLS & UI settings (cached)
     private bool   _settingVaporEnabled   = true;
@@ -196,6 +219,7 @@ public partial class MainWindow : Window
             _detailCts?.Cancel();
             _visorTimer.Stop();
             _downloadCts?.Cancel();
+            _thumbCts?.Cancel();
             _gamepadService.Dispose();
             _libraryService.Dispose();
         };
@@ -307,35 +331,182 @@ public partial class MainWindow : Window
     private void ApplyFilter(string? query)
     {
         var trimmed = query?.Trim();
+        var previous = GamesListBox?.SelectedItem as PluginGame;
+
         IEnumerable<PluginGame> filtered = _allGames;
+
+        // Mode filter first - it is a subset of the whole library and cheap.
+        filtered = _libraryMode switch
+        {
+            LibraryMode.Synced     => filtered.Where(g => g.IsSlsSynced),
+            LibraryMode.NotSynced  => filtered.Where(g => !g.IsSlsSynced),
+            LibraryMode.Assella    => filtered.Where(g => g.IsAccela),
+            LibraryMode.Plugin     => filtered.Where(g => !g.IsAccela),
+            _                      => filtered
+        };
 
         if (!string.IsNullOrEmpty(trimmed))
         {
-            filtered = _allGames.Where(g =>
+            filtered = filtered.Where(g =>
                 g.Name.Contains(trimmed,       StringComparison.OrdinalIgnoreCase) ||
                 g.AppId.Contains(trimmed,      StringComparison.OrdinalIgnoreCase) ||
                 g.Depots.Any(d => d.Contains(trimmed, StringComparison.OrdinalIgnoreCase)) ||
                 g.InstallDir.Contains(trimmed, StringComparison.OrdinalIgnoreCase));
         }
 
-        var list = filtered.ToList();
+        // Sort last so ordering is stable regardless of which filter is active.
+        // Name sort uses the current culture so accented titles land where a
+        // reader expects rather than after every ASCII letter.
+        var list = _librarySort switch
+        {
+            LibrarySort.AppId => filtered
+                .OrderBy(g => long.TryParse(g.AppId, out var id) ? id : long.MaxValue)
+                .ThenBy(g => g.Name, StringComparer.CurrentCulture)
+                .ToList(),
+
+            LibrarySort.RecentlyUpdated => filtered
+                .OrderByDescending(g => g.UpdatedAt)
+                .ThenBy(g => g.Name, StringComparer.CurrentCulture)
+                .ToList(),
+
+            _ => filtered
+                .OrderBy(g => g.Name, StringComparer.CurrentCulture)
+                .ToList()
+        };
+
+        // Replace the contents rather than reassigning the collection so existing
+        // bindings and the selection model stay valid.
         _displayedGames.Clear();
         foreach (var item in list) _displayedGames.Add(item);
 
         if (EmptyStateText != null)
         {
             EmptyStateText.IsVisible = list.Count == 0;
-            EmptyStateText.Text = list.Count == 0 && !string.IsNullOrEmpty(trimmed)
-                ? $"no games matching \"{trimmed}\""
-                : "no games found in library";
+            EmptyStateText.Text = DescribeEmptyState(trimmed);
         }
 
         if (list.Count > 0 && GamesListBox != null)
         {
-            GamesListBox.SelectedIndex = 0;
+            // Keep the user's place across re-filters. Previously every keystroke
+            // forced index 0, so typing after scrolling threw you back to the top.
+            int restore = previous != null ? list.IndexOf(previous) : -1;
+            GamesListBox.SelectedIndex = restore >= 0 ? restore : 0;
+
             if (GamesListBox.SelectedItem != null)
                 GamesListBox.ScrollIntoView(GamesListBox.SelectedItem);
         }
+
+        QueueThumbnailLoad(list);
+    }
+
+    /// <summary>
+    /// Kicks off artwork loading for the current list, cancelling any previous run.
+    /// Only the disk cache is consulted unless artwork fetching is enabled.
+    /// </summary>
+    private void QueueThumbnailLoad(List<PluginGame> games)
+    {
+        if (!_settingLibraryThumbnailsEnabled) return;
+
+        _thumbCts?.Cancel();
+        _thumbCts = new CancellationTokenSource();
+        var ct = _thumbCts.Token;
+
+        var snapshot = games.ToList();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // Bitmaps must be created and assigned on the UI thread.
+                var loader = new LibraryThumbnailLoader(
+                    allowNetwork: true,
+                    postToUi: action => Dispatcher.UIThread.Post(action));
+                using (loader)
+                {
+                    await loader.LoadAsync(snapshot, ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                PlutoLogger.Debug("Thumbnails", $"Library artwork load ended: {ex.Message}");
+            }
+        }, ct);
+    }
+
+    /// <summary>Explains an empty list in terms of the filter that caused it.</summary>
+    private string DescribeEmptyState(string? trimmed)
+    {
+        if (!string.IsNullOrEmpty(trimmed)) return $"no games matching \"{trimmed}\"";
+
+        return _libraryMode switch
+        {
+            LibraryMode.Synced    => "every game is already synced to SLSsteam",
+            LibraryMode.NotSynced => "every game is synced to SLSsteam",
+            LibraryMode.Assella   => "no assella-managed games",
+            LibraryMode.Plugin    => "no plugin-native games",
+            _                     => "no games found in library"
+        };
+    }
+
+    // ── Library sort and mode chips ──────────────────────────────────────────────
+
+    private static readonly (LibrarySort Value, string Label)[] SortCycle =
+    {
+        (LibrarySort.Name, "name"),
+        (LibrarySort.RecentlyUpdated, "recent"),
+        (LibrarySort.AppId, "appid")
+    };
+
+    private static readonly (LibraryMode Value, string Label)[] ModeCycle =
+    {
+        (LibraryMode.All, "all"),
+        (LibraryMode.NotSynced, "not synced"),
+        (LibraryMode.Synced, "synced"),
+        (LibraryMode.Plugin, "plugin"),
+        (LibraryMode.Assella, "assella")
+    };
+
+    private void OnSortChipClicked(object? sender, RoutedEventArgs e)
+    {
+        int idx = Array.FindIndex(SortCycle, s => s.Value == _librarySort);
+        _librarySort = SortCycle[(idx + 1) % SortCycle.Length].Value;
+        RefreshLibraryChips();
+        ApplyFilter(SearchBox?.Text);
+    }
+
+    private void OnModeChipClicked(object? sender, RoutedEventArgs e)
+    {
+        int idx = Array.FindIndex(ModeCycle, m => m.Value == _libraryMode);
+        _libraryMode = ModeCycle[(idx + 1) % ModeCycle.Length].Value;
+        RefreshLibraryChips();
+        ApplyFilter(SearchBox?.Text);
+    }
+
+    /// <summary>Cycles the sort mode, used by the gamepad LB/RB binding.</summary>
+    internal void CycleLibrarySort(int offset)
+    {
+        int idx = Array.FindIndex(SortCycle, s => s.Value == _librarySort);
+        int next = ((idx + offset) % SortCycle.Length + SortCycle.Length) % SortCycle.Length;
+        _librarySort = SortCycle[next].Value;
+        RefreshLibraryChips();
+        ApplyFilter(SearchBox?.Text);
+    }
+
+    /// <summary>Cycles the mode filter, used by the gamepad binding.</summary>
+    internal void CycleLibraryMode()
+    {
+        int idx = Array.FindIndex(ModeCycle, m => m.Value == _libraryMode);
+        _libraryMode = ModeCycle[(idx + 1) % ModeCycle.Length].Value;
+        RefreshLibraryChips();
+        ApplyFilter(SearchBox?.Text);
+    }
+
+    private void RefreshLibraryChips()
+    {
+        if (SortChipBtn != null)
+            SortChipBtn.Content = $"sort: {SortCycle.First(s => s.Value == _librarySort).Label}";
+
+        if (ModeChipBtn != null)
+            ModeChipBtn.Content = ModeCycle.First(m => m.Value == _libraryMode).Label;
     }
 
     // Status helpers
