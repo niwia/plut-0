@@ -10,6 +10,75 @@ using Pluto.Models;
 namespace Pluto.Services;
 
 /// <summary>
+/// Strongly-typed view of ACCELA's games_cache.json.
+///
+/// Previously this was walked with JsonDocument plus a family of GetXxxSafe
+/// helpers. A typed model means a renamed or retyped field is a compile error
+/// instead of a silently-defaulting field, and the retry wrapper can deserialize
+/// the whole document at once.
+/// </summary>
+public sealed class GamesCacheFile
+{
+    [JsonPropertyName("version")]
+    public int Version { get; set; }
+
+    [JsonPropertyName("saved_at")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public double SavedAt { get; set; }
+
+    [JsonPropertyName("games")]
+    public List<GamesCacheEntry> Games { get; set; } = new();
+}
+
+/// <summary>One entry in ACCELA's games_cache.json.</summary>
+public sealed class GamesCacheEntry
+{
+    [JsonPropertyName("appid")]
+    public string AppId { get; set; } = string.Empty;
+
+    [JsonPropertyName("game_name")]
+    public string GameName { get; set; } = string.Empty;
+
+    [JsonPropertyName("install_dir")]
+    public string InstallDir { get; set; } = string.Empty;
+
+    [JsonPropertyName("install_path")]
+    public string InstallPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("library_path")]
+    public string LibraryPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("appmanifest_path")]
+    public string AppmanifestPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("buildid")]
+    public string BuildId { get; set; } = string.Empty;
+
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = string.Empty;
+
+    [JsonPropertyName("is_accela_install")]
+    public bool IsAccelaInstall { get; set; }
+
+    [JsonPropertyName("is_vapor")]
+    public bool IsVapor { get; set; }
+
+    [JsonPropertyName("is_atom")]
+    public bool IsAtom { get; set; }
+
+    [JsonPropertyName("is_plugin_game")]
+    public bool IsPluginGame { get; set; }
+
+    [JsonPropertyName("size_on_disk")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public long SizeOnDisk { get; set; }
+
+    [JsonPropertyName("last_updated")]
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
+    public long LastUpdated { get; set; }
+}
+
+/// <summary>
 /// Dual-source game library manager for Pluto in native C#.
 /// Reads both plugin_library.json and games_cache.json directly,
 /// seamlessly merging AT0-M plugin native games and ACCELA managed games without python.
@@ -92,6 +161,46 @@ public class PluginLibraryService : IDisposable
     }
 
     /// <summary>
+    /// Reads a JSON file, retrying briefly if it is caught mid-write.
+    ///
+    /// Both source files are rewritten by ASSella on every install/remove, and a
+    /// watcher event can fire while the write is still in flight. A single failed
+    /// read would otherwise log an error and silently drop the entire library from
+    /// the UI until the next change.
+    /// </summary>
+    private static async Task<T> ReadJsonWithRetryAsync<T>(string path, JsonSerializerOptions options, string label)
+        where T : class, new()
+    {
+        const int attempts = 4;
+        for (int attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                await using var stream = new FileStream(
+                    path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                return await JsonSerializer.DeserializeAsync<T>(stream, options) ?? new T();
+            }
+            catch (JsonException) when (attempt < attempts)
+            {
+                // Truncated or partially flushed content; give the writer a moment.
+                await Task.Delay(120 * attempt);
+            }
+            catch (IOException) when (attempt < attempts)
+            {
+                await Task.Delay(120 * attempt);
+            }
+            catch (Exception ex)
+            {
+                PlutoLogger.Error("Library", $"Error reading {path} ({label})", ex);
+                return new T();
+            }
+        }
+
+        PlutoLogger.Warn("Library", $"Gave up reading {path} ({label}) after {attempts} attempts");
+        return new T();
+    }
+
+    /// <summary>
     /// Dual-source loads all AT0-M and ACCELA games natively.
     /// </summary>
     public async Task<List<PluginGame>> LoadGamesAsync()
@@ -102,95 +211,68 @@ public class PluginLibraryService : IDisposable
         // 1. Load AT0-M plugin native games from plugin_library.json
         if (File.Exists(_dbPath))
         {
-            try
+            var dict = await ReadJsonWithRetryAsync<Dictionary<string, PluginGame>>(_dbPath, _jsonOptions, "plugin_library");
+            foreach (var (appId, game) in dict)
             {
-                await using var stream = File.OpenRead(_dbPath);
-                var dict = await JsonSerializer.DeserializeAsync<Dictionary<string, PluginGame>>(stream, _jsonOptions);
-                if (dict != null)
+                var aid = !string.IsNullOrWhiteSpace(game.AppId) ? game.AppId : appId;
+                game.AppId = aid;
+                game.IsAccela = false;
+                if (string.IsNullOrWhiteSpace(game.Name))
                 {
-                    foreach (var (appId, game) in dict)
-                    {
-                        var aid = !string.IsNullOrWhiteSpace(game.AppId) ? game.AppId : appId;
-                        game.AppId = aid;
-                        game.IsAccela = false;
-                        if (string.IsNullOrWhiteSpace(game.Name))
-                        {
-                            game.Name = $"App {aid}";
-                        }
-                        seenAppIds.Add(aid);
-                        result.Add(game);
-                    }
+                    game.Name = $"App {aid}";
                 }
-            }
-            catch (Exception ex)
-            {
-                PlutoLogger.Error("Library", $"Error reading {_dbPath}", ex);
+                seenAppIds.Add(aid);
+                result.Add(game);
             }
         }
 
         // 2. Load ACCELA games from games_cache.json
         if (File.Exists(_cachePath))
         {
-            try
+            var cache = await ReadJsonWithRetryAsync<GamesCacheFile>(_cachePath, _jsonOptions, "games_cache");
+
+            if (cache.Games != null)
             {
-                await using var stream = File.OpenRead(_cachePath);
-                using var doc = await JsonDocument.ParseAsync(stream);
+                var gamesByAppId = result.ToDictionary(g => g.AppId, StringComparer.OrdinalIgnoreCase);
 
-                if (doc.RootElement.TryGetProperty("games", out var gamesArray) && gamesArray.ValueKind == JsonValueKind.Array)
+                foreach (var entry in cache.Games)
                 {
-                    var gamesByAppId = result.ToDictionary(g => g.AppId, StringComparer.OrdinalIgnoreCase);
+                    var aid = entry.AppId;
+                    if (string.IsNullOrWhiteSpace(aid)) continue;
 
-                    foreach (var el in gamesArray.EnumerateArray())
+                    bool isAccela = entry.IsAccelaInstall;
+                    bool isAtom = entry.IsAtom || entry.IsVapor
+                                  || string.Equals(entry.Source, "at0-m", StringComparison.OrdinalIgnoreCase);
+
+                    if (gamesByAppId.TryGetValue(aid, out var existing))
                     {
-                        var aid = GetStringSafe(el, "appid");
-                        if (string.IsNullOrWhiteSpace(aid)) continue;
+                        // Enrich existing plugin game with filesystem paths
+                        if (string.IsNullOrEmpty(existing.InstallPath) && !string.IsNullOrEmpty(entry.InstallPath))
+                            existing.InstallPath = entry.InstallPath;
 
-                        string gameName = GetStringSafe(el, "game_name", $"App {aid}");
-                        string installDir = GetStringSafe(el, "install_dir");
-                        string installPath = GetStringSafe(el, "install_path");
-                        string appmanifestPath = GetStringSafe(el, "appmanifest_path");
-                        bool isAccela = GetBoolSafe(el, "is_accela_install");
-                        bool isAtom = GetBoolSafe(el, "is_atom") || GetBoolSafe(el, "is_vapor") || GetStringSafe(el, "source").Equals("at0-m", StringComparison.OrdinalIgnoreCase);
-                        long lastUpdated = GetLongSafe(el, "last_updated");
+                        if (string.IsNullOrEmpty(existing.AppmanifestPath) && !string.IsNullOrEmpty(entry.AppmanifestPath))
+                            existing.AppmanifestPath = entry.AppmanifestPath;
 
-                        if (gamesByAppId.TryGetValue(aid, out var existing))
+                        if (string.IsNullOrEmpty(existing.InstallDir) && !string.IsNullOrEmpty(entry.InstallDir))
+                            existing.InstallDir = entry.InstallDir;
+                    }
+                    else if (isAccela || isAtom)
+                    {
+                        // Not in plugin_library.json: add it as an ACCELA or AT0-M managed game
+                        seenAppIds.Add(aid);
+                        result.Add(new PluginGame
                         {
-                            // Enrich existing plugin game with filesystem paths
-                            if (string.IsNullOrEmpty(existing.InstallPath) && !string.IsNullOrEmpty(installPath))
-                                existing.InstallPath = installPath;
-
-                            if (string.IsNullOrEmpty(existing.AppmanifestPath) && !string.IsNullOrEmpty(appmanifestPath))
-                                existing.AppmanifestPath = appmanifestPath;
-
-                            if (string.IsNullOrEmpty(existing.InstallDir) && !string.IsNullOrEmpty(installDir))
-                                existing.InstallDir = installDir;
-                        }
-                        else
-                        {
-                            // Not in plugin_library.json: Add if it's an ACCELA or AT0-M managed game
-                            if (isAccela || isAtom)
-                            {
-                                seenAppIds.Add(aid);
-                                var newGame = new PluginGame
-                                {
-                                    AppId = aid,
-                                    Name = gameName,
-                                    InstallDir = installDir,
-                                    InstallPath = installPath,
-                                    AppmanifestPath = appmanifestPath,
-                                    IsAccela = !isAtom && isAccela,
-                                    Source = isAtom ? "at0-m" : "ACCELA",
-                                    UpdatedAt = lastUpdated
-                                };
-                                result.Add(newGame);
-                            }
-                        }
+                            AppId = aid,
+                            Name = string.IsNullOrWhiteSpace(entry.GameName) ? $"App {aid}" : entry.GameName,
+                            InstallDir = entry.InstallDir,
+                            InstallPath = entry.InstallPath,
+                            AppmanifestPath = entry.AppmanifestPath,
+                            IsAccela = !isAtom && isAccela,
+                            Source = isAtom ? "at0-m" : "ACCELA",
+                            UpdatedAt = entry.LastUpdated
+                        });
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                PlutoLogger.Error("Library", $"Error enriching from {_cachePath}", ex);
             }
         }
 
@@ -276,52 +358,6 @@ public class PluginLibraryService : IDisposable
             return await SaveLibraryAsync(games);
         }
         return false;
-    }
-
-    private static string GetStringSafe(JsonElement el, string propName, string defaultVal = "")
-    {
-        if (el.TryGetProperty(propName, out var prop))
-        {
-            if (prop.ValueKind == JsonValueKind.String)
-                return prop.GetString() ?? defaultVal;
-            if (prop.ValueKind == JsonValueKind.Number)
-                return prop.GetRawText();
-        }
-        return defaultVal;
-    }
-
-    private static bool GetBoolSafe(JsonElement el, string propName, bool defaultVal = false)
-    {
-        if (el.TryGetProperty(propName, out var prop))
-        {
-            if (prop.ValueKind is JsonValueKind.True or JsonValueKind.False)
-                return prop.GetBoolean();
-            if (prop.ValueKind == JsonValueKind.String)
-            {
-                var str = prop.GetString();
-                return bool.TryParse(str, out var b) ? b : defaultVal;
-            }
-            if (prop.ValueKind == JsonValueKind.Number)
-            {
-                return prop.TryGetInt64(out var n) && n != 0;
-            }
-        }
-        return defaultVal;
-    }
-
-    private static long GetLongSafe(JsonElement el, string propName, long defaultVal = 0)
-    {
-        if (el.TryGetProperty(propName, out var prop))
-        {
-            if (prop.ValueKind == JsonValueKind.Number && prop.TryGetInt64(out var numVal))
-                return numVal;
-            if (prop.ValueKind == JsonValueKind.String)
-            {
-                var str = prop.GetString();
-                return long.TryParse(str, out var strVal) ? strVal : defaultVal;
-            }
-        }
-        return defaultVal;
     }
 
     public void Dispose()
