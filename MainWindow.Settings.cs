@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -256,11 +257,27 @@ public partial class MainWindow
 
     private async void SyncAllGames()
     {
-        PlutoLogger.Info("Pluto", "Syncing all plugin games into config.yaml...");
-        foreach (var g in _allGames)
+        // This is an async void event handler, so an escaping exception would
+        // tear down the process rather than surface as a handled error.
+        try
         {
-            if (!g.IsAccela)
-                await _slsService.SyncGameToConfigAsync(g);
+            var targets = _allGames.Where(g => !g.IsAccela).ToList();
+            PlutoLogger.Info("Pluto", $"Syncing {targets.Count} plugin games into config.yaml...");
+
+            var synced = 0;
+            foreach (var g in targets)
+            {
+                // Sequentially on purpose: every game rewrites the same
+                // config.yaml in place, so concurrent writes would interleave
+                // and corrupt it.
+                if (await _slsService.SyncGameToConfigAsync(g)) synced++;
+            }
+
+            PlutoLogger.Info("Pluto", $"Sync complete: {synced}/{targets.Count} games written to config.yaml");
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Pluto", "Sync all games failed", ex);
         }
     }
 
@@ -556,11 +573,23 @@ public partial class MainWindow
             AssfixerStatusText.IsVisible = true;
         }
 
-        var (ok, msg) = await _healthService.RunAssfixerCheckAsync();
-        if (AssfixerStatusText != null)
+        try
         {
-            AssfixerStatusText.Text = ok ? $"● Config Healthy: {msg}" : $"● Check Notice: {msg}";
-            AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Goldenrod;
+            var (ok, msg) = await _healthService.RunAssfixerCheckAsync();
+            if (AssfixerStatusText != null)
+            {
+                AssfixerStatusText.Text = ok ? $"Config Healthy: {msg}" : $"Check Notice: {msg}";
+                AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Goldenrod;
+            }
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Health", "Assfixer check failed", ex);
+            if (AssfixerStatusText != null)
+            {
+                AssfixerStatusText.Text = "Check failed - see log";
+                AssfixerStatusText.Foreground = Avalonia.Media.Brushes.IndianRed;
+            }
         }
     }
 
@@ -573,22 +602,41 @@ public partial class MainWindow
             AssfixerStatusText.IsVisible = true;
         }
 
-        var (ok, msg) = await _healthService.RunAssfixerRepairAsync();
-        if (AssfixerStatusText != null)
+        try
         {
-            AssfixerStatusText.Text = ok ? $"● Repaired: {msg}" : $"● Repair Failed: {msg}";
-            AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.IndianRed;
+            var (ok, msg) = await _healthService.RunAssfixerRepairAsync();
+            if (AssfixerStatusText != null)
+            {
+                AssfixerStatusText.Text = ok ? $"Repaired: {msg}" : $"Repair Failed: {msg}";
+                AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.IndianRed;
+            }
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Health", "Assfixer repair failed", ex);
+            if (AssfixerStatusText != null)
+            {
+                AssfixerStatusText.Text = "Repair failed - see log";
+                AssfixerStatusText.Foreground = Avalonia.Media.Brushes.IndianRed;
+            }
         }
     }
 
     private void OnAssfixerRestoreClicked(object? sender, RoutedEventArgs e)
     {
-        var (ok, msg) = _healthService.RestoreAssfixerBackup();
-        if (AssfixerStatusText != null)
+        try
         {
-            AssfixerStatusText.Text = ok ? $"● {msg}" : $"● {msg}";
-            AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.IndianRed;
-            AssfixerStatusText.IsVisible = true;
+            var (ok, msg) = _healthService.RestoreAssfixerBackup();
+            if (AssfixerStatusText != null)
+            {
+                AssfixerStatusText.Text = msg;
+                AssfixerStatusText.Foreground = ok ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.IndianRed;
+                AssfixerStatusText.IsVisible = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Health", "Assfixer restore failed", ex);
         }
     }
 

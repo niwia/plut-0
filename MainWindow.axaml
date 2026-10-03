@@ -876,7 +876,7 @@
                         Classes="settingsTabBtn"
                         Content="ddm"
                         Click="OnSettingsTabDdmClicked" />
-                <TextBlock Classes="ctrlPrompt" Text="(←→) switch tab" Margin="8,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Classes="ctrlPrompt" Text="(dpad) switch tab" Margin="8,0,0,0" VerticalAlignment="Center" />
             </StackPanel>
 
             <!-- Row 3: Submenu Content Panels -->

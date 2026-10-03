@@ -499,29 +499,72 @@ public partial class MainWindow
     private async void OnToggleSlsOnlineClicked(object? sender, RoutedEventArgs e)
     {
         if (_selectedGame == null) return;
-        bool cur = _slsService.IsSlsOnline(_selectedGame.AppId);
-        await _slsService.SetSlsOnlineAsync(_selectedGame.AppId, _selectedGame.Name, !cur);
-        UpdateOnlineTogglesUi(_slsService.IsSlsOnline(_selectedGame.AppId), _slsService.IsNetsock(_selectedGame.AppId));
+        await RunGuardedAsync("toggle sls online", async () =>
+        {
+            bool cur = _slsService.IsSlsOnline(_selectedGame.AppId);
+            await _slsService.SetSlsOnlineAsync(_selectedGame.AppId, _selectedGame.Name, !cur);
+            UpdateOnlineTogglesUi(_slsService.IsSlsOnline(_selectedGame.AppId), _slsService.IsNetsock(_selectedGame.AppId));
+        });
     }
 
     private async void OnToggleNetsockClicked(object? sender, RoutedEventArgs e)
     {
         if (_selectedGame == null) return;
-        bool cur = _slsService.IsNetsock(_selectedGame.AppId);
-        await _slsService.SetNetsockAsync(_selectedGame.AppId, !cur);
-        UpdateOnlineTogglesUi(_slsService.IsSlsOnline(_selectedGame.AppId), _slsService.IsNetsock(_selectedGame.AppId));
+        await RunGuardedAsync("toggle netsock", async () =>
+        {
+            bool cur = _slsService.IsNetsock(_selectedGame.AppId);
+            await _slsService.SetNetsockAsync(_selectedGame.AppId, !cur);
+            UpdateOnlineTogglesUi(_slsService.IsSlsOnline(_selectedGame.AppId), _slsService.IsNetsock(_selectedGame.AppId));
+        });
+    }
+
+    /// <summary>
+    /// Runs an async void handler body with exception containment.
+    ///
+    /// An unhandled exception escaping an async void method is raised on the
+    /// synchronization context and tears down the process. Every detail-page
+    /// action goes through here so a failed operation leaves the UI usable
+    /// instead of crashing the launcher.
+    /// </summary>
+    private async Task RunGuardedAsync(string operation, Func<Task> body)
+    {
+        try
+        {
+            await body();
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("UI", $"Operation '{operation}' failed", ex);
+
+            if (DetailActionStatus != null)
+            {
+                DetailActionStatus.Text = $"{operation} failed - see log";
+                DetailActionStatus.Foreground = Avalonia.Media.Brushes.IndianRed;
+                DetailActionStatus.IsVisible = true;
+            }
+        }
     }
 
     private async void OnApplySteamlessClicked(object? sender, RoutedEventArgs e)
     {
         if (_selectedGame == null) return;
+
         DetailSteamlessBtn.IsEnabled     = false;
         DetailSteamlessBtn.Content       = "processing steamless...";
         DetailSteamlessStatus.Text       = "scanning and unpacking executables...";
         DetailSteamlessStatus.Foreground = Avalonia.Media.Brushes.Gray;
         DetailSteamlessStatus.IsVisible  = true;
 
-        var result = await _steamlessService.ProcessGameAsync(_selectedGame.InstallPath, _selectedGame.Name);
+        SteamlessResult result;
+        try
+        {
+            result = await _steamlessService.ProcessGameAsync(_selectedGame.InstallPath, _selectedGame.Name);
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Steamless", $"Failed to process {_selectedGame.Name}", ex);
+            result = new SteamlessResult(false, "processing failed - see log");
+        }
 
         DetailSteamlessBtn.IsEnabled     = true;
         DetailSteamlessBtn.Content       = "apply steamless";
