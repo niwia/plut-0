@@ -19,9 +19,20 @@ public class HubcapStats
     public int TotalCalls { get; set; }
     public bool CanMakeRequests { get; set; } = true;
     public string Expiration { get; set; } = string.Empty;
-    public string StatusSummary => IsConfigured 
-        ? $"{DailyUsage}/{DailyLimit}" 
-        : "not configured";
+    /// <summary>
+    /// Overrides the computed summary when the stats request itself failed, so the
+    /// UI can distinguish "no key configured" from "key configured but unreachable".
+    /// </summary>
+    public string? StatusSummaryOverride { get; set; }
+
+    public string StatusSummary
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(StatusSummaryOverride)) return StatusSummaryOverride;
+            return IsConfigured ? $"{DailyUsage}/{DailyLimit}" : "not configured";
+        }
+    }
 }
 
 public class SystemHealthStatus
@@ -252,7 +263,12 @@ public class HealthService
             var resp = await HttpClient.GetAsync(url);
             if (!resp.IsSuccessStatusCode)
             {
-                _cachedHubcapStats = new HubcapStats { IsConfigured = true, Username = "offline/error" };
+                _cachedHubcapStats = new HubcapStats
+                {
+                    IsConfigured = true,
+                    Username = "offline/error",
+                    StatusSummaryOverride = $"http {(int)resp.StatusCode}"
+                };
                 _lastHubcapFetch = DateTime.UtcNow;
                 return _cachedHubcapStats;
             }
@@ -278,8 +294,17 @@ public class HealthService
         }
         catch (Exception ex)
         {
-            PlutoLogger.Error("Health", "Failed to fetch Hubcap user stats", ex);
-            return _cachedHubcapStats ?? new HubcapStats { IsConfigured = false };
+            PlutoLogger.Warn("Health", $"Could not fetch Hubcap user stats: {ex.Message}");
+
+            // The key is configured; the request just failed. Reporting
+            // IsConfigured=false here told the user their key was missing when
+            // the real problem was a timeout, sending them to fix the wrong thing.
+            return _cachedHubcapStats ?? new HubcapStats
+            {
+                IsConfigured = true,
+                Username = "unreachable",
+                StatusSummaryOverride = "network error"
+            };
         }
         finally
         {
