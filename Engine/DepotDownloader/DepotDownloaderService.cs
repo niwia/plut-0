@@ -31,6 +31,9 @@ public sealed class DepotDownloaderService
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     public event Action<DepotDownloadProgress>? ProgressChanged;
+
+    /// <summary>Raised for each line of tool output. Currently unused; the
+    /// PlutoLogger capture in the output handlers is the live consumer.</summary>
     public event Action<string>? LogMessageReceived;
 
     /// <summary>
@@ -73,6 +76,9 @@ public sealed class DepotDownloaderService
 
         using var process = new Process { StartInfo = psi };
 
+        // Output and error arrive on separate threadpool threads, so the
+        // progress state below is shared mutable data and needs guarding.
+        var progressLock = new object();
         double currentPercent = 0;
         double currentSpeedMb = 0;
         string currentStatus = "Starting download...";
@@ -85,49 +91,75 @@ public sealed class DepotDownloaderService
             PlutoLogger.Info("DepotDownloader", line);
             LogMessageReceived?.Invoke(line);
 
-            // Parse Percentage
-            var mPercent = PercentRegex.Match(line);
-            if (mPercent.Success && double.TryParse(mPercent.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var p))
-            {
-                currentPercent = p;
-            }
+            DepotDownloadProgress progUpdate;
 
-            // Parse Download Speed
-            var mSpeed = SpeedRegex.Match(line);
-            if (mSpeed.Success && double.TryParse(mSpeed.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var s))
+            lock (progressLock)
             {
-                var unit = mSpeed.Groups[2].Value.ToUpperInvariant();
-                currentSpeedMb = unit switch
+                // Parse Percentage
+                var mPercent = PercentRegex.Match(line);
+                if (mPercent.Success && double.TryParse(mPercent.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var p))
                 {
-                    "MB" => s,
-                    "KB" => s / 1024.0,
-                    "B"  => s / (1024.0 * 1024.0),
-                    _    => s
-                };
+                    // DepotDownloader restarts its per-file percentage for every
+                    // chunk, so raw values move backwards constantly. Clamping to
+                    // the running maximum stops the UI progress bar from
+                    // repeatedly snapping back to zero.
+                    currentPercent = Math.Clamp(Math.Max(currentPercent, p), 0, 100);
+                }
+
+                // Parse Download Speed
+                var mSpeed = SpeedRegex.Match(line);
+                if (mSpeed.Success && double.TryParse(mSpeed.Groups[1].Value, NumberStyles.Any, CultureInfo.InvariantCulture, out var s))
+                {
+                    var unit = mSpeed.Groups[2].Value.ToUpperInvariant();
+                    currentSpeedMb = unit switch
+                    {
+                        "MB" => s,
+                        "KB" => s / 1024.0,
+                        "B"  => s / (1024.0 * 1024.0),
+                        _    => s
+                    };
+                }
+
+                if (line.Contains("Validating", StringComparison.OrdinalIgnoreCase))
+                    currentStatus = "Validating files...";
+                else if (line.Contains("Downloading", StringComparison.OrdinalIgnoreCase))
+                    currentStatus = $"Downloading: {currentPercent:0.0}%";
+                else if (line.Contains("Pre-allocating", StringComparison.OrdinalIgnoreCase))
+                    currentStatus = "Pre-allocating space...";
+                else if (line.Contains("Done", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentStatus = "Complete";
+                    currentPercent = 100;
+                }
+
+                progUpdate = new DepotDownloadProgress(currentPercent, currentStatus, currentSpeedMb, 0, 0);
             }
 
-            if (line.Contains("Validating", StringComparison.OrdinalIgnoreCase))
-                currentStatus = "Validating files...";
-            else if (line.Contains("Downloading", StringComparison.OrdinalIgnoreCase))
-                currentStatus = $"Downloading: {currentPercent:0.0}%";
-            else if (line.Contains("Pre-allocating", StringComparison.OrdinalIgnoreCase))
-                currentStatus = "Pre-allocating space...";
-            else if (line.Contains("Done", StringComparison.OrdinalIgnoreCase))
-                currentStatus = "Complete";
-
-            var progUpdate = new DepotDownloadProgress(currentPercent, currentStatus, currentSpeedMb, 0, 0);
             progress?.Report(progUpdate);
             ProgressChanged?.Invoke(progUpdate);
         };
 
         process.ErrorDataReceived += (_, e) =>
         {
-            if (!string.IsNullOrWhiteSpace(e.Data))
-            {
-                var line = e.Data.Trim();
+            if (string.IsNullOrWhiteSpace(e.Data)) return;
+
+            var line = e.Data.Trim();
+
+            // DepotDownloader writes routine progress chatter to stderr as well
+            // as real failures. Logging every stderr line as ERROR filled the log
+            // with false alarms, so only treat explicit failures as errors.
+            var isRealError =
+                line.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("exception", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("unauthorized", StringComparison.OrdinalIgnoreCase);
+
+            if (isRealError)
                 PlutoLogger.Error("DepotDownloader", line);
-                LogMessageReceived?.Invoke($"[Error] {line}");
-            }
+            else
+                PlutoLogger.Info("DepotDownloader", $"[stderr] {line}");
+
+            LogMessageReceived?.Invoke($"[Error] {line}");
         };
 
         try
