@@ -18,14 +18,9 @@ public class SteamGridDbService
     private readonly Dictionary<string, Bitmap> _memoryLogoCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Bitmap> _memoryHeroCache = new(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly string CacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "sgdb_cache");
+    private static readonly string CacheDir = Path.Combine(PlutoPaths.AccelaData, "sgdb_cache");
 
-    private static readonly string ExternalKeyPath = "/home/aiwin/Documents/Antigravity IDE/steamgriddb_api.txt";
-    private static readonly string PlutoKeyPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".config", "pluto", "steamgriddb_api.txt");
+    private static readonly string PlutoKeyPath = PlutoPaths.SteamGridDbKey;
 
     public SteamGridDbService(AccelaConfigService configService)
     {
@@ -37,23 +32,11 @@ public class SteamGridDbService
 
     private void InitializeKey()
     {
-        var existing = _configService.GetValue("steamgriddb_api_key");
-        if (string.IsNullOrWhiteSpace(existing))
+        if (string.IsNullOrWhiteSpace(_configService.GetValue("steamgriddb_api_key")))
         {
-            string? key = null;
-            if (File.Exists(ExternalKeyPath))
-            {
-                key = File.ReadAllText(ExternalKeyPath).Trim();
-            }
-            else if (File.Exists(PlutoKeyPath))
-            {
-                key = File.ReadAllText(PlutoKeyPath).Trim();
-            }
-
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                SetApiKey(key);
-            }
+            // GetApiKey() falls back to the key file and persists it into the
+            // ACCELA config, so just calling it performs the migration.
+            GetApiKey();
         }
     }
 
@@ -62,27 +45,22 @@ public class SteamGridDbService
         var key = _configService.GetValue("steamgriddb_api_key");
         if (!string.IsNullOrWhiteSpace(key)) return key;
 
-        if (File.Exists(ExternalKeyPath))
-        {
-            key = File.ReadAllText(ExternalKeyPath).Trim();
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                SetApiKey(key);
-                return key;
-            }
-        }
+        if (!File.Exists(PlutoKeyPath)) return null;
 
-        if (File.Exists(PlutoKeyPath))
+        try
         {
             key = File.ReadAllText(PlutoKeyPath).Trim();
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                SetApiKey(key);
-                return key;
-            }
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("SteamGridDb", $"Could not read API key from {PlutoKeyPath}: {ex.Message}");
+            return null;
         }
 
-        return null;
+        if (string.IsNullOrWhiteSpace(key)) return null;
+
+        SetApiKey(key);
+        return key;
     }
 
     public void SetApiKey(string key)
@@ -92,13 +70,13 @@ public class SteamGridDbService
 
         try
         {
-            var dir = Path.GetDirectoryName(PlutoKeyPath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            Directory.CreateDirectory(Path.GetDirectoryName(PlutoKeyPath)!);
             File.WriteAllText(PlutoKeyPath, trimmed);
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore file write issues
+            // The key is already in the ACCELA config, so lookups still work.
+            PlutoLogger.Warn("SteamGridDb", $"Could not persist key file {PlutoKeyPath}: {ex.Message}");
         }
     }
 
@@ -130,9 +108,10 @@ public class SteamGridDbService
                 return bmp;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore corrupted disk cache and re-fetch
+            // Corrupted cache entry; we fall through and re-fetch from the API.
+            PlutoLogger.Warn("SteamGridDb", $"Discarding unreadable logo cache for {appId}: {ex.Message}");
         }
 
         // 3. Query SteamGridDB API
@@ -204,9 +183,9 @@ public class SteamGridDbService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently return null on network/API failure
+            PlutoLogger.Warn("SteamGridDb", $"Could not load logo for app {appId}: {ex.Message}");
         }
 
         return null;
@@ -238,9 +217,10 @@ public class SteamGridDbService
                 return bmp;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Fall through
+            // Corrupted cache entry; re-fetch from the API below.
+            PlutoLogger.Warn("SteamGridDb", $"Discarding unreadable hero cache for {appId}: {ex.Message}");
         }
 
         // 3. Query SteamGridDB API
@@ -284,9 +264,9 @@ public class SteamGridDbService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Fall through
+            PlutoLogger.Warn("SteamGridDb", $"Could not load hero art for app {appId}: {ex.Message}");
         }
 
         return null;

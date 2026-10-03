@@ -15,13 +15,22 @@ public record SteamlessResult(bool Success, string Message);
 /// </summary>
 public class SteamlessService
 {
-    public static readonly string DefaultSteamlessDll = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "squashfs-root", "bin", "src", "deps", "Steamless", "Steamless.CLI.dll");
+    /// Locates atom0s's Steamless unpacker. Checks the ASSella AppImage extraction
+    /// directory first, then a copy bundled next to the running binary.
+    /// </summary>
+    public static readonly string DefaultSteamlessDll = ResolveSteamless(
+        "Steamless", Path.Combine("Steamless", "Steamless.CLI.dll"));
 
-    public static readonly string FallbackSteamlessPy = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "squashfs-root", "bin", "src", "deps", "steamless.py");
+    public static readonly string FallbackSteamlessPy = ResolveSteamless(
+        "steamless.py", Path.Combine("steamless.py"));
+
+    private static string ResolveSteamless(string squashfsRelative, string bundledRelative)
+    {
+        var squashfs = Path.Combine(PlutoPaths.AccelaData, "squashfs-root", "bin", "src", "deps", squashfsRelative);
+        if (File.Exists(squashfs) || Directory.Exists(squashfs)) return squashfs;
+
+        return Path.Combine(PlutoPaths.AccelaData, "deps", bundledRelative);
+    }
 
     private static readonly string[] ExcludedKeywords = new[]
     {
@@ -100,7 +109,11 @@ public class SteamlessService
 
                     result.Add(f);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    // A vanished or unreadable exe shouldn't abort the scan.
+                    PlutoLogger.Warn("Steamless", $"Could not inspect candidate {f}: {ex.Message}");
+                }
             }
         }
         catch (Exception ex)

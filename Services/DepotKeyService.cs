@@ -11,9 +11,7 @@ namespace Pluto.Services;
 /// </summary>
 public class DepotKeyService
 {
-    public static readonly string DefaultDbPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "db", "depot_keys.db");
+    public static readonly string DefaultDbPath = PlutoPaths.DepotKeysDb;
 
     private readonly string _dbPath;
 
@@ -110,7 +108,16 @@ public class DepotKeyService
                 return result.ToString()?.Trim();
             }
         }
-        catch { }
+        catch (SqliteException ex)
+        {
+            // A missing app_tokens table is expected on older ACCELA databases;
+            // anything else is worth surfacing.
+            PlutoLogger.Warn("DepotKeys", $"Could not read app token for {appId} from {_dbPath}: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("DepotKeys", $"Unexpected error reading app token for {appId}", ex);
+        }
 
         return null;
     }

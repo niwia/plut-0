@@ -17,11 +17,15 @@ public class SteamTagService
 {
     private readonly Dictionary<string, SteamTagInfo> _tags = new(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly string CacheFile = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "tags_cache.json");
+    private static readonly string CacheFile =
+        Path.Combine(PlutoPaths.AccelaData, "tags_cache.json");
 
-    private static readonly string LocalHtmlPath = "/home/aiwin/Documents/pluto/Steam Game Tags · SteamDB.html";
+    /// <summary>
+    /// Scraped SteamDB tag table. Gitignored, so it may be absent on a fresh clone;
+    /// callers handle that by falling back to plain text tags.
+    /// </summary>
+    private static readonly string LocalHtmlPath =
+        PlutoPaths.BundledResource("Steam Game Tags · SteamDB.html");
 
     public SteamTagService()
     {
@@ -70,8 +74,7 @@ public class SteamTagService
         string[] htmlLocations =
         {
             LocalHtmlPath,
-            Path.Combine(AppContext.BaseDirectory, "Steam Game Tags · SteamDB.html"),
-            Path.Combine(Directory.GetCurrentDirectory(), "Steam Game Tags · SteamDB.html")
+            Path.Combine(AppContext.BaseDirectory, "tags_cache.json")
         };
 
         foreach (var htmlPath in htmlLocations)
@@ -103,13 +106,15 @@ public class SteamTagService
                     {
                         try
                         {
-                            var dir = Path.GetDirectoryName(CacheFile);
-                            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                             var serialized = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
                             File.WriteAllText(CacheFile, serialized);
                             PlutoLogger.Info("SteamTagService", $"Parsed {list.Count} tags from {htmlPath} and cached to {CacheFile}");
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            // Tags parsed fine, only the cache write failed. Still usable this session.
+                            PlutoLogger.Warn("SteamTagService", $"Parsed {list.Count} tags but could not write cache {CacheFile}: {ex.Message}");
+                        }
                         return;
                     }
                 }

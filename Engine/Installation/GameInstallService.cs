@@ -237,7 +237,12 @@ public sealed class GameInstallService
         // Clean up temp keys file
         if (keysFilePath != null && File.Exists(keysFilePath))
         {
-            try { File.Delete(keysFilePath); } catch { }
+            try { File.Delete(keysFilePath); }
+            catch (Exception ex)
+            {
+                // Contains AES keys, so worth flagging if it lingers in /tmp.
+                PlutoLogger.Warn("Install", $"Could not delete temp depot keys file {keysFilePath}: {ex.Message}");
+            }
         }
 
         // 6. Calculate total size on disk
@@ -248,7 +253,11 @@ public sealed class GameInstallService
             var di = new DirectoryInfo(gameInstallDir);
             sizeOnDisk = di.EnumerateFiles("*", SearchOption.AllDirectories).Sum(fi => fi.Length);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // A zero SizeOnDisk makes Steam re-measure on next verify, so it's survivable.
+            PlutoLogger.Warn("Install", $"Could not compute install size for {gameInstallDir}: {ex.Message}");
+        }
 
         // 7. Seed .DepotDownloader delta cache & .ACCELA metadata
         await SteamAcfWriter.SeedDepotDownloaderDeltaCacheAsync(gameInstallDir, installedDepotsMap);
@@ -295,14 +304,20 @@ public sealed class GameInstallService
 
         if (logPath == null)
         {
-            try { await Task.Delay(2000, ct); } catch { }
+            // Cancellation during the grace delay should propagate, not be swallowed.
+            await Task.Delay(2000, ct);
             return;
         }
 
         try
         {
             long startOffset = 0;
-            try { startOffset = new FileInfo(logPath).Length; } catch { }
+            try { startOffset = new FileInfo(logPath).Length; }
+            catch (Exception ex)
+            {
+                // Starting from 0 just means we match against the whole log.
+                PlutoLogger.Warn("Install", $"Could not size {logPath}, scanning from start: {ex.Message}");
+            }
 
             var rx = new Regex($@"(?:AppLicensesChanged.*?\b{appId}\b|Unlocked.*?\b{appId}\b)", RegexOptions.Compiled);
             var deadline = DateTime.UtcNow.AddSeconds(8);
@@ -326,7 +341,10 @@ public sealed class GameInstallService
                         }
                     }
                 }
-                catch { }
+                catch
+                {
+                    // Transient read failure while polling the log; retry next tick.
+                }
                 await Task.Delay(300, ct);
             }
 

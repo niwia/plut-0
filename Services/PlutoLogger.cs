@@ -7,22 +7,14 @@ public static class PlutoLogger
 {
     private static readonly object _lock = new();
 
-    public static readonly string LogDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "pluto", "logs");
+    public static readonly string LogDirectory = PlutoPaths.Logs;
 
     public static readonly string LogFilePath = Path.Combine(LogDirectory, "pluto.log");
 
     static PlutoLogger()
     {
-        try
-        {
-            if (!Directory.Exists(LogDirectory))
-            {
-                Directory.CreateDirectory(LogDirectory);
-            }
-        }
-        catch { }
+        // Nothing useful to do if the log dir can't be made - logging must never throw.
+        PlutoPaths.EnsureDirectory(LogDirectory);
     }
 
     public static void Info(string category, string message) => Log("INFO", category, message);
@@ -48,10 +40,7 @@ public static class PlutoLogger
         {
             try
             {
-                if (!Directory.Exists(LogDirectory))
-                {
-                    Directory.CreateDirectory(LogDirectory);
-                }
+                PlutoPaths.EnsureDirectory(LogDirectory);
 
                 // Rotate if > 5MB
                 if (File.Exists(LogFilePath) && new FileInfo(LogFilePath).Length > 5 * 1024 * 1024)
@@ -63,7 +52,11 @@ public static class PlutoLogger
 
                 File.AppendAllText(LogFilePath, line + Environment.NewLine);
             }
-            catch { }
+            catch
+            {
+                // Deliberately silent: a failed log write must not take down the caller.
+                // The Console.WriteLine above already emitted the line.
+            }
         }
     }
 }

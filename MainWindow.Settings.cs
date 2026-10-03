@@ -371,7 +371,11 @@ public partial class MainWindow
                 MainBackdropImage.Opacity   = 0.38;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // Backdrop art is cosmetic; the themed background still renders.
+            PlutoLogger.Warn("UI", $"Could not apply main backdrop image: {ex.Message}");
+        }
     }
 
     // Theme colors

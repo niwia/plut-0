@@ -27,9 +27,7 @@ public class HubcapSearchService
 
     public string? LastError { get; private set; }
 
-    private static readonly string ImageCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "image_cache");
+    private static readonly string ImageCacheDir = Path.Combine(PlutoPaths.AccelaData, "image_cache");
 
     // Blacklist patterns ported directly from ASSella search_ranking.py
     private static readonly string[] BlacklistPatterns =
@@ -188,7 +186,8 @@ public class HubcapSearchService
                 }
 
                 string retryBody = string.Empty;
-                try { retryBody = await retryResponse.Content.ReadAsStringAsync(ct); } catch { }
+                try { retryBody = await retryResponse.Content.ReadAsStringAsync(ct); }
+                catch (Exception ex) { PlutoLogger.Warn("HubcapSearch", $"Could not read retry error body: {ex.Message}"); }
                 PlutoLogger.Warn("HubcapSearch", $"Hubcap search retry failed with status {retryResponse.StatusCode} for query '{query}': {retryBody}");
             }
             catch (OperationCanceledException) { return results; }
@@ -203,7 +202,8 @@ public class HubcapSearchService
         {
             LastError = response.StatusCode == HttpStatusCode.BadRequest ? "bad_request" : "api_error";
             string errBody = string.Empty;
-            try { errBody = await response.Content.ReadAsStringAsync(ct); } catch { }
+            try { errBody = await response.Content.ReadAsStringAsync(ct); }
+            catch (Exception ex) { PlutoLogger.Warn("HubcapSearch", $"Could not read error body: {ex.Message}"); }
             PlutoLogger.Warn("HubcapSearch", $"Hubcap search returned status {response.StatusCode} for query '{query}': {errBody}");
             return results;
         }
@@ -341,9 +341,10 @@ public class HubcapSearchService
                 return new Bitmap(ms);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Silently return null on network error
+            // Thumbnails are decorative; a missing one just falls back to a placeholder.
+            PlutoLogger.Warn("HubcapSearch", $"Could not fetch thumbnail for app {appId}: {ex.Message}");
         }
 
         return null;

@@ -18,11 +18,9 @@ namespace Pluto.Services;
 /// </summary>
 public class SlsSteamService
 {
-    public static readonly string SlsConfigPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".config", "SLSsteam", "config.yaml");
+    public static readonly string SlsConfigPath = PlutoPaths.SlsConfig;
 
-    public const string SlsApiPipe = "/tmp/SLSsteam.API";
+    public static readonly string SlsApiPipe = PlutoPaths.SlsApiPipe;
 
     private static readonly Regex TopLevelSectionPattern = new(@"^[A-Za-z0-9_]+[ \t]*:", RegexOptions.Multiline);
 
@@ -46,8 +44,11 @@ public class SlsSteamService
             var pattern = new Regex($@"^[ \t]*-[ \t]*['""]?{Regex.Escape(appId)}['""]?(?:[ \t]*#.*)?$", RegexOptions.Multiline);
             return pattern.IsMatch(secContent);
         }
-        catch
+        catch (Exception ex)
         {
+            // A malformed config.yaml means "unknown", not "not configured".
+            // Returning false here would wrongly offer to re-sync.
+            PlutoLogger.Warn("SLS", $"Could not read AdditionalApps from {SlsConfigPath}: {ex.Message}");
             return false;
         }
     }

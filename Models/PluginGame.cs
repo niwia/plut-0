@@ -76,8 +76,9 @@ public class PluginGame : System.ComponentModel.INotifyPropertyChanged
                 var dt = DateTimeOffset.FromUnixTimeSeconds(UpdatedAt).ToLocalTime();
                 return dt.ToString("yyyy-MM-dd HH:mm");
             }
-            catch
+            catch (ArgumentOutOfRangeException)
             {
+                // Timestamp outside the representable range; show the raw value.
                 return UpdatedAt.ToString();
             }
         }

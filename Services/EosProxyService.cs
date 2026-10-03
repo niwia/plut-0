@@ -75,8 +75,10 @@ public class EosProxyService
             var hash = sha.ComputeHash(fs);
             return Convert.ToHexString(hash).ToLowerInvariant();
         }
-        catch
+        catch (Exception ex)
         {
+            // A null hash disables change detection, so surface the reason.
+            PlutoLogger.Warn("EosProxy", $"Could not hash proxy binary {filePath}: {ex.Message}");
             return null;
         }
     }
@@ -128,9 +130,11 @@ public class EosProxyService
                 ScanDirectory(subDir, currentDepth + 1, maxDepth, found);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore unauthorized access or IO issues
+            // Common for unreadable subdirectories during a deep scan; log and continue
+            // rather than abandoning the whole traversal.
+            PlutoLogger.Warn("EosProxy", $"Skipping unreadable directory during EOS scan: {ex.Message}");
         }
     }
 
@@ -236,7 +240,12 @@ public class EosProxyService
                     {
                         if (File.Exists(yesTarget))
                         {
-                            try { File.Delete(yesTarget); } catch { }
+                            try { File.Delete(yesTarget); }
+                            catch (Exception ex)
+                            {
+                                // File.Move below will fail too; make the root cause obvious.
+                                PlutoLogger.Warn("EosProxy", $"Could not remove existing backup {yesTarget}: {ex.Message}");
+                            }
                         }
                         File.Move(dllTarget, yesTarget);
                         File.Copy(proxySrc, dllTarget, true);
@@ -293,7 +302,12 @@ public class EosProxyService
                     {
                         if (File.Exists(dllTarget))
                         {
-                            try { File.Delete(dllTarget); } catch { }
+                            try { File.Delete(dllTarget); }
+                            catch (Exception ex)
+                            {
+                                // Restoring the backup below will fail too; log the cause.
+                                PlutoLogger.Warn("EosProxy", $"Could not remove proxy DLL {dllTarget}: {ex.Message}");
+                            }
                         }
                         File.Move(yesTarget, dllTarget);
                         removed = true;

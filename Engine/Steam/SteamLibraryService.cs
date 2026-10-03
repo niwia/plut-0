@@ -87,7 +87,11 @@ public static class SteamLibraryService
                 return drive.AvailableFreeSpace;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // Returning 0 blocks the download with a "no space" error, so log why.
+            PlutoLogger.Warn("SteamLibrary", $"Could not query free space for {path}: {ex.Message}");
+        }
         return 0;
     }
 

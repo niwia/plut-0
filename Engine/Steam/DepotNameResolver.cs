@@ -188,7 +188,11 @@ public static class DepotNameResolver
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // DLC name lookup is a nice-to-have; fall back to the raw depot id.
+                PlutoLogger.Warn("DepotNames", $"Could not resolve DLC name for {dlcId}: {ex.Message}");
+            }
         }
 
         return result;

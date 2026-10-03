@@ -38,22 +38,7 @@ public sealed class DepotDownloaderService
     /// </summary>
     public static string? ResolveBinaryPath()
     {
-        var appBase = AppDomain.CurrentDomain.BaseDirectory;
-        string[] candidates =
-        {
-            Path.Combine(appBase, "Engine", "DepotDownloader", "Bin", "DepotDownloader.dll"),
-            Path.Combine(appBase, "DepotDownloader.dll"),
-            "/home/aiwin/Documents/pluto/Engine/DepotDownloader/Bin/DepotDownloader.dll",
-            "/home/aiwin/ASSella_git/src/deps/DepotDownloader.dll"
-        };
-
-        foreach (var c in candidates)
-        {
-            if (File.Exists(c))
-                return c;
-        }
-
-        return null;
+        return PlutoPaths.DepotDownloaderDll;
     }
 
     /// <summary>
@@ -161,7 +146,11 @@ public sealed class DepotDownloaderService
                         process.Kill(entireProcessTree: true);
                     }
                 }
-                catch { }
+                catch
+                {
+                    // Fire-and-forget cleanup: the process already exited or the
+                    // handle is invalid, so there's nothing to report.
+                }
             });
 
             await process.WaitForExitAsync(cancellationToken);

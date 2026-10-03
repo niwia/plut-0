@@ -87,10 +87,12 @@ public class GameTransitionService
             // 4. Cleanly inject AdditionalApps, AdditionalDepots, and DecryptionKeys into SLS config.yaml
             await _slsService.SyncGameToConfigAsync(game);
 
-            // 5. Ensure ACF manifest has valid StateFlags & InstalledDepots (without disk crawling)
+            // 5. Ensure Steam's manifest reports the game as fully installed.
+            //    No manifest IDs are available at this point, so InstalledDepots is left
+            //    untouched - inventing manifest 0 would force a full Steam re-verify.
             if (!string.IsNullOrWhiteSpace(game.AppmanifestPath) && File.Exists(game.AppmanifestPath))
             {
-                SteamAcfService.EnsureAcfDepots(game.AppmanifestPath, game.AppId, game.Depots.ToArray(), Array.Empty<string>(), 0);
+                SteamAcfService.EnsureAcfIntegrity(game.AppmanifestPath, game.AppId, game.Depots, Array.Empty<string>());
             }
 
             PlutoLogger.Info("Transition", $"Successfully converted {game.AppId} ({game.Name}) to plugin native");

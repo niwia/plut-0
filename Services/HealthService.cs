@@ -77,8 +77,10 @@ public class HealthService
         {
             status.SteamRunning = Process.GetProcessesByName("steam").Length > 0;
         }
-        catch
+        catch (Exception ex)
         {
+            // Reporting Steam as down when we simply can't enumerate is misleading.
+            PlutoLogger.Warn("Health", $"Could not enumerate Steam processes: {ex.Message}");
             status.SteamRunning = false;
         }
 
@@ -164,7 +166,12 @@ public class HealthService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // Failing to read /proc maps means we report "not found" - worth logging
+            // so a permissions problem is distinguishable from a genuine absence.
+            PlutoLogger.Warn("Health", $"Could not inspect Steam process maps for SLSsteam.so: {ex.Message}");
+        }
 
         return (false, string.Empty);
     }
@@ -190,7 +197,10 @@ public class HealthService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("Health", $"Could not inspect Steam maps to confirm SLSsteam injection: {ex.Message}");
+        }
         return false;
     }
 
@@ -198,8 +208,7 @@ public class HealthService
     {
         try
         {
-            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            var logPath = Path.Combine(home, ".SLSsteam.log");
+            var logPath = Path.Combine(PlutoPaths.Home, ".SLSsteam.log");
             if (!File.Exists(logPath)) return false;
 
             using var fs = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
@@ -209,8 +218,9 @@ public class HealthService
             var tail = reader.ReadToEnd();
             return tail.Contains("Failed to read from FileWatcher", StringComparison.OrdinalIgnoreCase);
         }
-        catch
+        catch (Exception ex)
         {
+            PlutoLogger.Warn("Health", $"Could not read SLSsteam log to check FileWatcher health: {ex.Message}");
             return false;
         }
     }
@@ -542,8 +552,7 @@ public class HealthService
 
     public (int filesDeleted, double mbFreed) ClearThumbnailCache()
     {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var cacheDir = Path.Combine(home, ".local", "share", "ACCELA", "image_cache");
+        var cacheDir = Path.Combine(PlutoPaths.AccelaData, "image_cache");
         if (!Directory.Exists(cacheDir)) return (0, 0);
 
         int count = 0;
@@ -561,10 +570,17 @@ public class HealthService
                     File.Delete(f);
                     count++;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    // Partial success is fine; report what actually got cleared.
+                    PlutoLogger.Warn("Health", $"Could not delete cached thumbnail {f}: {ex.Message}");
+                }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Health", $"Failed to enumerate thumbnail cache {cacheDir}", ex);
+        }
 
         return (count, bytes / (1024.0 * 1024.0));
     }

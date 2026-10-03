@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using SDL2;
 
@@ -134,12 +135,7 @@ public class GamepadService : IDisposable
 
     private void LoadCommunityMappings()
     {
-        string[] searchPaths = {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "Steam", "steamapps", "common", "DeathRoadToCanada", "data", "gamecontrollerdb.txt"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "flatpak", "app", "org.ppsspp.PPSSPP", "x86_64", "stable", "193bbe95656ed696c8e5a5e42831ee8017d53514e9e0e0acaa3e1235e22089d3", "files", "share", "ppsspp", "assets", "gamecontrollerdb.txt")
-        };
-
-        foreach (var path in searchPaths)
+        foreach (var path in CommunityMappingFiles())
         {
             if (File.Exists(path))
             {
@@ -162,6 +158,42 @@ public class GamepadService : IDisposable
                 {
                     PlutoLogger.Error("Gamepad", $"Error loading controller db: {ex.Message}");
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enumerates community gamecontrollerdb.txt files.
+    ///
+    /// The PPSSPP Flatpak path is matched by globbing its versioned directory
+    /// rather than hardcoding a commit hash, which goes stale on every PPSSPP
+    /// update. Only the newest matching version directory is used.
+    /// </summary>
+    private static IEnumerable<string> CommunityMappingFiles()
+    {
+        var steamDb = Path.Combine(
+            PlutoPaths.Home, ".local", "share", "Steam", "steamapps", "common",
+            "DeathRoadToCanada", "data", "gamecontrollerdb.txt");
+        yield return steamDb;
+
+        var ppssppRoot = Path.Combine(
+            PlutoPaths.Home, ".local", "share", "flatpak", "app",
+            "org.ppsspp.PPSSPP", "x86_64", "stable");
+
+        if (Directory.Exists(ppssppRoot))
+        {
+            // Directory names are Flatpak commit ids; ordering lexicographically is
+            // not chronological, so pick the most recently modified one.
+            var newest = Directory.EnumerateDirectories(ppssppRoot)
+                .Select(d => new DirectoryInfo(d))
+                .OrderByDescending(d => d.LastWriteTimeUtc)
+                .FirstOrDefault();
+
+            if (newest != null)
+            {
+                var db = Path.Combine(newest.FullName, "files", "share", "ppsspp", "assets", "gamecontrollerdb.txt");
+                PlutoLogger.Info("Gamepad", $"Resolved PPSSPP controller db from {newest.Name}");
+                yield return db;
             }
         }
     }

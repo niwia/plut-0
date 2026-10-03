@@ -112,7 +112,11 @@ public partial class MainWindow
                                 });
                             }
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            // Search results stay usable without thumbnails.
+                            PlutoLogger.Warn("UI", $"Could not attach thumbnail for search result: {ex.Message}");
+                        }
                     }, ct);
                 }
             }

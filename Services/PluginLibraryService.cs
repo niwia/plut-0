@@ -16,13 +16,9 @@ namespace Pluto.Services;
 /// </summary>
 public class PluginLibraryService : IDisposable
 {
-    public static readonly string DefaultDbPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "db", "plugin_library.json");
+    public static readonly string DefaultDbPath = PlutoPaths.PluginLibraryDb;
 
-    public static readonly string GamesCachePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "db", "games_cache.json");
+    public static readonly string GamesCachePath = PlutoPaths.GamesCacheDb;
 
     private readonly string _dbPath;
     private readonly string _cachePath;

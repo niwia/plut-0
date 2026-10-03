@@ -180,7 +180,11 @@ public partial class MainWindow
                 DetailGameBackdrop.IsVisible  = true;
                 imageLoaded = true;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // Fall through to the network fetch path below.
+                PlutoLogger.Warn("UI", $"Cached backdrop unreadable for {appId}: {ex.Message}");
+            }
         }
 
         if (!imageLoaded)
@@ -241,7 +245,10 @@ public partial class MainWindow
                         });
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    PlutoLogger.Warn("UI", $"Backdrop load failed for {appId}: {ex.Message}");
+                }
             }, ct);
         }
 
@@ -329,7 +336,10 @@ public partial class MainWindow
                         });
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    PlutoLogger.Warn("UI", $"Artwork/metadata load failed for {appId}: {ex.Message}");
+                }
             }, ct);
         }
     }

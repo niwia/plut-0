@@ -76,18 +76,11 @@ public class RawgService
     private readonly AccelaConfigService _configService;
     private readonly Dictionary<string, RawgGameMetadata> _memoryCache = new(StringComparer.OrdinalIgnoreCase);
 
-    private static readonly string CacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "rawg_cache");
+    private static readonly string CacheDir = Path.Combine(PlutoPaths.AccelaData, "rawg_cache");
 
-    private static readonly string ImageCacheDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".local", "share", "ACCELA", "image_cache");
+    private static readonly string ImageCacheDir = Path.Combine(PlutoPaths.AccelaData, "image_cache");
 
-    private static readonly string ExternalKeyPath = "/home/aiwin/Documents/Antigravity IDE/rawg_api.txt";
-    private static readonly string PlutoKeyPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".config", "pluto", "rawg_api.txt");
+    private static readonly string PlutoKeyPath = PlutoPaths.RawgKey;
 
     public RawgService(AccelaConfigService configService)
     {
@@ -99,23 +92,11 @@ public class RawgService
 
     private void InitializeKey()
     {
-        var existing = _configService.GetValue("rawg_api_key");
-        if (string.IsNullOrWhiteSpace(existing))
+        if (string.IsNullOrWhiteSpace(_configService.GetValue("rawg_api_key")))
         {
-            string? key = null;
-            if (File.Exists(ExternalKeyPath))
-            {
-                key = File.ReadAllText(ExternalKeyPath).Trim();
-            }
-            else if (File.Exists(PlutoKeyPath))
-            {
-                key = File.ReadAllText(PlutoKeyPath).Trim();
-            }
-
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                SetApiKey(key);
-            }
+            // GetApiKey() falls back to the key file and persists it into the
+            // ACCELA config, so just calling it performs the migration.
+            GetApiKey();
         }
     }
 
@@ -124,27 +105,22 @@ public class RawgService
         var key = _configService.GetValue("rawg_api_key");
         if (!string.IsNullOrWhiteSpace(key)) return key;
 
-        if (File.Exists(ExternalKeyPath))
-        {
-            key = File.ReadAllText(ExternalKeyPath).Trim();
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                SetApiKey(key);
-                return key;
-            }
-        }
+        if (!File.Exists(PlutoKeyPath)) return null;
 
-        if (File.Exists(PlutoKeyPath))
+        try
         {
             key = File.ReadAllText(PlutoKeyPath).Trim();
-            if (!string.IsNullOrWhiteSpace(key))
-            {
-                SetApiKey(key);
-                return key;
-            }
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("Rawg", $"Could not read API key from {PlutoKeyPath}: {ex.Message}");
+            return null;
         }
 
-        return null;
+        if (string.IsNullOrWhiteSpace(key)) return null;
+
+        SetApiKey(key);
+        return key;
     }
 
     public void SetApiKey(string key)
@@ -154,13 +130,13 @@ public class RawgService
 
         try
         {
-            var dir = Path.GetDirectoryName(PlutoKeyPath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            Directory.CreateDirectory(Path.GetDirectoryName(PlutoKeyPath)!);
             File.WriteAllText(PlutoKeyPath, trimmed);
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore file write errors
+            // The key is also stored in ACCELA.conf, so lookups keep working.
+            PlutoLogger.Warn("Rawg", $"Could not persist key file {PlutoKeyPath}: {ex.Message}");
         }
     }
 
@@ -198,9 +174,10 @@ public class RawgService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore disk cache read errors
+            // Stale or corrupt cache entries just mean we refetch over the network.
+            PlutoLogger.Warn("Rawg", $"Could not read disk cache for '{cleanName}': {ex.Message}");
         }
 
         // 3. Query RAWG API
@@ -395,9 +372,10 @@ public class RawgService
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Fall through if secondary query fails
+                        // Secondary query only enriches metadata; primary data still stands.
+                        PlutoLogger.Warn("Rawg", $"Secondary metadata query failed for '{cleanName}': {ex.Message}");
                     }
                 }
 
@@ -427,17 +405,23 @@ public class RawgService
                     var cacheFile = Path.Combine(CacheDir, safeFilename);
                     await File.WriteAllTextAsync(cacheFile, JsonSerializer.Serialize(metadata), ct);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignore disk cache write errors
+                    // Metadata is already in hand; only persistence failed.
+                    PlutoLogger.Warn("Rawg", $"Could not write disk cache for '{cleanName}': {ex.Message}");
                 }
 
                 return metadata;
             }
         }
-        catch
+        catch (OperationCanceledException)
         {
-            // Silently fall through on network failure
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Detail view degrades gracefully without metadata, but log why.
+            PlutoLogger.Warn("Rawg", $"Metadata lookup failed for '{cleanName}': {ex.Message}");
         }
 
         return null;
@@ -469,9 +453,9 @@ public class RawgService
                 return new Bitmap(ms);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Fall back to null
+            PlutoLogger.Warn("Rawg", $"Could not load backdrop for app {appId}: {ex.Message}");
         }
 
         return null;
@@ -504,9 +488,9 @@ public class RawgService
                 return new Bitmap(ms);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Fall back to null
+            PlutoLogger.Warn("Rawg", $"Could not load screenshot {index} for app {appId}: {ex.Message}");
         }
 
         return null;

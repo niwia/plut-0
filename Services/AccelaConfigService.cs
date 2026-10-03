@@ -12,9 +12,7 @@ namespace Pluto.Services;
 /// </summary>
 public class AccelaConfigService
 {
-    public static readonly string DefaultConfigPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".config", "Tachibana Labs", "ACCELA.conf");
+    public static readonly string DefaultConfigPath = PlutoPaths.AccelaConf;
 
     private readonly string _configPath;
     private readonly object _lock = new();

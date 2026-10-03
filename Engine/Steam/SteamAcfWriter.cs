@@ -104,7 +104,11 @@ public sealed class SteamAcfWriter
                 {
                     File.Copy(foundSource, targetManifestPath, overwrite: true);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    // Seed is optional; Steam will regenerate the manifest on verify.
+                    PlutoLogger.Warn("SteamAcfWriter", $"Could not seed manifest {manifestFileName}: {ex.Message}");
+                }
             }
 
             // Write or generate .sha sidecar file (raw 20-byte SHA-1 hash)
