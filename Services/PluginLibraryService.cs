@@ -307,7 +307,12 @@ public class PluginLibraryService : IDisposable
     }
 
     /// <summary>
-    /// Saves the plugin library dictionary to disk atomically.
+    /// Saves the plugin library dictionary to disk, preserving the file inode.
+    ///
+    /// Written in place rather than temp-file-plus-rename. ASSella also reads and
+    /// writes this file, and a rename replaces the inode, which strands any
+    /// watcher that had the old path open. Truncate-and-rewrite keeps the inode
+    /// stable for every observer, including this class's own FileSystemWatcher.
     /// </summary>
     public async Task<bool> SaveLibraryAsync(Dictionary<string, PluginGame> games)
     {
@@ -319,14 +324,18 @@ public class PluginLibraryService : IDisposable
                 Directory.CreateDirectory(dir);
             }
 
-            var tempPath = _dbPath + ".tmp";
-            await using (var stream = File.Create(tempPath))
+            // Serialize first so a failure mid-write cannot leave truncated JSON.
+            var payload = JsonSerializer.Serialize(games, _jsonOptions);
+            var bytes = System.Text.Encoding.UTF8.GetBytes(payload);
+
+            using (var fs = new FileStream(_dbPath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.ReadWrite))
             {
-                await JsonSerializer.SerializeAsync(stream, games, _jsonOptions);
-                await stream.FlushAsync();
+                fs.SetLength(0);
+                await fs.WriteAsync(bytes, 0, bytes.Length);
+                await fs.FlushAsync();
+                fs.Flush(true);
             }
 
-            File.Move(tempPath, _dbPath, overwrite: true);
             PlutoLogger.Info("Library", $"Saved {games.Count} games to {_dbPath}");
             return true;
         }
