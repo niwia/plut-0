@@ -637,314 +637,323 @@
         </Grid>
 
         <!-- 2. GAME DETAIL PAGE VIEW (Seamless window-integrated view with subtle backdrop) -->
+<!-- 2. GAME DETAIL PAGE: full-bleed rotating art, one column of facts, actions on the right -->
         <Grid x:Name="GameDetailPanel"
               Margin="0"
               IsVisible="False">
 
-            <!-- Seamless Subtle Backdrop Dimmer (Keeps main list peeking through) -->
-            <Border Background="#1A080A0E"
+            <!-- Rotating artwork: screenshots, hero art or store backdrop, whichever resolved last.
+                 Full-bleed rather than the old right-hand panel, so the image is the page. -->
+            <Image x:Name="DetailGameBackdrop"
+                   HorizontalAlignment="Stretch"
+                   VerticalAlignment="Stretch"
+                   Stretch="UniformToFill"
+                   Opacity="0.55"
+                   IsHitTestVisible="False">
+                <Image.Transitions>
+                    <Transitions>
+                        <DoubleTransition Property="Opacity" Duration="0:0:0.35" Easing="CubicEaseOut" />
+                    </Transitions>
+                </Image.Transitions>
+                <!-- Sinks to black at the bottom and left so text stays readable over any artwork -->
+                <Image.OpacityMask>
+                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="25%,100%">
+                        <GradientStop Color="#FF444444" Offset="0.0" />
+                        <GradientStop Color="#FF101010" Offset="0.45" />
+                        <GradientStop Color="#FF000000" Offset="0.8" />
+                    </LinearGradientBrush>
+                </Image.OpacityMask>
+            </Image>
+
+            <!-- Click-through backdrop used to dismiss the page. -->
+            <Border Background="Transparent"
                     Cursor="Hand"
                     PointerPressed="OnBackBadgeClicked" />
 
-            <!-- Integrated Content Grid (Direct window alignment matching main view, compact scale) -->
-            <Grid Margin="48,32,48,20">
-                    <!-- Right-aligned Game Backdrop Artwork with Opacity Gradient Mask -->
-                    <Image x:Name="DetailGameBackdrop"
-                           HorizontalAlignment="Right"
-                           VerticalAlignment="Stretch"
-                           Stretch="UniformToFill"
-                           Width="580"
-                           Opacity="0.45"
-                           IsHitTestVisible="False">
-                        <Image.Transitions>
-                            <Transitions>
-                                <DoubleTransition Property="Opacity" Duration="0:0:0.35" Easing="CubicEaseOut" />
-                            </Transitions>
-                        </Image.Transitions>
-                        <Image.OpacityMask>
-                            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
-                                <GradientStop Color="#00000000" Offset="0.0" />
-                                <GradientStop Color="#22000000" Offset="0.18" />
-                                <GradientStop Color="#88000000" Offset="0.45" />
-                                <GradientStop Color="#FFFFFFFF" Offset="0.85" />
-                            </LinearGradientBrush>
-                        </Image.OpacityMask>
-                    </Image>
+            <Grid Margin="56,38,56,26" RowDefinitions="Auto,*,Auto,Auto">
 
-                    <!-- Foreground Content: Top Info & Bottom Actions / Dynamic Depots / Gallery -->
-                    <Grid RowDefinitions="Auto,*,Auto,Auto"
-                          Margin="16,10,16,10">
-                        
-                        <!-- Row 0: Back Button with (B) Controller Prompt -->
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,12">
-                            <TextBlock Classes="ctrlPromptKey" Text="(B)" Cursor="Hand" PointerPressed="OnBackBadgeClicked" VerticalAlignment="Center" />
-                            <Button Classes="minimalTextBtn"
-                                    Content="back"
-                                    Focusable="False"
-                                    Click="OnBackToMainClicked" />
-                        </StackPanel>
+                <!-- Row 0: back -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Top">
+                    <TextBlock Classes="ctrlPromptKey" Text="(B)" Cursor="Hand" PointerPressed="OnBackBadgeClicked" VerticalAlignment="Center" />
+                    <Button Classes="minimalTextBtn"
+                            Content="back"
+                            Focusable="False"
+                            Click="OnBackToMainClicked" />
+                </StackPanel>
 
-                        <!-- Row 1: Header & Compact Details -->
-                        <StackPanel Grid.Row="1" Spacing="3" HorizontalAlignment="Left" VerticalAlignment="Top">
-                            <!-- SteamGridDB Transparent Logo -->
-                            <Image x:Name="DetailGameLogo"
-                                   MaxHeight="46"
-                                   MaxWidth="240"
-                                   HorizontalAlignment="Left"
-                                   Stretch="Uniform"
-                                   Margin="0,0,0,4"
-                                   IsVisible="False" />
+                <!-- Row 1: the facts, anchored low-left -->
+                <StackPanel Grid.Row="1" Spacing="7" HorizontalAlignment="Left" VerticalAlignment="Bottom" MaxWidth="620">
+                    <Image x:Name="DetailGameLogo"
+                           MaxHeight="52"
+                           MaxWidth="280"
+                           HorizontalAlignment="Left"
+                           Stretch="Uniform"
+                           Margin="0,0,0,6"
+                           IsVisible="False" />
 
-                            <TextBlock x:Name="DetailGameTitle"
-                                       Text="Game Title"
-                                       FontSize="20"
-                                       FontWeight="Normal"
-                                       Foreground="#FFFFFF" />
+                    <TextBlock x:Name="DetailGameTitle"
+                               Text="Game Title"
+                               FontSize="34"
+                               FontWeight="Normal"
+                               Foreground="#FFFFFF" />
 
-                            <TextBlock x:Name="DetailGameSubtitle"
-                                       Text="3473250  |  native"
-                                       FontSize="12"
-                                       FontWeight="Normal"
-                                       Foreground="#777777" />
+                    <TextBlock x:Name="DetailGameSubtitle"
+                               Text="3473250  |  native"
+                               FontSize="13"
+                               FontWeight="Normal"
+                               Foreground="#8A8A8A" />
 
-                            <!-- Indented details section -->
-                            <StackPanel Margin="20, 6, 0, 0" Spacing="6">
-                                <TextBlock x:Name="DetailGameCredits"
-                                           Text=""
+                    <TextBlock x:Name="DetailGameCredits"
+                               Text=""
+                               FontSize="13"
+                               FontWeight="Normal"
+                               Foreground="#9A9A9A"
+                               TextWrapping="Wrap"
+                               IsVisible="False" />
+
+                    <StackPanel x:Name="DetailRatingRow"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                VerticalAlignment="Center"
+                                IsVisible="False">
+                        <TextBlock Text="rating"
+                                   FontSize="12"
+                                   Foreground="#FBBF24"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="DetailRatingScoreText"
+                                   Text="4.2 / 5"
+                                   FontSize="12"
+                                   FontWeight="Normal"
+                                   Foreground="#FFFFFF"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="DetailRatingSubText"
+                                   Text="2.4k reviews - exceptional"
+                                   FontSize="12"
+                                   FontWeight="Normal"
+                                   Foreground="#8A8A8A"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="DetailRawgMeta"
+                               Text=""
+                               FontSize="12"
+                               FontWeight="Normal"
+                               Foreground="#8A8A8A"
+                               IsVisible="False" />
+
+                    <WrapPanel x:Name="DetailTagsPanel"
+                               Orientation="Horizontal"
+                               Margin="0,4,0,0"
+                               IsVisible="False" />
+                </StackPanel>
+
+                <!-- Row 2: status and actions, right-aligned so the art stays clear -->
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,26,0,0">
+                    <TextBlock Grid.Column="0" Classes="ctrlPrompt" VerticalAlignment="Bottom" Text="(LB) (RB) artwork" />
+
+                    <StackPanel Grid.Column="1" Width="330" Spacing="10" HorizontalAlignment="Right">
+
+                        <!-- Update banner: only present when a newer build exists -->
+                        <Border x:Name="DetailUpdateBanner"
+                                Padding="14,11"
+                                CornerRadius="8"
+                                Background="#141F1A"
+                                BorderBrush="#2E4F42"
+                                BorderThickness="1"
+                                IsVisible="False">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="update available"
                                            FontSize="12"
-                                           FontWeight="Normal"
-                                           Foreground="#999999"
-                                           IsVisible="False" />
-
-                                <!-- Simple Rating Row -->
-                                <StackPanel x:Name="DetailRatingRow"
-                                            Orientation="Horizontal"
-                                            Spacing="6"
-                                            VerticalAlignment="Center"
-                                            IsVisible="False">
-                                    <TextBlock Text="rating"
-                                               FontSize="12"
-                                               Foreground="#FBBF24"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock x:Name="DetailRatingScoreText"
-                                               Text="4.2 / 5"
-                                               FontSize="12"
-                                               FontWeight="Normal"
-                                               Foreground="#FFFFFF"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock x:Name="DetailRatingSubText"
-                                               Text="2.4k reviews - exceptional"
-                                               FontSize="12"
-                                               FontWeight="Normal"
-                                               Foreground="#888888"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-
-                                <!-- Other metrics: Playtime & Metacritic -->
-                                <TextBlock x:Name="DetailRawgMeta"
-                                           Text=""
-                                           FontSize="12"
-                                           FontWeight="Normal"
-                                           Foreground="#60A5FA"
-                                           IsVisible="False" />
-
-                                <!-- Top 3 Tags Row with SteamDB Icons -->
-                                <WrapPanel x:Name="DetailTagsPanel"
-                                           Orientation="Horizontal"
-                                           Margin="0,2,0,0"
-                                           IsVisible="False" />
-                            </StackPanel>
-                        </StackPanel>
-
-                        <!-- Row 2: Bottom Section (Left Actions, Center Dynamic Pre-Download / Depot Selector, Right Screenshot Gallery) -->
-                        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" VerticalAlignment="Bottom" Margin="0,12,0,0">
-                            <!-- Left: All Actions & Toggles -->
-                            <StackPanel Grid.Column="0" Spacing="8" HorizontalAlignment="Left" VerticalAlignment="Top">
-                                <StackPanel Orientation="Horizontal" Spacing="16">
-                                    <Button x:Name="DetailSwitchModeBtn"
-                                            Classes="minimalTextBtn"
-                                            Content="add to plugin"
-                                            FontSize="14"
-                                            Foreground="#4ADE80"
-                                            Click="OnToggleModeClicked" />
-                                    <Button x:Name="DetailDownloadBtn"
-                                            Classes="minimalTextBtn"
-                                            Content="download game"
-                                            FontSize="14"
-                                            Foreground="#38BDF8"
-                                            IsVisible="False"
-                                            Click="OnDownloadGameClicked" />
-                                </StackPanel>
-                                <TextBlock x:Name="DetailActionStatus"
+                                           Foreground="#5EEAD4" />
+                                <TextBlock x:Name="DetailUpdateText"
                                            FontSize="11"
-                                           Foreground="#777777"
-                                           IsVisible="False" />
-
-                                <!-- Online Toggles Row: SLSonline, Netsock Proxy & EOS Proxy -->
-                                <StackPanel x:Name="DetailOnlineTogglesRow" Orientation="Horizontal" Spacing="16">
-                                    <Button x:Name="DetailSlsOnlineBtn"
-                                            Classes="minimalTextBtn"
-                                            Content="enable slsonline"
-                                            FontSize="13"
-                                            Click="OnToggleSlsOnlineClicked" />
-
-                                    <Button x:Name="DetailNetsockBtn"
-                                            Classes="minimalTextBtn"
-                                            Content="enable netsock proxy"
-                                            FontSize="13"
-                                            IsVisible="False"
-                                            Click="OnToggleNetsockClicked" />
-
-                                    <Button x:Name="DetailEosProxyBtn"
-                                            Classes="minimalTextBtn"
-                                            Content="enable eos proxy"
-                                            FontSize="13"
-                                            IsVisible="False"
-                                            Click="OnToggleEosProxyClicked" />
-                                </StackPanel>
-
-                                <!-- Steamless Action -->
-                                <StackPanel x:Name="DetailSteamlessRow" Spacing="3">
-                                    <Button x:Name="DetailSteamlessBtn"
-                                            Classes="minimalTextBtn"
-                                            Content="apply steamless"
-                                            FontSize="13"
-                                            Click="OnApplySteamlessClicked" />
-                                    <TextBlock x:Name="DetailSteamlessStatus"
-                                               FontSize="11"
-                                               Foreground="#777777"
-                                               IsVisible="False" />
-                                </StackPanel>
+                                           Foreground="#7FA898" />
                             </StackPanel>
+                        </Border>
 
-                            <!-- Center: Dynamic Pre-Download / Depot Selection Panel (In-window, non-modal) -->
-                            <Border Grid.Column="1"
-                                    x:Name="PreDownloadPanel"
-                                    Margin="24,-4,20,0"
-                                    Padding="14,10"
-                                    Background="#0D111A"
-                                    BorderBrush="#1F293D"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
+                        <StackPanel Spacing="6" HorizontalAlignment="Right">
+                            <StackPanel Orientation="Horizontal" Spacing="20" HorizontalAlignment="Right">
+                                <Button x:Name="DetailSwitchModeBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="add to plugin"
+                                        FontSize="14"
+                                        Foreground="#4ADE80"
+                                        Click="OnToggleModeClicked" />
+                                <Button x:Name="DetailDownloadBtn"
+                                        Classes="minimalTextBtn"
+                                        Content="download game"
+                                        FontSize="14"
+                                        Foreground="#38BDF8"
+                                        IsVisible="False"
+                                        Click="OnDownloadGameClicked" />
+                            </StackPanel>
+                            <TextBlock x:Name="DetailActionStatus"
+                                       FontSize="11"
+                                       Foreground="#777777"
+                                       HorizontalAlignment="Right"
+                                       TextAlignment="Right"
+                                       IsVisible="False" />
+                        </StackPanel>
+
+                        <!-- Online toggles: SLS, netsock proxy, EOS proxy -->
+                        <StackPanel x:Name="DetailOnlineTogglesRow"
+                                    Orientation="Horizontal"
+                                    Spacing="18"
+                                    HorizontalAlignment="Right">
+                            <Button x:Name="DetailSlsOnlineBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enable slsonline"
+                                    FontSize="13"
+                                    Click="OnToggleSlsOnlineClicked" />
+
+                            <Button x:Name="DetailNetsockBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enable netsock proxy"
+                                    FontSize="13"
                                     IsVisible="False"
-                                    VerticalAlignment="Top"
-                                    MaxHeight="260">
-                                <Grid RowDefinitions="Auto,*,Auto">
-                                    <!-- Header: Storage & Branch Selectors -->
-                                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,6">
-                                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                            <TextBlock Text="storage:" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
-                                            <Button x:Name="PreDownloadStorageBtn"
-                                                    Classes="minimalTextBtn"
-                                                    Content="Internal Storage"
-                                                    FontSize="12"
-                                                    Foreground="#F1F5F9"
-                                                    Click="OnPreDownloadStorageCycleClicked" />
-                                        </StackPanel>
+                                    Click="OnToggleNetsockClicked" />
 
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                            <TextBlock Text="branch:" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
-                                            <Button x:Name="PreDownloadBranchBtn"
-                                                    Classes="minimalTextBtn"
-                                                    Content="public"
-                                                    FontSize="12"
-                                                    Foreground="#38BDF8"
-                                                    Click="OnPreDownloadBranchCycleClicked" />
-                                        </StackPanel>
-                                    </Grid>
+                            <Button x:Name="DetailEosProxyBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="enable eos proxy"
+                                    FontSize="13"
+                                    IsVisible="False"
+                                    Click="OnToggleEosProxyClicked" />
+                        </StackPanel>
 
-                                    <!-- Depots Scroll List -->
-                                    <ScrollViewer Grid.Row="1" MaxHeight="140" VerticalScrollBarVisibility="Auto">
-                                        <ItemsControl x:Name="PreDownloadDepotsItemsControl">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="installation:PreDownloadDepotItem">
-                                                    <Border Background="#131924" CornerRadius="4" Padding="8,4" Margin="0,2">
-                                                        <Grid ColumnDefinitions="Auto,*,Auto">
-                                                            <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding Name}" FontSize="12" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Text="{Binding DepotId, StringFormat='ID: {0}'}" FontSize="10" Foreground="#64748B" />
-                                                            </StackPanel>
-                                                            <TextBlock Grid.Column="2" Text="{Binding SizeString}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" Margin="8,0,0,0" />
-                                                        </Grid>
-                                                    </Border>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
+                        <StackPanel x:Name="DetailSteamlessRow" Spacing="3" HorizontalAlignment="Right">
+                            <Button x:Name="DetailSteamlessBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="apply steamless"
+                                    FontSize="13"
+                                    Click="OnApplySteamlessClicked" />
+                            <TextBlock x:Name="DetailSteamlessStatus"
+                                       FontSize="11"
+                                       Foreground="#777777"
+                                       HorizontalAlignment="Right"
+                                       TextAlignment="Right"
+                                       IsVisible="False" />
+                        </StackPanel>
 
-                                    <!-- Bottom: Summary & Start Button -->
-                                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,6,0,0" VerticalAlignment="Center">
-                                        <TextBlock Grid.Column="0" x:Name="PreDownloadTotalSizeText" Text="" FontSize="11" Foreground="#38BDF8" VerticalAlignment="Center" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                                            <Button x:Name="PreDownloadCancelBtn"
-                                                    Classes="minimalTextBtn"
-                                                    Content="cancel"
-                                                    FontSize="12"
-                                                    Foreground="#64748B"
-                                                    Click="OnPreDownloadCancelClicked" />
-                                            <Button x:Name="PreDownloadConfirmBtn"
-                                                    Background="#0284C7"
-                                                    Foreground="#FFFFFF"
-                                                    CornerRadius="4"
-                                                    Padding="12,4"
-                                                    FontSize="12"
-                                                    FontWeight="SemiBold"
-                                                    Content="start download"
-                                                    Click="OnPreDownloadConfirmClicked" />
-                                        </StackPanel>
-                                    </Grid>
+                        <!-- Depot picker, revealed by the download button -->
+                        <Border x:Name="PreDownloadPanel"
+                                Padding="14,12"
+                                Background="#0C0F14"
+                                BorderBrush="#1F293D"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                IsVisible="False">
+                            <Grid RowDefinitions="Auto,*,Auto">
+                                <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto" Margin="0,0,0,8">
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="storage" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
+                                        <Button x:Name="PreDownloadStorageBtn"
+                                                Classes="minimalTextBtn"
+                                                Content="Internal Storage"
+                                                FontSize="12"
+                                                Foreground="#F1F5F9"
+                                                Click="OnPreDownloadStorageCycleClicked" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="16,0,0,0">
+                                        <TextBlock Text="branch" FontSize="11" Foreground="#64748B" VerticalAlignment="Center" />
+                                        <Button x:Name="PreDownloadBranchBtn"
+                                                Classes="minimalTextBtn"
+                                                Content="public"
+                                                FontSize="12"
+                                                Foreground="#38BDF8"
+                                                Click="OnPreDownloadBranchCycleClicked" />
+                                    </StackPanel>
                                 </Grid>
-                            </Border>
 
-                            <!-- Right: Circling Screenshot Gallery Controls -->
-                            <StackPanel x:Name="DetailGalleryControls"
-                                        Grid.Column="2"
-                                        Orientation="Horizontal"
-                                        Spacing="10"
-                                        VerticalAlignment="Bottom"
-                                        HorizontalAlignment="Right"
-                                        IsVisible="False">
-                                <Button x:Name="DetailPrevScreenBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="&lt;"
-                                        FontSize="16"
-                                        Foreground="#888888"
-                                        Focusable="False"
-                                        Click="OnPrevScreenshotClicked" />
-                                <TextBlock x:Name="DetailGalleryIndexText"
-                                           Text="1 / 6"
-                                           FontSize="12"
-                                           Foreground="#666666"
-                                           VerticalAlignment="Center" />
-                                <Button x:Name="DetailNextScreenBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="&gt;"
-                                        FontSize="16"
-                                        Foreground="#888888"
-                                        Focusable="False"
-                                        Click="OnNextScreenshotClicked" />
-                            </StackPanel>
-                        </Grid>
+                                <ScrollViewer Grid.Row="1" MaxHeight="170" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="PreDownloadDepotsItemsControl">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="installation:PreDownloadDepotItem">
+                                                <Border Background="#12161F" CornerRadius="4" Padding="8,5" Margin="0,2">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding Name}" FontSize="12" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding DepotId, StringFormat='depot {0}'}" FontSize="10" Foreground="#64748B" />
+                                                        </StackPanel>
+                                                        <TextBlock Grid.Column="2" Text="{Binding SizeString}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
 
-                        <!-- Row 3: Controller Hints Footer Bar -->
-                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,14,0,0" VerticalAlignment="Bottom">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                                <TextBlock Classes="ctrlPrompt" Text="(dpad) navigate" />
-                                <TextBlock Classes="ctrlPrompt" Text="(A) select" />
-                                <TextBlock Classes="ctrlPrompt" Text="(B) back" />
-                                <TextBlock Classes="ctrlPrompt" Text="(X) options" />
-                            </StackPanel>
+                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,10,0,0" VerticalAlignment="Center">
+                                    <TextBlock Grid.Column="0" x:Name="PreDownloadTotalSizeText" Text="" FontSize="11" Foreground="#38BDF8" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10">
+                                        <Button x:Name="PreDownloadCancelBtn"
+                                                Classes="minimalTextBtn"
+                                                Content="cancel"
+                                                FontSize="12"
+                                                Foreground="#64748B"
+                                                Click="OnPreDownloadCancelClicked" />
+                                        <Button x:Name="PreDownloadConfirmBtn"
+                                                Background="#0284C7"
+                                                Foreground="#FFFFFF"
+                                                CornerRadius="4"
+                                                Padding="12,5"
+                                                FontSize="12"
+                                                FontWeight="SemiBold"
+                                                Content="start download"
+                                                Click="OnPreDownloadConfirmClicked" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Grid>
 
-                            <Button Classes="minimalTextBtn"
-                                    Grid.Column="1"
-                                    Content="settings"
+                <!-- Row 3: artwork paging on the right, control hints on the left -->
+                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,18,0,0">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                        <TextBlock Classes="ctrlPrompt" Text="(dpad) navigate" />
+                        <TextBlock Classes="ctrlPrompt" Text="(A) select" />
+                        <TextBlock Classes="ctrlPrompt" Text="(B) back" />
+                        <TextBlock Classes="ctrlPrompt" Text="(X) options" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <StackPanel x:Name="DetailGalleryControls"
+                                    Orientation="Horizontal"
+                                    Spacing="10"
+                                    VerticalAlignment="Center"
+                                    IsVisible="False">
+                            <Button x:Name="DetailPrevScreenBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="&lt;"
+                                    FontSize="16"
+                                    Foreground="#888888"
                                     Focusable="False"
-                                    Click="OnOpenSettingsClicked" />
-                        </Grid>
-                    </Grid>
+                                    Click="OnPrevScreenshotClicked" />
+                            <TextBlock x:Name="DetailGalleryIndexText"
+                                       Text="1 / 6"
+                                       FontSize="12"
+                                       Foreground="#666666"
+                                       VerticalAlignment="Center" />
+                            <Button x:Name="DetailNextScreenBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="&gt;"
+                                    FontSize="16"
+                                    Foreground="#888888"
+                                    Focusable="False"
+                                    Click="OnNextScreenshotClicked" />
+                        </StackPanel>
+
+                        <Button Classes="minimalTextBtn"
+                                Content="settings"
+                                Focusable="False"
+                                Click="OnOpenSettingsClicked" />
+                    </StackPanel>
                 </Grid>
             </Grid>
+        </Grid>
 
         <!-- 3. SETTINGS PAGE VIEW WITH SUBMENUS (Theme, API, SLS Config, Visuals) -->
         <Grid x:Name="SettingsPanel"

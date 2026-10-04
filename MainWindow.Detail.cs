@@ -56,6 +56,7 @@ public partial class MainWindow
         DetailSwitchModeBtn.IsEnabled = true;
         DetailSwitchModeBtn.IsVisible = true;
         if (DetailDownloadBtn != null) DetailDownloadBtn.IsVisible = false;
+        RefreshDetailUpdateUi();
 
         if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
 
@@ -87,6 +88,54 @@ public partial class MainWindow
         _ = LoadGameArtworkAndMetadataAsync(game.AppId, game.Name);
     }
 
+    /// <summary>
+    /// Shows or hides the update banner, and adjusts the download button.
+    ///
+    /// The download action used to disappear permanently once a game was
+    /// installed, which left installed games permanently un-updatable. With
+    /// update detection in place the button is now driven by whether a newer
+    /// build exists rather than by whether the game is present on disk, and it
+    /// doubles as the update action.
+    /// </summary>
+    private void RefreshDetailUpdateUi()
+    {
+        var game = _selectedGame;
+        if (game == null)
+        {
+            // An online search result is not installed, so it cannot be updated.
+            if (DetailUpdateBanner != null) DetailUpdateBanner.IsVisible = false;
+            return;
+        }
+
+        bool hasUpdate = _updateService.HasUpdate(game.AppId);
+
+        if (DetailUpdateBanner != null) DetailUpdateBanner.IsVisible = hasUpdate;
+
+        if (DetailUpdateText != null && hasUpdate)
+        {
+            var transition = _updateService.Describe(game.AppId);
+            DetailUpdateText.Text = string.IsNullOrEmpty(transition)
+                ? "a newer build has been published"
+                : $"build {transition}";
+        }
+
+        if (DetailDownloadBtn != null && hasUpdate)
+        {
+            // Surface the update as the primary action for an installed game.
+            DetailDownloadBtn.IsVisible   = true;
+            DetailDownloadBtn.Content    = "download update";
+            DetailDownloadBtn.IsEnabled  = true;
+            DetailDownloadBtn.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
+        }
+        else if (DetailDownloadBtn != null && DetailDownloadBtn.Content is string c &&
+                 c == "download update")
+        {
+            // Reset the label so leaving the update flow does not leave the
+            // button claiming to be an update action.
+            DetailDownloadBtn.Content = "download game";
+        }
+    }
+
     private void OpenSearchResultDetailPage(SearchResultItem item)
     {
         var local = _allGames.FirstOrDefault(g => g.AppId == item.AppId);
@@ -116,6 +165,7 @@ public partial class MainWindow
         if (DetailActionStatus != null) DetailActionStatus.IsVisible = false;
 
         // Online search result: hide SLS/netsock/steamless buttons individually
+        RefreshDetailUpdateUi();
         DetailSlsOnlineBtn.IsVisible  = false;
         DetailNetsockBtn.IsVisible    = false;
         DetailEosProxyBtn.IsVisible   = false;
@@ -1177,10 +1227,21 @@ public partial class MainWindow
             {
                 if (DetailActionStatus != null)
                 {
-                    DetailActionStatus.Text = $"Successfully installed {name}!";
+                    // An update reports differently so the user knows which happened.
+                    DetailActionStatus.Text = _updateService.HasUpdate(appId.ToString())
+                        ? $"Updated {name}."
+                        : $"Successfully installed {name}!";
                     DetailActionStatus.Foreground = Avalonia.Media.Brushes.MediumSpringGreen;
                 }
-                if (DetailDownloadBtn != null) DetailDownloadBtn.IsVisible = false;
+
+                // The install just wrote the requested build, so clear the badge.
+                // Without this the update dot would keep advertising an update
+                // that has already been applied.
+                _updateService.MarkInstalled(appId.ToString(), string.Empty);
+
+                // Hide the action only if there is genuinely nothing left to fetch.
+                if (DetailDownloadBtn != null) DetailDownloadBtn.IsVisible = _updateService.HasUpdate(appId.ToString());
+                RefreshDetailUpdateUi();
                 await ReloadLibraryAsync();
             }
             else

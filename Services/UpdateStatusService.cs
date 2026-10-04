@@ -298,11 +298,16 @@ public sealed class UpdateStatusService
         EnsureLoaded();
         lock (_cacheLock)
         {
+            // An empty installed build means the caller does not know the exact
+            // ID it just wrote, so keep whatever was last seen as latest rather
+            // than blanking it and losing the record.
+            var previous = _cache.TryGetValue(appId, out var existing) ? existing.LatestBuildId : string.Empty;
+
             _cache[appId] = new CacheEntry
             {
                 Status = UpdateStatus.UpToDate,
                 InstalledBuildId = installedBuildId,
-                LatestBuildId = installedBuildId,
+                LatestBuildId = string.IsNullOrEmpty(installedBuildId) ? previous : installedBuildId,
                 CheckedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
             };
         }
