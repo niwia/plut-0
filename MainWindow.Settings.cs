@@ -151,6 +151,15 @@ public partial class MainWindow
             ToggleThemeStyleBtn.Foreground = classic
                 ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
         }
+
+        if (ToggleClassicSchemeBtn != null)
+        {
+            bool classic = _themeService.CurrentStyle == ThemeStyle.Classic;
+            ToggleClassicSchemeBtn.Content   = classic ? _themeService.CurrentScheme : "classic only";
+            ToggleClassicSchemeBtn.IsEnabled = classic;
+            ToggleClassicSchemeBtn.Foreground = classic
+                ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
     }
 
     // Tab activation
@@ -480,6 +489,34 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>
+    /// Advances through the 13 authentic Windows 9x desktop colour schemes.
+    /// Only enabled while the Classic control theme is active.
+    /// </summary>
+    private void OnToggleClassicSchemeClicked(object? sender, RoutedEventArgs e)
+    {
+        if (_themeService.CurrentStyle != ThemeStyle.Classic)
+        {
+            if (SanitationStatusText != null)
+            {
+                SanitationStatusText.Text = "colour schemes require the classic theme";
+                SanitationStatusText.IsVisible = true;
+            }
+            return;
+        }
+
+        try
+        {
+            _themeService.CycleClassicScheme(Avalonia.Application.Current!);
+            ApplyThemeColors();
+            UpdateSettingsUi();
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Theme", "Could not switch classic scheme", ex);
+        }
+    }
+
     private void OnToggleNativeThemeClicked(object? sender, RoutedEventArgs e)  { _themeService.CycleNextNative();  ApplyThemeColors(); }
     private void OnToggleAccelaThemeClicked(object? sender, RoutedEventArgs e)  { _themeService.CycleNextAccela();  ApplyThemeColors(); }
 
@@ -538,6 +575,7 @@ public partial class MainWindow
         {
             case SettingsTab.Theme:
                 if (ToggleThemeStyleBtn != null) list.Add(ToggleThemeStyleBtn);
+                if (ToggleClassicSchemeBtn != null) list.Add(ToggleClassicSchemeBtn);
                 if (ToggleNativeThemeBtn != null) list.Add(ToggleNativeThemeBtn);
                 if (ToggleAccelaThemeBtn != null) list.Add(ToggleAccelaThemeBtn);
                 if (ToggleSearchResetBtn != null) list.Add(ToggleSearchResetBtn);
@@ -584,7 +622,7 @@ public partial class MainWindow
     private IEnumerable<Button?> AllSettingsTabPanelButtons() => new Button?[]
     {
         ToggleNativeThemeBtn, ToggleAccelaThemeBtn, ToggleSearchResetBtn,
-        ToggleThemeStyleBtn,
+        ToggleThemeStyleBtn, ToggleClassicSchemeBtn,
         ToggleSgdbApiBtn, ToggleRawgBtn, ToggleHubcapApiBtn,
         ToggleVaporBtn, ToggleDownloadActionBtn, ToggleUpdatesBtn,
         ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,

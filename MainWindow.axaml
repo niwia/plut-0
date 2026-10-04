@@ -1005,6 +1005,17 @@
                         </StackPanel>
 
                         <StackPanel Spacing="4">
+                            <TextBlock Text="windows 9x colour scheme" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleClassicSchemeBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="classic only"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    IsEnabled="False"
+                                    Click="OnToggleClassicSchemeClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
                             <TextBlock Text="native games color" FontSize="13" Foreground="#666666" />
                             <Button x:Name="ToggleNativeThemeBtn"
                                     Classes="minimalTextBtn"

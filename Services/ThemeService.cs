@@ -18,9 +18,50 @@ public enum ThemeStyle
     Classic
 }
 
+/// <summary>
+/// Authentic Windows 9x desktop colour schemes, as provided by
+/// Classic.Avalonia.Theme. Only meaningful while the Classic theme is active;
+/// Modern always uses Avalonia's Dark variant.
+/// </summary>
+public static class ClassicSchemes
+{
+    /// <summary>
+    /// Scheme variants in cycle order, matched by name against the package's
+    /// static ThemeVariant properties.
+    /// </summary>
+    public static readonly string[] Names =
+    {
+        "Classic", "Standard", "Brick", "Wheat", "Marine", "Sprouce",
+        "Plum", "Rose", "Storm", "Desert", "Eggplant", "StarsAndStripes", "Pumpkin"
+    };
+
+    public static ThemeVariant Resolve(string name)
+    {
+        // Reflect rather than hard-reference each property, so a rename upstream
+        // degrades to the default scheme instead of failing to compile.
+        foreach (var prop in typeof(Classic.Avalonia.Theme.ClassicTheme)
+                 .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static))
+        {
+            if (!string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+
+            if (prop.GetValue(null) is ThemeVariant variant) return variant;
+        }
+
+        return Classic.Avalonia.Theme.ClassicTheme.Classic;
+    }
+
+    public static string Next(string current)
+    {
+        int idx = Array.IndexOf(Names, current);
+        if (idx < 0) idx = 0;
+        return Names[(idx + 1) % Names.Length];
+    }
+}
+
 public class ThemeService
 {
     private const string StyleConfigKey = "theme_style";
+    private const string SchemeConfigKey = "theme_classic_scheme";
 
     private readonly AccelaConfigService _configService;
 
@@ -60,6 +101,12 @@ public class ThemeService
     /// <summary>Currently selected control theme.</summary>
     public ThemeStyle CurrentStyle { get; private set; } = ThemeStyle.Modern;
 
+    /// <summary>
+    /// Active Windows 9x colour scheme name. Only applied when
+    /// <see cref="CurrentStyle"/> is <see cref="ThemeStyle.Classic"/>.
+    /// </summary>
+    public string CurrentScheme { get; private set; } = "Classic";
+
     public void LoadFromConfig()
     {
         var savedNative = _configService.GetValue("theme_native_color", "#FFFFFF");
@@ -75,6 +122,29 @@ public class ThemeService
         CurrentStyle = savedStyle.Equals("classic", StringComparison.OrdinalIgnoreCase)
             ? ThemeStyle.Classic
             : ThemeStyle.Modern;
+
+        var savedScheme = _configService.GetValue(SchemeConfigKey, "Classic");
+        CurrentScheme = Array.IndexOf(ClassicSchemes.Names, savedScheme) >= 0 ? savedScheme : "Classic";
+    }
+
+    /// <summary>
+    /// Advances to the next Windows 9x colour scheme and reapplies it.
+    ///
+    /// Schemes only exist inside the Classic theme; calling this while Modern is
+    /// active still persists the choice so it takes effect on the next switch.
+    /// </summary>
+    public string CycleClassicScheme(Application app)
+    {
+        CurrentScheme = ClassicSchemes.Next(CurrentScheme);
+        _configService.SetValue(SchemeConfigKey, CurrentScheme);
+
+        if (CurrentStyle == ThemeStyle.Classic)
+        {
+            ApplyStyle(app, CurrentStyle);
+        }
+
+        PlutoLogger.Info("Theme", $"Classic scheme set to {CurrentScheme}");
+        return CurrentScheme;
     }
 
     public ThemeColorPreset CycleNextNative()
@@ -101,7 +171,7 @@ public class ThemeService
         _configService.SetValue(StyleConfigKey,
             CurrentStyle == ThemeStyle.Classic ? "classic" : "modern");
 
-        ApplyStyle(app, CurrentStyle);
+        ApplyStyle(app, CurrentStyle, CurrentScheme);
         PlutoLogger.Info("Theme", $"Control theme switched to {CurrentStyle}");
         return CurrentStyle;
     }
@@ -115,6 +185,11 @@ public class ThemeService
     /// value instead of a per-control-tree setting.
     /// </summary>
     public static void ApplyStyle(Application app, ThemeStyle style)
+    {
+        ApplyStyle(app, style, "Classic");
+    }
+
+    public static void ApplyStyle(Application app, ThemeStyle style, string schemeName)
     {
         if (app is null) return;
 
@@ -133,9 +208,10 @@ public class ThemeService
 
         if (style == ThemeStyle.Classic)
         {
-            app.Styles.Add(new Classic.Avalonia.Theme.ClassicTheme());
-            // The Classic palette is light-surface; a dark variant would fight it.
-            app.RequestedThemeVariant = ThemeVariant.Light;
+            // FontAliasing stays on: the theme disables antialiasing by default for
+            // the authentic bitmap look, which is unreadable at TV resolution.
+            app.Styles.Add(new Classic.Avalonia.Theme.ClassicTheme { FontAliasing = true });
+            app.RequestedThemeVariant = ClassicSchemes.Resolve(schemeName);
         }
         else
         {
@@ -148,12 +224,15 @@ public class ThemeService
     public static void ApplyPersistedStyle(Application app)
     {
         var config = new AccelaConfigService();
-        var saved = config.GetValue(StyleConfigKey, "modern");
 
+        var saved = config.GetValue(StyleConfigKey, "modern");
         var style = saved.Equals("classic", StringComparison.OrdinalIgnoreCase)
             ? ThemeStyle.Classic
             : ThemeStyle.Modern;
 
-        ApplyStyle(app, style);
+        var savedScheme = config.GetValue(SchemeConfigKey, "Classic");
+        if (Array.IndexOf(ClassicSchemes.Names, savedScheme) < 0) savedScheme = "Classic";
+
+        ApplyStyle(app, style, savedScheme);
     }
 }
