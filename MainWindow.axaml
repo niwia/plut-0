@@ -277,6 +277,12 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <Style Selector="TextBlock.wordmark">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#E8E8E8" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
         <!-- Filmstrip cards -->
         <Style Selector="controls|FilmstripCard">
             <Setter Property="RenderTransform" Value="scale(1)" />
@@ -473,93 +479,42 @@
         </Image>
 
         <!-- Dedicated dark vignette specifically behind the top-right status & Pluto watermark -->
-        <Border HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Width="480"
-                Height="320"
-                IsHitTestVisible="False">
-            <Border.Background>
-                <LinearGradientBrush StartPoint="100%,0%" EndPoint="0%,100%">
-                    <GradientStop Color="#F0000000" Offset="0.0" />
-                    <GradientStop Color="#90000000" Offset="0.5" />
-                    <GradientStop Color="#00000000" Offset="1.0" />
-                </LinearGradientBrush>
-            </Border.Background>
-        </Border>
-
-        <!-- Top-Right Integrated Status sewn into the main window -->
-        <StackPanel HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Margin="0,36,64,0"
-                    Spacing="4">
-            <TextBlock Text="plut-0"
-                       FontSize="22"
-                       FontWeight="Normal"
-                       Foreground="#FFFFFF"
-                       Opacity="0.95"
-                       HorizontalAlignment="Right" />
-            <TextBlock x:Name="PlutoVersionText"
-                       Text="0.0.8-2509+09+26"
-                       FontSize="13"
-                       FontWeight="Normal"
-                       Foreground="#666666"
-                       HorizontalAlignment="Right" />
-
-            <!-- Visor Status Lines Right Aligned: Same weight and size as game names (20px) with increased spacing -->
-            <StackPanel Orientation="Vertical" Spacing="10" Margin="0,14,0,0" HorizontalAlignment="Right">
-                <!-- API: xx/xx -->
-                <TextBlock x:Name="VisorHubcapText"
-                           Text="API: --/--"
-                           FontSize="20"
-                           FontWeight="Normal"
-                           Foreground="#777777"
-                           HorizontalAlignment="Right" />
-
-                <!-- SLS: active -->
-                <TextBlock x:Name="VisorSlsText"
-                           Text="SLS: checking..."
-                           FontSize="20"
-                           FontWeight="Normal"
-                           Foreground="#777777"
-                           HorizontalAlignment="Right" />
-
-                <!-- Steam: online -->
-                <TextBlock x:Name="VisorSteamText"
-                           Text="Steam: offline"
-                           FontSize="20"
-                           FontWeight="Normal"
-                           Foreground="#777777"
-                           HorizontalAlignment="Right" />
-
-                <!-- health: status (clickable to health settings) -->
-                <TextBlock x:Name="VisorHealthText"
-                           Text="health: checking..."
-                           FontSize="20"
-                           FontWeight="Normal"
-                           Foreground="#34D399"
-                           Cursor="Hand"
-                           PointerPressed="OnVisorHealthClicked"
-                           HorizontalAlignment="Right" />
-            </StackPanel>
-        </StackPanel>
-
-        <!-- 1. MAIN LIST VIEW -->
         <!-- 1. HOME VIEW: centred search, filmstrip below, everything else on the rail -->
         <Grid x:Name="MainListPanel"
               RowDefinitions="Auto,*,Auto"
               Margin="0,0,0,0"
               IsVisible="True">
 
-            <!-- Top rail: identity and library counts, deliberately quiet -->
+            <!-- Top rail: identity on the left, service state and counts on the right.
+                 The visor used to be a separate 20px stack in the top-right
+                 corner, which collided with the rail; it is now one quiet line
+                 beside it. -->
             <Grid Grid.Row="0" Margin="40,26,40,0" ColumnDefinitions="Auto,*,Auto">
-                <TextBlock Grid.Column="0"
-                           Classes="railLabel"
-                           VerticalAlignment="Center"
-                           Text="PLUTO" />
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <TextBlock Classes="wordmark"
+                               VerticalAlignment="Center"
+                               Text="PLUTO" />
+                    <TextBlock x:Name="PlutoVersionText"
+                               Classes="railLabel"
+                               VerticalAlignment="Center"
+                               Text="0.0.8-0204+10+26" />
+                </StackPanel>
 
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                        <TextBlock x:Name="VisorHubcapText" Classes="railLabel" VerticalAlignment="Center" />
+                        <TextBlock x:Name="VisorSlsText"     Classes="railLabel" VerticalAlignment="Center" />
+                        <TextBlock x:Name="VisorSteamText"   Classes="railLabel" VerticalAlignment="Center" />
+                        <TextBlock x:Name="VisorHealthText"
+                                   Classes="railLabel"
+                                   VerticalAlignment="Center"
+                                   Cursor="Hand"
+                                   PointerPressed="OnVisorHealthClicked" />
+                    </StackPanel>
+
                     <TextBlock x:Name="RailUpdateCount" Classes="railLabel" VerticalAlignment="Center" />
-                    <TextBlock x:Name="RailGameCount" Classes="railLabel" VerticalAlignment="Center" />
+                    <TextBlock x:Name="RailGameCount"   Classes="railLabel" VerticalAlignment="Center" />
+
                     <Button x:Name="SettingsBtn"
                             Classes="minimalTextBtn"
                             Content="settings"

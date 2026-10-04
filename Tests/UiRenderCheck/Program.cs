@@ -57,6 +57,15 @@ internal static class Program
             win.Show();
             Settle(win);
 
+            // Wait for the library before measuring, otherwise the home view is
+            // captured with an empty filmstrip and a broken strip would look fine.
+            var strip = win.FindControl<Filmstrip>("Filmstrip")!;
+            for (int i = 0; i < 200 && strip.ItemCount == 0; i++)
+            {
+                Dispatcher.UIThread.RunJobs();
+                Settle(win);
+            }
+
             foreach (var view in Views)
             {
                 Show(win, view);
@@ -118,9 +127,9 @@ internal static class Program
 
         var strip = win.FindControl<Filmstrip>("Filmstrip")!;
 
-        // The library load and artwork fetch are async; pump until it populates
-        // rather than assuming one round of dispatcher jobs is enough.
-        for (int i = 0; i < 200 && strip.ItemCount == 0; i++)
+        // This window is separate from the one used above, so it needs its own
+        // wait for the async library load.
+        for (int i = 0; i < 400 && strip.ItemCount == 0; i++)
         {
             Dispatcher.UIThread.RunJobs();
             Settle(win);
