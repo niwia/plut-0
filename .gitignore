@@ -14,3 +14,7 @@ rawg_api.txt
 *api*.txt
 *.key
 *.html
+
+# Build artifacts
+/build/
+/dist/

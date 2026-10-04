@@ -12,6 +12,9 @@ managed by one is fully managed by the other.
 
 ## Features
 
+- **Two control themes**: Avalonia's Fluent (default) and an optional Classic Windows
+  theme with 13 authentic Windows 9x colour schemes, switchable at runtime from
+  Settings. Modern is unchanged if you never touch the toggle.
 - **Controller-first navigation (SDL2)**: hotplugging for Xbox, PlayStation, Steam Deck,
   Switch Pro and generic controllers. Analog stick and D-pad navigation with deadzone
   compensation and auto-repeat.
@@ -141,6 +144,33 @@ dotnet publish -c Release -r linux-x64 --self-contained false
 
 The bundled `DepotDownloaderMod` under `Engine/DepotDownloader/Bin/` is copied to the output
 directory automatically and resolved at runtime relative to the binary.
+
+### Build an AppImage
+
+```bash
+python3 Scripts/make_icon.py          # only needed if Assets/pluto.png is missing
+Scripts/build-appimage.sh             # -> dist/Pluto-<version>-x86_64.AppImage (~51 MB)
+```
+
+Self-contained, so no .NET install is needed. Useful flags:
+
+| Flag | Effect |
+| :--- | :--- |
+| `--runtime none` | Use the default runtime, which requires `fuse2` |
+| `--runtime static` | *(default)* FUSE-free; works on SteamOS without extra packages |
+| `--out DIR` | Write the artifact somewhere other than `dist/` |
+
+The build deliberately avoids `PublishSingleFile`: Pluto loads `libSDL2`,
+`libSkiaSharp`, `libHarfBuzzSharp` and `libe_sqlite3` by name through the dynamic
+loader, and bundling those into a self-extracting executable puts them where the
+loader will not find them, silently breaking controller support. The folder
+layout is preserved instead.
+
+Set `APPIMAGETOOL=/path/to/appimagetool` to skip the download.
+
+**Note:** an AppImage run reads and writes your real library and SLSsteam config
+(`~/.config`, `~/.local/share`) rather than a sandboxed copy, so back up
+`~/.config/SLSsteam/config.yaml` before experimenting.
 
 ---
 
