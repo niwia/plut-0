@@ -201,26 +201,6 @@
             <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="#777777" />
         </Style>
-        <Style Selector="Button.settingsTabBtn">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="0, 4" />
-            <Setter Property="FontSize" Value="15" />
-            <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="#555555" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Foreground" Duration="0:0:0.15" />
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.settingsTabBtn:pointerover">
-            <Setter Property="Foreground" Value="#CCCCCC" />
-        </Style>
-        <Style Selector="Button.settingsTabBtn.active">
-            <Setter Property="Foreground" Value="#FFFFFF" />
-        </Style>
 
         <!-- Focused action button: no borders, just a brighter text + subtle scale -->
         <Style Selector="Button.actionBtnFocused">
@@ -310,6 +290,89 @@
         <Style Selector="TextBlock.rowTitle">
             <Setter Property="FontSize" Value="17" />
             <Setter Property="Foreground" Value="#C8C8C8" />
+        </Style>
+
+        <!-- Settings: category rail on the left, rows on the right -->
+        <Style Selector="Button.settingsRailBtn">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="#707070" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="Button.settingsRailBtn:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#0FFFFFFF" />
+        </Style>
+        <Style Selector="Button.settingsRailBtn.active">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Background" Value="#14FFFFFF" />
+        </Style>
+
+        <Style Selector="Border.settingRow">
+            <Setter Property="Background" Value="#08FFFFFF" />
+            <Setter Property="BorderBrush" Value="#12FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Padding" Value="14,11" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+
+        <Style Selector="TextBlock.settingGroup">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#5E5E5E" />
+            <Setter Property="Margin" Value="2,14,0,8" />
+        </Style>
+
+        <Style Selector="TextBlock.settingLabel">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="#B4B4B4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style Selector="TextBlock.settingValueText">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="Margin" Value="16,0,0,0" />
+        </Style>
+
+        <Style Selector="TextBlock.settingHint">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#555555" />
+        </Style>
+
+        <!-- The value is the only interactive part of a row, so it reads as the affordance -->
+        <Style Selector="Button.settingValue">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.settingValue:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#14FFFFFF" />
+        </Style>
+        <Style Selector="Button.settingValue:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+
+        <Style Selector="Button.settingAction">
+            <Setter Property="Background" Value="#0FFFFFFF" />
+            <Setter Property="BorderBrush" Value="#1AFFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="Button.settingAction:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1AFFFFFF" />
         </Style>
         <Style Selector="ListBoxItem:selected TextBlock.rowTitle">
             <Setter Property="Foreground" Value="#FFFFFF" />
@@ -956,13 +1019,13 @@
         </Grid>
 
         <!-- 3. SETTINGS PAGE VIEW WITH SUBMENUS (Theme, API, SLS Config, Visuals) -->
+<!-- 3. SETTINGS: categories on the left rail, the selected category on the right -->
         <Grid x:Name="SettingsPanel"
-              RowDefinitions="Auto,Auto,Auto,*,Auto"
-              Margin="64,48,64,28"
+              RowDefinitions="Auto,*,Auto"
+              Margin="48,36,48,24"
               IsVisible="False">
-            
-            <!-- Row 0: Back Button with (B) Controller Prompt -->
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,0,20">
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="10" Margin="0,0,0,22">
                 <TextBlock Classes="ctrlPromptKey" Text="(B)" Cursor="Hand" PointerPressed="OnBackBadgeClicked" VerticalAlignment="Center" />
                 <Button Classes="minimalTextBtn"
                         Content="back"
@@ -970,442 +1033,445 @@
                         Click="OnBackToMainClicked" />
             </StackPanel>
 
-            <!-- Row 1: Settings Title -->
-            <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,24">
-                <TextBlock Text="settings"
-                           FontSize="30"
-                           FontWeight="Normal"
-                           Foreground="#FFFFFF" />
-                <TextBlock Text="system, themes &amp; configuration"
-                           FontSize="14"
-                           FontWeight="Normal"
-                           Foreground="#555555" />
-            </StackPanel>
+            <Grid Grid.Row="1" ColumnDefinitions="176,*">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <Button x:Name="SettingsTabThemeBtn"
+                            Classes="settingsRailBtn active"
+                            Content="theme"
+                            Click="OnSettingsTabThemeClicked" />
+                    <Button x:Name="SettingsTabApiBtn"
+                            Classes="settingsRailBtn"
+                            Content="api"
+                            Click="OnSettingsTabApiClicked" />
+                    <Button x:Name="SettingsTabSlsBtn"
+                            Classes="settingsRailBtn"
+                            Content="sls"
+                            Click="OnSettingsTabSlsClicked" />
+                    <Button x:Name="SettingsTabVisualsBtn"
+                            Classes="settingsRailBtn"
+                            Content="visuals"
+                            Click="OnSettingsTabVisualsClicked" />
+                    <Button x:Name="SettingsTabHealthBtn"
+                            Classes="settingsRailBtn"
+                            Content="health"
+                            Click="OnSettingsTabHealthClicked" />
+                    <Button x:Name="SettingsTabDdmBtn"
+                            Classes="settingsRailBtn"
+                            Content="ddm"
+                            Click="OnSettingsTabDdmClicked" />
+                </StackPanel>
 
-            <!-- Row 2: Submenu Tab Navigation Bar with d-pad switch tab hint -->
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="28" Margin="0,0,0,28" VerticalAlignment="Center">
-                <Button x:Name="SettingsTabThemeBtn"
-                        Classes="settingsTabBtn active"
-                        Content="theme"
-                        Click="OnSettingsTabThemeClicked" />
-                <Button x:Name="SettingsTabApiBtn"
-                        Classes="settingsTabBtn"
-                        Content="api"
-                        Click="OnSettingsTabApiClicked" />
-                <Button x:Name="SettingsTabSlsBtn"
-                        Classes="settingsTabBtn"
-                        Content="sls config"
-                        Click="OnSettingsTabSlsClicked" />
-                <Button x:Name="SettingsTabVisualsBtn"
-                        Classes="settingsTabBtn"
-                        Content="visuals &amp; gallery"
-                        Click="OnSettingsTabVisualsClicked" />
-                <Button x:Name="SettingsTabHealthBtn"
-                        Classes="settingsTabBtn"
-                        Content="health &amp; sanitation"
-                        Click="OnSettingsTabHealthClicked" />
-                <Button x:Name="SettingsTabDdmBtn"
-                        Classes="settingsTabBtn"
-                        Content="ddm"
-                        Click="OnSettingsTabDdmClicked" />
-                <TextBlock Classes="ctrlPrompt" Text="(dpad) switch tab" Margin="8,0,0,0" VerticalAlignment="Center" />
-            </StackPanel>
-
-            <!-- Row 3: Submenu Content Panels -->
-            <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
-                <Grid>
-                    <!-- 3A: THEME SUBMENU -->
-                    <StackPanel x:Name="SettingsThemePanel" Spacing="24" IsVisible="True">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="control theme" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleThemeStyleBtn"
-                                    Classes="minimalTextBtn"
+                <ScrollViewer Grid.Column="1"
+                              Margin="28,0,0,0"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto">
+                  <!-- One container: a ScrollViewer accepts a single child, so the
+                       six category panels share a grid cell and only the visible
+                       one is drawn. -->
+                  <Grid>
+                    <StackPanel x:Name="SettingsThemePanel" IsVisible="true">
+                    <TextBlock Classes="settingGroup" Text="appearance" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="control theme" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="modern"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleThemeStyleBtn"
                                     Click="OnToggleThemeStyleClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="windows 9x colour scheme" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleClassicSchemeBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="windows 9x colour scheme" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="classic only"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
-                                    IsEnabled="False"
+                                    Foreground="#38BDF8" x:Name="ToggleClassicSchemeBtn" IsEnabled="False"
                                     Click="OnToggleClassicSchemeClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="native games color" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleNativeThemeBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="native games color" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="classic white"
-                                    FontSize="16"
-                                    Foreground="#FFFFFF"
+                                    Foreground="#FFFFFF" x:Name="ToggleNativeThemeBtn"
                                     Click="OnToggleNativeThemeClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="assella games color" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleAccelaThemeBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="assella games color" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="slate blue"
-                                    FontSize="16"
-                                    Foreground="#60A5FA"
+                                    Foreground="#60A5FA" x:Name="ToggleAccelaThemeBtn"
                                     Click="OnToggleAccelaThemeClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="reset list on search access" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleSearchResetBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <TextBlock Classes="settingGroup" Text="behaviour" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="reset list on search access" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="enabled (reset position)"
-                                    FontSize="16"
-                                    Foreground="#4ADE80"
+                                    Foreground="#4ADE80" x:Name="ToggleSearchResetBtn"
                                     Click="OnToggleSearchResetClicked" />
-                        </StackPanel>
+                        </Grid>
+                    </Border>
                     </StackPanel>
-
-                    <!-- 3B: API SUBMENU -->
-                    <StackPanel x:Name="SettingsApiPanel" Spacing="24" IsVisible="False">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="steamgriddb (official logos &amp; heroes)" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleSgdbApiBtn"
-                                    Classes="minimalTextBtn"
+                    <StackPanel x:Name="SettingsApiPanel" IsVisible="false">
+                    <TextBlock Classes="settingGroup" Text="service credentials" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="steamgriddb  logos and heroes" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="api active"
-                                    FontSize="16"
-                                    Foreground="#4ADE80"
+                                    Foreground="#4ADE80" x:Name="ToggleSgdbApiBtn"
                                     Click="OnToggleSgdbApiClicked" />
-                            <TextBlock Text="saved in ~/.config/pluto/steamgriddb_api.txt" FontSize="11" Foreground="#444444" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="rawg (metadata, tags &amp; gallery)" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleRawgBtn"
-                                    Classes="minimalTextBtn"
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Classes="settingHint"
+                                   Margin="0,3,0,0"
+                                   Text="stored in ~/.config/pluto/steamgriddb_api.txt" />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="rawg  metadata, tags and gallery" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="api active"
-                                    FontSize="16"
-                                    Foreground="#4ADE80"
+                                    Foreground="#4ADE80" x:Name="ToggleRawgBtn"
                                     Click="OnToggleRawgClicked" />
-                            <TextBlock Text="saved in ~/.config/pluto/rawg_api.txt" FontSize="11" Foreground="#444444" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="hubcap / morrenus (keys &amp; manifests)" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleHubcapApiBtn"
-                                    Classes="minimalTextBtn"
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Classes="settingHint"
+                                   Margin="0,3,0,0"
+                                   Text="stored in ~/.config/pluto/rawg_api.txt" />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="hubcap / morrenus  keys and manifests" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="api configured"
-                                    FontSize="16"
-                                    Foreground="#4ADE80"
+                                    Foreground="#4ADE80" x:Name="ToggleHubcapApiBtn"
                                     Click="OnToggleHubcapApiClicked" />
-                            <TextBlock Text="saved in ACCELA.conf (morrenus_api_key)" FontSize="11" Foreground="#444444" />
-                        </StackPanel>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Classes="settingHint"
+                                   Margin="0,3,0,0"
+                                   Text="stored in ACCELA.conf as morrenus_api_key" />
+                        </Grid>
+                    </Border>
                     </StackPanel>
-
-                    <!-- 3C: SLS CONFIG SUBMENU -->
-                    <StackPanel x:Name="SettingsSlsPanel" Spacing="24" IsVisible="False">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="at0-m plugin engine" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleVaporBtn"
-                                    Classes="minimalTextBtn"
+                    <StackPanel x:Name="SettingsSlsPanel" IsVisible="false">
+                    <TextBlock Classes="settingGroup" Text="at0-m plugin engine" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="engine" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="enabled"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleVaporBtn"
                                     Click="OnToggleVaporClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="download provider" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleDownloadActionBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="download provider" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="native steam"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleDownloadActionBtn"
                                     Click="OnToggleDownloadActionClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="steam updates" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleUpdatesBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="steam updates" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="normal (updates allowed)"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleUpdatesBtn"
                                     Click="OnToggleUpdatesClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="slssteam synchronization" FontSize="13" Foreground="#666666" />
-                            <Button Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <TextBlock Classes="settingGroup" Text="slssteam" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="library synchronization" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    x:Name="SettingsSyncAllBtn"
+                                    Classes="settingValue"
                                     Content="sync all games into config.yaml"
-                                    FontSize="16"
                                     Foreground="#818CF8"
                                     Click="OnSyncAllClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="slssteam api pipe" FontSize="13" Foreground="#666666" />
-                            <Button Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="plugin reload" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    x:Name="SettingsReloadPluginsBtn"
+                                    Classes="settingValue"
                                     Content="reload slssteam plugins (reloadlua)"
-                                    FontSize="16"
                                     Foreground="#818CF8"
                                     Click="OnReloadSlsClicked" />
-                        </StackPanel>
+                        </Grid>
+                    </Border>
                     </StackPanel>
-
-                    <!-- 3D: VISUALS & GALLERY SUBMENU -->
-                    <StackPanel x:Name="SettingsVisualsPanel" Spacing="24" IsVisible="False">
-                        <!-- Main Page Dynamic Rotating Backdrop -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="main page dynamic backdrop" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleMainBackdropBtn"
-                                    Classes="minimalTextBtn"
+                    <StackPanel x:Name="SettingsVisualsPanel" IsVisible="false">
+                    <TextBlock Classes="settingGroup" Text="backdrop" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="home page dynamic backdrop" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="enabled"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleMainBackdropBtn"
                                     Click="OnToggleMainBackdropClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="main backdrop rotation speed" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleMainBackdropIntervalBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="rotation speed" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="15 seconds"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleMainBackdropIntervalBtn"
                                     Click="OnToggleMainBackdropIntervalClicked" />
-                        </StackPanel>
-
-                        <!-- Search Thumbnails Toggle -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="search results thumbnails" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleSearchThumbnailsBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <TextBlock Classes="settingGroup" Text="artwork" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="search result thumbnails" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="enabled"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleSearchThumbnailsBtn"
                                     Click="OnToggleSearchThumbnailsClicked" />
-                        </StackPanel>
-
-                        <!-- Library Row Artwork Toggle -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="library artwork (fetches from steam cdn)" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleLibraryThumbnailsBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="library artwork (steam cdn)" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="disabled"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleLibraryThumbnailsBtn"
                                     Click="OnToggleLibraryThumbnailsClicked" />
-                        </StackPanel>
-
-                        <!-- Screenshot Gallery Auto-Rotate Settings -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="detail gallery auto-rotation" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleAutoRotateBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="detail gallery auto-rotation" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="enabled"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleAutoRotateBtn"
                                     Click="OnToggleAutoRotateClicked" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="detail gallery rotation speed" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleAutoRotateIntervalBtn"
-                                    Classes="minimalTextBtn"
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="gallery rotation speed" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
                                     Content="6 seconds"
-                                    FontSize="16"
-                                    Foreground="#38BDF8"
+                                    Foreground="#38BDF8" x:Name="ToggleAutoRotateIntervalBtn"
                                     Click="OnToggleAutoRotateIntervalClicked" />
-                        </StackPanel>
-
-                        <!-- System Information -->
-                        <StackPanel Spacing="4" Margin="0, 12, 0, 0">
-                            <TextBlock Text="library summary" FontSize="13" Foreground="#666666" />
-                            <TextBlock x:Name="SettingsGameCountsText" Text="loading..." FontSize="14" Foreground="#AAAAAA" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="controller" FontSize="13" Foreground="#666666" />
-                            <TextBlock x:Name="SettingsControllerText" Text="no controller detected" FontSize="14" Foreground="#AAAAAA" />
-                        </StackPanel>
-
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="pluto log" FontSize="13" Foreground="#666666" />
-                            <TextBlock x:Name="SettingsLogPathText" Text="~/.local/share/pluto/pluto.log" FontSize="14" Foreground="#AAAAAA" />
-                        </StackPanel>
+                        </Grid>
+                    </Border>
+                    <TextBlock Classes="settingGroup" Text="about this install" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="settingLabel" Text="library summary" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="SettingsGameCountsText"
+                                       Classes="settingValueText"
+                                       Foreground="#AAAAAA"
+                                       Text="loading..." />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="settingLabel" Text="controller" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="SettingsControllerText"
+                                       Classes="settingValueText"
+                                       Foreground="#AAAAAA"
+                                       Text="no controller detected" />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="settingLabel" Text="log" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="SettingsLogPathText"
+                                       Classes="settingValueText"
+                                       Foreground="#E2E8F0"
+                                       Text="~/.local/share/pluto/pluto.log" />
+                        </Grid>
+                    </Border>
                     </StackPanel>
-
-                    <!-- 3E: HEALTH & SANITATION SUBMENU -->
-                    <StackPanel x:Name="SettingsHealthPanel" Spacing="24" IsVisible="False">
-                        <!-- System Status Overview -->
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="system diagnostic summary" FontSize="13" Foreground="#666666" />
+                    <StackPanel x:Name="SettingsHealthPanel" IsVisible="false">
+                    <TextBlock Classes="settingGroup" Text="diagnostics" />
+                    <Border Classes="settingRow">
+                        <StackPanel Spacing="5">
                             <TextBlock x:Name="HealthSummaryStatusText"
-                                       Text="Checking system status..."
-                                       FontSize="15"
-                                       Foreground="#4ADE80" />
+                                       Classes="settingValueText"
+                                       Foreground="#4ADE80"
+                                       Text="Checking system status..." />
                             <TextBlock x:Name="HealthIssuesListText"
-                                       Text="All critical services are running optimally."
-                                       FontSize="12"
-                                       Foreground="#888888"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-
-                        <!-- Hubcap Quota Details -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="hubcap / morrenus quota usage" FontSize="13" Foreground="#666666" />
-                            <TextBlock x:Name="HealthHubcapQuotaText"
-                                       Text="Querying Hubcap API..."
-                                       FontSize="14"
-                                       Foreground="#CCCCCC" />
-                            <TextBlock Text="API Key source: ~/.config/Tachibana Labs/ACCELA.conf" FontSize="11" Foreground="#444444" />
-                        </StackPanel>
-
-                        <!-- ASSfixer: SLSsteam Config Diagnostic & Repair -->
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="assfixer (slssteam config.yaml diagnostics)" FontSize="13" Foreground="#666666" />
-                            <StackPanel Orientation="Horizontal" Spacing="16">
-                                <Button x:Name="AssfixerCheckBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="validate config"
-                                        FontSize="15"
-                                        Foreground="#38BDF8"
-                                        Click="OnAssfixerCheckClicked" />
-                                <Button x:Name="AssfixerRepairBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="repair &amp; sync syntax"
-                                        FontSize="15"
-                                        Foreground="#4ADE80"
-                                        Click="OnAssfixerRepairClicked" />
-                                <Button x:Name="AssfixerRestoreBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="restore backup"
-                                        FontSize="15"
-                                        Foreground="#F87171"
-                                        Click="OnAssfixerRestoreClicked" />
-                            </StackPanel>
-                            <TextBlock x:Name="AssfixerStatusText"
-                                       Text=""
-                                       FontSize="12"
-                                       Foreground="#777777"
+                                       Classes="settingHint"
                                        TextWrapping="Wrap"
-                                       IsVisible="False" />
+                                       Text="All critical services are running optimally." />
                         </StackPanel>
-
-                        <!-- Cache & Config Sanitation -->
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="sanitation &amp; maintenance" FontSize="13" Foreground="#666666" />
-                            <StackPanel Orientation="Horizontal" Spacing="16">
-                                <Button x:Name="SanitationClearThumbnailsBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="clear thumbnail cache"
-                                        FontSize="15"
-                                        Foreground="#E2E8F0"
-                                        Click="OnClearThumbnailCacheClicked" />
-                                <Button x:Name="SanitationResyncSlsBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="trigger sls reload (touch)"
-                                        FontSize="15"
-                                        Foreground="#E2E8F0"
-                                        Click="OnResyncSlsClicked" />
-                                <Button x:Name="HealthRefreshBtn"
-                                        Classes="minimalTextBtn"
-                                        Content="refresh health"
-                                        FontSize="15"
-                                        Foreground="#38BDF8"
-                                        Click="OnRefreshHealthClicked" />
-                            </StackPanel>
-                            <TextBlock x:Name="SanitationStatusText"
-                                       Text=""
-                                       FontSize="12"
-                                       Foreground="#777777"
-                                       TextWrapping="Wrap"
-                                       IsVisible="False" />
-                        </StackPanel>
-                    </StackPanel>
-
-                    <!-- 3F: DDM SUBMENU -->
-                    <StackPanel x:Name="SettingsDdmPanel" Spacing="24" IsVisible="False">
-                        <!-- Concurrent Downloads -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="concurrent downloads (connections)" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleDdmMaxDownloadsBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="4 downloads"
-                                    FontSize="16"
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="settingLabel" Text="hubcap / morrenus quota" />
+                            <TextBlock Grid.Column="1"
+                                       x:Name="HealthHubcapQuotaText"
+                                       Classes="settingValueText"
+                                       Foreground="#AAAAAA"
+                                       Text="Querying..." />
+                        </Grid>
+                    </Border>
+                    <TextBlock Classes="settingGroup" Text="assfixer  slssteam config.yaml" />
+                    <Border Classes="settingRow">
+                        <StackPanel Spacing="8">
+                            <Button Classes="settingAction" x:Name="AssfixerCheckBtn"
+                                    Content="validate config"
                                     Foreground="#38BDF8"
-                                    Click="OnToggleDdmMaxDownloadsClicked" />
-                            <TextBlock Text="limits simultaneous chunk streams to prevent network saturation (1 to 30)" FontSize="11" Foreground="#444444" />
-                        </StackPanel>
-
-                        <!-- Validate Chunks -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="chunk verification (-validate)" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleDdmValidateBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="enabled"
-                                    FontSize="16"
+                                    Click="OnAssfixerCheckClicked" />
+                            <Button Classes="settingAction" x:Name="AssfixerRepairBtn"
+                                    Content="repair and sync syntax"
                                     Foreground="#4ADE80"
-                                    Click="OnToggleDdmValidateClicked" />
-                            <TextBlock Text="validates sha-1 checksums of every downloaded chunk against the manifest" FontSize="11" Foreground="#444444" />
+                                    Click="OnAssfixerRepairClicked" />
+                            <Button Classes="settingAction" x:Name="AssfixerRestoreBtn"
+                                    Content="restore backup"
+                                    Foreground="#F87171"
+                                    Click="OnAssfixerRestoreClicked" />
                         </StackPanel>
-
-                        <!-- LanCache Integration -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="lancache local proxy (-use-lancache)" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleDdmLanCacheBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="enabled"
-                                    FontSize="16"
-                                    Foreground="#4ADE80"
-                                    Click="OnToggleDdmLanCacheClicked" />
-                            <TextBlock Text="routes downloads through local network caching servers if present" FontSize="11" Foreground="#444444" />
+                    </Border>
+                            <TextBlock x:Name="AssfixerStatusText"
+                                       Classes="settingHint"
+                                       Margin="0,6,0,0"
+                                       IsVisible="False" />
+                    <TextBlock Classes="settingGroup" Text="maintenance" />
+                    <Border Classes="settingRow">
+                        <StackPanel Spacing="8">
+                            <Button Classes="settingAction" x:Name="SanitationClearThumbnailsBtn"
+                                    Content="clear thumbnail cache"
+                                    Foreground="#E2E8F0"
+                                    Click="OnClearThumbnailCacheClicked" />
+                            <Button Classes="settingAction" x:Name="SanitationResyncSlsBtn"
+                                    Content="trigger sls reload (touch)"
+                                    Foreground="#E2E8F0"
+                                    Click="OnResyncSlsClicked" />
+                            <Button Classes="settingAction" x:Name="HealthRefreshBtn"
+                                    Content="refresh health"
+                                    Foreground="#38BDF8"
+                                    Click="OnRefreshHealthClicked" />
                         </StackPanel>
-
-                        <!-- Platform Preference -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="depot platform preference" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleDdmPlatformPrefBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="native linux first"
-                                    FontSize="16"
-                                    Foreground="#FFFFFF"
-                                    Click="OnToggleDdmPlatformPrefClicked" />
-                            <TextBlock Text="selects native linux depots over windows/proton when both are available" FontSize="11" Foreground="#444444" />
-                        </StackPanel>
-
-                        <!-- Hide OST / Soundtracks -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="depot filters: soundtrack / ost depots" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleDdmFilterOstBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="hidden by default"
-                                    FontSize="16"
-                                    Foreground="#60A5FA"
-                                    Click="OnToggleDdmFilterOstClicked" />
-                        </StackPanel>
-
-                        <!-- Hide Artbooks / Extras -->
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="depot filters: artbooks, wallpapers &amp; extra content" FontSize="13" Foreground="#666666" />
-                            <Button x:Name="ToggleDdmFilterExtrasBtn"
-                                    Classes="minimalTextBtn"
-                                    Content="hidden by default"
-                                    FontSize="16"
-                                    Foreground="#60A5FA"
-                                    Click="OnToggleDdmFilterExtrasClicked" />
-                        </StackPanel>
+                    </Border>
+                            <TextBlock x:Name="SanitationStatusText"
+                                       Classes="settingHint"
+                                       Margin="0,6,0,0"
+                                       IsVisible="False" />
                     </StackPanel>
-                </Grid>
-            </ScrollViewer>
+                    <StackPanel x:Name="SettingsDdmPanel" IsVisible="false">
+                    <TextBlock Classes="settingGroup" Text="transfer" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="concurrent downloads" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
+                                    Content="4 downloads"
+                                    Foreground="#38BDF8" x:Name="ToggleDdmMaxDownloadsBtn"
+                                    Click="OnToggleDdmMaxDownloadsClicked" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Classes="settingHint"
+                                   Margin="0,3,0,0"
+                                   Text="limits simultaneous chunk streams to avoid saturating the network (1 to 30)" />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="chunk verification" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
+                                    Content="enabled"
+                                    Foreground="#4ADE80" x:Name="ToggleDdmValidateBtn"
+                                    Click="OnToggleDdmValidateClicked" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Classes="settingHint"
+                                   Margin="0,3,0,0"
+                                   Text="validates the sha-1 checksum of every chunk against the manifest" />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="lancache local proxy" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
+                                    Content="enabled"
+                                    Foreground="#4ADE80" x:Name="ToggleDdmLanCacheBtn"
+                                    Click="OnToggleDdmLanCacheClicked" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Classes="settingHint"
+                                   Margin="0,3,0,0"
+                                   Text="routes downloads through local network caching servers when present" />
+                        </Grid>
+                    </Border>
+                    <TextBlock Classes="settingGroup" Text="depot selection" />
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="platform preference" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
+                                    Content="native linux first"
+                                    Foreground="#FFFFFF" x:Name="ToggleDdmPlatformPrefBtn"
+                                    Click="OnToggleDdmPlatformPrefClicked" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                   Classes="settingHint"
+                                   Margin="0,3,0,0"
+                                   Text="prefers native linux depots over windows and proton when both exist" />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="soundtrack and ost depots" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
+                                    Content="hidden by default"
+                                    Foreground="#60A5FA" x:Name="ToggleDdmFilterOstBtn"
+                                    Click="OnToggleDdmFilterOstClicked" />
+                        </Grid>
+                    </Border>
+                    <Border Classes="settingRow">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Classes="settingLabel" Text="artbooks, wallpapers and extras" />
+                            <Button Grid.Row="0" Grid.Column="1"
+                                    Classes="settingValue"
+                                    Content="hidden by default"
+                                    Foreground="#60A5FA" x:Name="ToggleDdmFilterExtrasBtn"
+                                    Click="OnToggleDdmFilterExtrasClicked" />
+                        </Grid>
+                    </Border>
+                    </StackPanel>
+                                  </Grid>
+                </ScrollViewer>
+            </Grid>
 
-            <!-- Row 4: Controller Hints Footer Bar -->
-            <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="18" Margin="0,16,0,0" VerticalAlignment="Center">
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="18" Margin="0,16,0,0">
                 <TextBlock Classes="ctrlPrompt" Text="(dpad) tabs" />
-                <TextBlock Classes="ctrlPrompt" Text="(dpad) navigate" />
                 <TextBlock Classes="ctrlPrompt" Text="(A) toggle" />
                 <TextBlock Classes="ctrlPrompt" Text="(B) back" />
             </StackPanel>

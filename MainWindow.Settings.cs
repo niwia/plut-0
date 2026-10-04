@@ -589,6 +589,10 @@ public partial class MainWindow
                 if (ToggleVaporBtn          != null) list.Add(ToggleVaporBtn);
                 if (ToggleDownloadActionBtn != null) list.Add(ToggleDownloadActionBtn);
                 if (ToggleUpdatesBtn        != null) list.Add(ToggleUpdatesBtn);
+                // These two were unnamed in XAML, so the d-pad skipped straight
+                // past them and only a mouse could reach them.
+                if (SettingsSyncAllBtn       != null) list.Add(SettingsSyncAllBtn);
+                if (SettingsReloadPluginsBtn != null) list.Add(SettingsReloadPluginsBtn);
                 break;
             case SettingsTab.Visuals:
                 if (ToggleMainBackdropBtn        != null) list.Add(ToggleMainBackdropBtn);
@@ -625,6 +629,7 @@ public partial class MainWindow
         ToggleThemeStyleBtn, ToggleClassicSchemeBtn,
         ToggleSgdbApiBtn, ToggleRawgBtn, ToggleHubcapApiBtn,
         ToggleVaporBtn, ToggleDownloadActionBtn, ToggleUpdatesBtn,
+        SettingsSyncAllBtn, SettingsReloadPluginsBtn,
         ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,
         ToggleSearchThumbnailsBtn, ToggleLibraryThumbnailsBtn,
         ToggleAutoRotateBtn, ToggleAutoRotateIntervalBtn,
