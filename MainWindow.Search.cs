@@ -16,6 +16,18 @@ namespace Pluto;
 // MainWindow partial — search box, live search, search results
 public partial class MainWindow
 {
+    /// <summary>
+    /// Shows or hides the search results overlay.
+    ///
+    /// On the home screen the search field is the hero and results float above
+    /// it, so the overlay panel is what actually toggles search mode - toggling
+    /// the listbox alone would leave an invisible list swallowing input.
+    /// </summary>
+    private void SetSearchOverlayVisible(bool visible)
+    {
+        if (SearchOverlay != null) SearchOverlay.IsVisible = visible;
+        if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = visible;
+    }
     // Rotating placeholder
     private void OnPlaceholderTimerTick(object? sender, EventArgs e)
     {
@@ -33,9 +45,8 @@ public partial class MainWindow
         {
             _liveSearchTimer.Stop();
             _searchCts?.Cancel();
-            if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+            SetSearchOverlayVisible(false);
             if (SearchStatusText     != null) SearchStatusText.IsVisible     = false;
-            if (GamesListBox         != null) GamesListBox.IsVisible         = true;
             ApplyFilter(null);
             return;
         }
@@ -56,8 +67,7 @@ public partial class MainWindow
         {
             _liveSearchTimer.Stop();
             _searchCts?.Cancel();
-            if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
-            if (GamesListBox         != null) GamesListBox.IsVisible         = true;
+            SetSearchOverlayVisible(false);
             if (SearchStatusText     != null) SearchStatusText.IsVisible     = false;
         }
     }
@@ -127,8 +137,7 @@ public partial class MainWindow
             // search that never actually reached the API.
             if (_hubcapSearchService.LastError == "rate_limit")
             {
-                if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
-                if (GamesListBox         != null) GamesListBox.IsVisible         = true;
+                SetSearchOverlayVisible(false);
                 if (EmptyStateText       != null) EmptyStateText.IsVisible       = false;
                 if (SearchStatusText     != null)
                 {
@@ -143,7 +152,6 @@ public partial class MainWindow
                     SearchResultsListBox.IsVisible    = true;
                     SearchResultsListBox.SelectedIndex = 0;
                 }
-                if (GamesListBox    != null) GamesListBox.IsVisible    = false;
                 if (EmptyStateText  != null) EmptyStateText.IsVisible  = false;
                 if (SearchStatusText != null)
                 {
@@ -155,8 +163,7 @@ public partial class MainWindow
             {
                 if (_displayedGames.Count > 0)
                 {
-                    if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
-                    if (GamesListBox         != null) GamesListBox.IsVisible         = true;
+                    SetSearchOverlayVisible(false);
                     if (SearchStatusText     != null)
                     {
                         SearchStatusText.Text      = "no online matches (showing local library)";
@@ -165,8 +172,7 @@ public partial class MainWindow
                 }
                 else
                 {
-                    if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
-                    if (GamesListBox         != null) GamesListBox.IsVisible         = false;
+                    SetSearchOverlayVisible(false);
                     if (EmptyStateText       != null)
                     {
                         EmptyStateText.Text      = $"no games found for \"{trimmed}\"";
@@ -189,23 +195,22 @@ public partial class MainWindow
         _liveSearchTimer.Stop();
         _searchCts?.Cancel();
         SearchBox.Text = string.Empty;
-        if (SearchResultsListBox != null) SearchResultsListBox.IsVisible = false;
+        SetSearchOverlayVisible(false);
         if (SearchStatusText     != null) SearchStatusText.IsVisible     = false;
-        if (GamesListBox != null)
+        if (Filmstrip != null)
         {
-            GamesListBox.IsVisible = true;
+            Filmstrip.IsVisible = true;
             ApplyFilter(null);
-            GamesListBox.Focus();
+            FocusLibrary();
         }
     }
 
     private void OnSearchBoxGotFocus(object? sender, RoutedEventArgs e)
     {
-        GamesListBox?.Classes.Set("accessed", false);
-        if (_settingSearchResetOnAccess && _displayedGames.Count > 0 && GamesListBox != null)
+        
+        if (_settingSearchResetOnAccess && Filmstrip != null)
         {
-            GamesListBox.SelectedIndex = 0;
-            GamesListBox.ScrollIntoView(_displayedGames[0]);
+            Filmstrip.FocusedIndex = 0;
         }
     }
 
@@ -218,7 +223,7 @@ public partial class MainWindow
                 SearchResultsListBox.SelectedIndex = 0;
                 SearchResultsListBox.Focus();
             }
-            else { NavigateList(1); GamesListBox.Focus(); }
+            else { NavigateList(1); FocusLibrary(); }
             e.Handled = true;
         }
         else if (e.Key == Key.Enter)
@@ -229,7 +234,7 @@ public partial class MainWindow
                 OpenSearchResultDetailPage(sr);
             else if (!string.IsNullOrWhiteSpace(SearchBox.Text) && SearchBox.Text.Trim().Length >= 3)
                 await ExecuteSearchAsync(SearchBox.Text);
-            else if (GamesListBox.SelectedItem is PluginGame local)
+            else if (SelectedGame is PluginGame local)
                 OpenGameDetailPage(local);
             e.Handled = true;
         }

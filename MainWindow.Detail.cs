@@ -1115,10 +1115,11 @@ public partial class MainWindow
         targetGame.DownloadPercentage = 0;
         targetGame.DownloadStatusText = "0%";
 
-        // Refresh waterfall game list display
+        // Refresh the filmstrip so the in-progress game is visible immediately.
         _displayedGames.Clear();
         foreach (var g in _allGames) _displayedGames.Add(g);
-        if (GamesListBox != null) GamesListBox.SelectedIndex = 0;
+        SyncFilmstrip(_allGames);
+        if (Filmstrip != null) Filmstrip.FocusedIndex = 0;
 
         // 2. Activate minimal floating bottom progress bar (White bar with light opacity background)
         if (GlobalDownloadBar != null) GlobalDownloadBar.IsVisible = true;

@@ -12,6 +12,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Pluto.Controls;
 using Pluto.Models;
 using Pluto.Services;
 
@@ -40,6 +41,7 @@ public partial class MainWindow : Window
     private readonly EosProxyService _eosProxyService;
     private readonly SteamlessService _steamlessService;
     private readonly HealthService _healthService;
+    private readonly UpdateStatusService _updateService;
     private readonly Pluto.Engine.DepotDownloader.DepotDownloaderService _ddmService;
     private readonly Pluto.Engine.Installation.GameInstallService _installService;
     private CancellationTokenSource? _downloadCts;
@@ -77,6 +79,102 @@ public partial class MainWindow : Window
     private List<string> _currentScreenshots     = new();
     private int          _currentScreenshotIndex = 0;
 
+    /// <summary>
+    /// The game the filmstrip is focused on, or null when the strip is empty.
+    /// The home screen dropped the long library list; the filmstrip is now the
+    /// single way to move through the library.
+    /// </summary>
+    private PluginGame? SelectedGame =>
+        Filmstrip?.FocusedItem is FilmstripEntry entry ? entry.Game as PluginGame : null;
+
+    /// <summary>Feeds the filmstrip from the filtered library.</summary>
+    private void SyncFilmstrip(List<PluginGame> games)
+    {
+        if (Filmstrip == null) return;
+
+        var entries = new List<FilmstripEntry>(games.Count);
+        var stillPresent = new HashSet<PluginGame>(games);
+
+        // Preserve card objects for games that survived the filter so their
+        // already-loaded artwork is not thrown away and refetched on every keystroke.
+        var previous = Filmstrip.Items?
+            .OfType<FilmstripEntry>()
+            .Where(e => e.Game is PluginGame g && stillPresent.Contains(g))
+            .ToDictionary(e => (PluginGame)e.Game!, e => e)
+            ?? new Dictionary<PluginGame, FilmstripEntry>();
+
+        foreach (var g in games)
+        {
+            if (previous.TryGetValue(g, out var reuse))
+            {
+                // Refresh volatile state only.
+                reuse.HasUpdate = _updateService.HasUpdate(g.AppId);
+                reuse.Subtitle = BuildCardSubtitle(g);
+                entries.Add(reuse);
+                continue;
+            }
+
+            entries.Add(new FilmstripEntry
+            {
+                Game = g,
+                Title = g.Name,
+                Subtitle = BuildCardSubtitle(g),
+                HasUpdate = _updateService.HasUpdate(g.AppId),
+                Artwork = g.Thumbnail
+            });
+        }
+
+        Filmstrip.ItemsSource = entries;
+
+        // Keep the user's place across re-filters, same as the old list did.
+        var current = SelectedGame;
+        if (current != null && entries.FirstOrDefault(e => ReferenceEquals(e.Game, current)) is { } found)
+        {
+            Filmstrip.FocusedIndex = entries.IndexOf(found);
+        }
+        else
+        {
+            Filmstrip.FocusedIndex = -1;
+        }
+
+        foreach (var e in entries)
+        {
+            // Artwork may finish loading after the entry was created.
+            if (e.Game is PluginGame pg && e.Artwork == null && pg.Thumbnail != null)
+                e.Artwork = pg.Thumbnail;
+        }
+    }
+
+    /// <summary>Secondary line under a card: mode and sync state, kept terse.</summary>
+    private string BuildCardSubtitle(PluginGame g)
+    {
+        var mode = g.IsAccela ? "assella" : "native";
+        return g.IsSlsSynced ? mode : $"{mode} - not synced";
+    }
+
+    /// <summary>Moves focus into the filmstrip.</summary>
+    private void FocusLibrary()
+    {
+        if (Filmstrip == null) return;
+        if (Filmstrip.FocusedIndex < 0) Filmstrip.FocusFirst();
+        Filmstrip.Focus();
+    }
+
+    /// <summary>Opens whatever the filmstrip is focused on.</summary>
+    private void ActivateFocusedCard()
+    {
+        if (SelectedGame is { } game) OpenGameDetailPage(game);
+    }
+
+    private void OnFilmstripItemActivated(object? sender, RoutedEventArgs e)
+    {
+        // The routed event carries no payload, so resolve from the strip itself.
+        if (sender is Filmstrip { FocusedItem: FilmstripEntry { Game: PluginGame game } })
+        {
+            OpenGameDetailPage(game);
+        }
+    }
+
     // Library / search state
     private List<PluginGame>                       _allGames         = new();
     private ObservableCollection<PluginGame>       _displayedGames   = new();
@@ -106,6 +204,7 @@ public partial class MainWindow : Window
 
     private LibrarySort _librarySort = LibrarySort.Name;
     private LibraryMode _libraryMode = LibraryMode.All;
+    private bool _showUpdatesOnly = false;
 
     // SLS & UI settings (cached)
     private bool   _settingVaporEnabled   = true;
@@ -176,6 +275,7 @@ public partial class MainWindow : Window
         _placeholderTimer.Start();
 
         _healthService = new HealthService(_configService);
+        _updateService = new UpdateStatusService();
         _ddmService    = new Pluto.Engine.DepotDownloader.DepotDownloaderService();
         _installService = new Pluto.Engine.Installation.GameInstallService(_ddmService, _slsService, _configService, _depotKeyService);
         _visorTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
@@ -184,15 +284,7 @@ public partial class MainWindow : Window
 
         ApplyThemeColors();
 
-        GamesListBox.ItemsSource         = _displayedGames;
         SearchResultsListBox.ItemsSource = _searchResults;
-
-        GamesListBox.GotFocus  += (_, _) => GamesListBox.Classes.Set("accessed", true);
-        GamesListBox.LostFocus += (_, _) =>
-        {
-            if (!GamesListBox.IsFocused && !GamesListBox.IsKeyboardFocusWithin)
-                GamesListBox.Classes.Set("accessed", false);
-        };
 
         _libraryService.LibraryChanged += () =>
         {
@@ -233,8 +325,14 @@ public partial class MainWindow : Window
         UpdateControllerStatus(_gamepadService.ActiveControllerName, _gamepadService.HasConnectedController);
         await ReloadLibraryAsync();
         LoadSettingsFromConfig();
-        GamesListBox.Focus();
+        RefreshLibraryChips();
+        UpdateRailCounts();
+        FocusLibrary();
         _ = RefreshVisorAsync();
+
+        // Update checks hit a third-party API, so they run after the window is
+        // already usable rather than blocking the first frame.
+        _ = RefreshUpdatesAsync();
     }
 
     private async Task ReloadLibraryAsync()
@@ -331,7 +429,7 @@ public partial class MainWindow : Window
     private void ApplyFilter(string? query)
     {
         var trimmed = query?.Trim();
-        var previous = GamesListBox?.SelectedItem as PluginGame;
+        var previous = SelectedGame;
 
         IEnumerable<PluginGame> filtered = _allGames;
 
@@ -354,30 +452,37 @@ public partial class MainWindow : Window
                 g.InstallDir.Contains(trimmed, StringComparison.OrdinalIgnoreCase));
         }
 
+        // Narrowing to updates is why the filmstrip is sorted with pending work
+        // first, so this filter is most useful when paired with that ordering.
+        if (_showUpdatesOnly)
+        {
+            filtered = filtered.Where(g => _updateService.HasUpdate(g.AppId));
+        }
+
         // Sort last so ordering is stable regardless of which filter is active.
         // Name sort uses the current culture so accented titles land where a
         // reader expects rather than after every ASCII letter.
-        var list = _librarySort switch
-        {
-            LibrarySort.AppId => filtered
-                .OrderBy(g => long.TryParse(g.AppId, out var id) ? id : long.MaxValue)
-                .ThenBy(g => g.Name, StringComparer.CurrentCulture)
-                .ToList(),
+        //
+        // Games with an available update are floated to the front in every
+        // ordering: on a home screen the first cards are what the user sees,
+        // so pending work should not be buried at the end of a 189-game strip.
+        var list = filtered
+            .OrderByDescending(g => _updateService.HasUpdate(g.AppId))
+            .ThenBy(g => _librarySort switch
+            {
+                LibrarySort.AppId => long.TryParse(g.AppId, out var id) ? id : long.MaxValue,
+                LibrarySort.RecentlyUpdated => -g.UpdatedAt,
+                _ => 0L
+            })
+            .ThenBy(g => g.Name, StringComparer.CurrentCulture)
+            .ToList();
 
-            LibrarySort.RecentlyUpdated => filtered
-                .OrderByDescending(g => g.UpdatedAt)
-                .ThenBy(g => g.Name, StringComparer.CurrentCulture)
-                .ToList(),
-
-            _ => filtered
-                .OrderBy(g => g.Name, StringComparer.CurrentCulture)
-                .ToList()
-        };
-
-        // Replace the contents rather than reassigning the collection so existing
-        // bindings and the selection model stay valid.
+        // The filmstrip is the library navigator now; the observable list is kept
+        // only for counts and download bookkeeping.
         _displayedGames.Clear();
         foreach (var item in list) _displayedGames.Add(item);
+        SyncFilmstrip(list);
+        UpdateRailCounts();
 
         if (EmptyStateText != null)
         {
@@ -385,16 +490,6 @@ public partial class MainWindow : Window
             EmptyStateText.Text = DescribeEmptyState(trimmed);
         }
 
-        if (list.Count > 0 && GamesListBox != null)
-        {
-            // Keep the user's place across re-filters. Previously every keystroke
-            // forced index 0, so typing after scrolling threw you back to the top.
-            int restore = previous != null ? list.IndexOf(previous) : -1;
-            GamesListBox.SelectedIndex = restore >= 0 ? restore : 0;
-
-            if (GamesListBox.SelectedItem != null)
-                GamesListBox.ScrollIntoView(GamesListBox.SelectedItem);
-        }
 
         QueueThumbnailLoad(list);
     }
@@ -500,6 +595,18 @@ public partial class MainWindow : Window
         ApplyFilter(SearchBox?.Text);
     }
 
+    /// <summary>
+    /// Toggles the "only games with updates" filter and surfaces the result on
+    /// the rail so the user can see the count without reading the strip.
+    /// </summary>
+    private void OnUpdatesChipClicked(object? sender, RoutedEventArgs e)
+    {
+        _showUpdatesOnly = !_showUpdatesOnly;
+        RefreshLibraryChips();
+        ApplyFilter(SearchBox?.Text);
+        UpdateRailCounts();
+    }
+
     private void RefreshLibraryChips()
     {
         if (SortChipBtn != null)
@@ -507,6 +614,56 @@ public partial class MainWindow : Window
 
         if (ModeChipBtn != null)
             ModeChipBtn.Content = ModeCycle.First(m => m.Value == _libraryMode).Label;
+
+        if (UpdatesChipBtn != null)
+        {
+            UpdatesChipBtn.Content = _showUpdatesOnly ? "updates only" : "updates";
+            UpdatesChipBtn.Foreground = _showUpdatesOnly
+                ? Avalonia.Media.Brushes.MediumSpringGreen
+                : Avalonia.Media.Brushes.Gray;
+        }
+    }
+
+    /// <summary>Refreshes the top-rail counters from the current library and cache.</summary>
+    private void UpdateRailCounts()
+    {
+        if (RailGameCount != null)
+            RailGameCount.Text = $"{_displayedGames.Count} shown / {_allGames.Count}";
+
+        int updates = _displayedGames.Count(g => _updateService.HasUpdate(g.AppId));
+        if (RailUpdateCount != null)
+        {
+            RailUpdateCount.Text = updates > 0 ? $"{updates} update{(updates == 1 ? "" : "s")}" : "";
+            RailUpdateCount.Foreground = updates > 0
+                ? Avalonia.Media.Brushes.MediumSpringGreen
+                : Avalonia.Media.Brushes.Gray;
+        }
+    }
+
+    /// <summary>
+    /// Refreshes update status in the background.
+    ///
+    /// Deliberately not awaited on the load path: a full check is hundreds of
+    /// requests to a third-party API and must never delay the window appearing.
+    /// Cards pick up their badges as results land.
+    /// </summary>
+    private async Task RefreshUpdatesAsync(bool force = false)
+    {
+        try
+        {
+            await _updateService.RefreshAsync(_allGames, force);
+
+            ApplyFilter(SearchBox?.Text);
+            UpdateRailCounts();
+        }
+        catch (OperationCanceledException)
+        {
+            // Window closing.
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Warn("Updates", $"Update refresh ended: {ex.Message}");
+        }
     }
 
     // Status helpers

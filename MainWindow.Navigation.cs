@@ -43,7 +43,7 @@ public partial class MainWindow
         if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
             SearchResultsListBox.Focus();
         else
-            GamesListBox.Focus();
+            FocusLibrary();
     }
 
     private void OpenSettingsPage()
@@ -119,7 +119,7 @@ public partial class MainWindow
                     OpenSearchResultDetailPage(si);
                     e.Handled = true;
                 }
-                else if (GamesListBox.SelectedItem is PluginGame sel)
+                else if (SelectedGame is PluginGame sel)
                 {
                     OpenGameDetailPage(sel);
                     e.Handled = true;
@@ -261,7 +261,7 @@ public partial class MainWindow
                             SearchResultsListBox.SelectedIndex = 0;
                             SearchResultsListBox.Focus();
                         }
-                        else { GamesListBox.Focus(); NavigateList(0); }
+                        else { FocusLibrary(); NavigateList(0); }
                     }
                     else if (SearchResultsListBox != null && SearchResultsListBox.IsVisible && _searchResults.Count > 0)
                         NavigateSearchResults(1);
@@ -335,7 +335,7 @@ public partial class MainWindow
                         var si = SearchResultsListBox.SelectedItem as SearchResultItem ?? _searchResults[0];
                         OpenSearchResultDetailPage(si);
                     }
-                    else if (GamesListBox.SelectedItem is PluginGame sel)
+                    else if (SelectedGame is PluginGame sel)
                         OpenGameDetailPage(sel);
                 }
                 else if (_currentView == ActiveView.GameDetail) TriggerDetailAction();
@@ -391,16 +391,23 @@ public partial class MainWindow
     }
 
     // List navigation helpers
+    /// <summary>
+    /// Moves the filmstrip selection.
+    ///
+    /// Replaces the old list navigation. The filmstrip wraps, which matches the
+    /// previous behaviour and suits a controller where wrapping is expected.
+    /// </summary>
     private void NavigateList(int offset)
     {
-        if (_displayedGames.Count == 0) return;
-        int cur  = GamesListBox.SelectedIndex;
-        if (cur < 0) cur = 0;
-        int next = (cur + offset) % _displayedGames.Count;
-        if (next < 0) next += _displayedGames.Count;
-        GamesListBox.SelectedIndex = next;
-        if (GamesListBox.SelectedItem != null)
-            GamesListBox.ScrollIntoView(GamesListBox.SelectedItem);
+        if (Filmstrip == null || Filmstrip.ItemCount == 0) return;
+
+        if (Filmstrip.FocusedIndex < 0)
+        {
+            Filmstrip.FocusFirst();
+            return;
+        }
+
+        Filmstrip.Move(offset);
     }
 
     private void NavigateSearchResults(int offset)
@@ -423,30 +430,5 @@ public partial class MainWindow
     {
         SearchBox.Focus();
         SearchBox.SelectAll();
-    }
-
-    private void OnGameDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (GamesListBox.SelectedItem is PluginGame sel)
-            OpenGameDetailPage(sel);
-    }
-
-    private void OnGameSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (GamesListBox.SelectedItem != null)
-            GamesListBox.ScrollIntoView(GamesListBox.SelectedItem);
-    }
-
-    private void OnGameListKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter && GamesListBox.SelectedItem is PluginGame sel)
-        { OpenGameDetailPage(sel); e.Handled = true; }
-        else if (e.Key == Key.Up)   { NavigateList(-1); e.Handled = true; }
-        else if (e.Key == Key.Down) { NavigateList(1);  e.Handled = true; }
-        else if (e.Key == Key.Tab || e.Key == Key.F1) { OpenSettingsPage(); e.Handled = true; }
-        else if (e.Key == Key.Y || e.Key == Key.OemQuestion)
-        { SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; }
-        else if (e.Key == Key.X)
-        { ToggleQuickActions(); e.Handled = true; }
     }
 }

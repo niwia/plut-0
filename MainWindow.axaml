@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:Pluto.Models"
+        xmlns:controls="clr-namespace:Pluto.Controls"
         xmlns:installation="clr-namespace:Pluto.Engine.Installation"
         mc:Ignorable="d" d:DesignWidth="980" d:DesignHeight="580"
         x:Class="Pluto.MainWindow"
@@ -267,6 +268,59 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
+        <!-- Home view: the search field is the hero -->
+        <Style Selector="TextBox.heroSearch">
+            <Setter Property="Background" Value="#14FFFFFF" />
+            <Setter Property="BorderBrush" Value="#26FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="18,14" />
+            <Setter Property="FontSize" Value="19" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Foreground" Value="#F0F0F0" />
+            <Setter Property="CaretBrush" Value="#B0B0B0" />
+            <Setter Property="SelectionBrush" Value="#4A5B8C" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+        </Style>
+        <Style Selector="TextBox.heroSearch:focus">
+            <Setter Property="BorderBrush" Value="#5A6E96" />
+            <Setter Property="Background" Value="#1AFFFFFF" />
+        </Style>
+        <Style Selector="TextBox.heroSearch /template/ TextBlock#PART_Watermark">
+            <Setter Property="Foreground" Value="#6A6A6A" />
+        </Style>
+
+        <!-- Quiet rail labels: identity, counts, hints -->
+        <Style Selector="TextBlock.railLabel">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#7A7A7A" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Filmstrip cards -->
+        <Style Selector="controls|FilmstripCard">
+            <Setter Property="RenderTransform" Value="scale(1)" />
+        </Style>
+        <Style Selector="controls|FilmstripCard:selected">
+            <Setter Property="Background" Value="#22FFFFFF" />
+            <Setter Property="BorderBrush" Value="#66FFFFFF" />
+            <Setter Property="RenderTransform" Value="scale(1.04)" />
+        </Style>
+
+        <Style Selector="TextBlock.rowTitle">
+            <Setter Property="FontSize" Value="17" />
+            <Setter Property="Foreground" Value="#C8C8C8" />
+        </Style>
+        <Style Selector="ListBoxItem:selected TextBlock.rowTitle">
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="#1E5B8C" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#12FFFFFF" />
+        </Style>
+
         <!-- Sort / filter chips: quiet until hovered or focused -->
         <Style Selector="Button.chip">
             <Setter Property="FontSize" Value="12" />
@@ -426,200 +480,159 @@
         </StackPanel>
 
         <!-- 1. MAIN LIST VIEW -->
+        <!-- 1. HOME VIEW: centred search, filmstrip below, everything else on the rail -->
         <Grid x:Name="MainListPanel"
               RowDefinitions="Auto,*,Auto"
-              Margin="64,48,64,24"
+              Margin="0,0,0,0"
               IsVisible="True">
-            <Grid.Transitions>
-                <Transitions>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" Easing="CubicEaseOut" />
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
-                </Transitions>
-            </Grid.Transitions>
-            
-            <!-- Top: Minimal Search Box with (Y) Controller Prompt -->
-            <StackPanel Grid.Row="0" Margin="0,0,0,0" HorizontalAlignment="Left" Spacing="6">
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Classes="ctrlPromptKey" Text="(Y)" Cursor="Hand" PointerPressed="OnSearchBadgeClicked" VerticalAlignment="Center" />
+
+            <!-- Top rail: identity and library counts, deliberately quiet -->
+            <Grid Grid.Row="0" Margin="40,26,40,0" ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Column="0"
+                           Classes="railLabel"
+                           VerticalAlignment="Center"
+                           Text="PLUTO" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                    <TextBlock x:Name="RailUpdateCount" Classes="railLabel" VerticalAlignment="Center" />
+                    <TextBlock x:Name="RailGameCount" Classes="railLabel" VerticalAlignment="Center" />
+                    <Button x:Name="SettingsBtn"
+                            Classes="minimalTextBtn"
+                            Content="settings"
+                            Focusable="False"
+                            Click="OnOpenSettingsClicked" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Centre: the search field is the hero, as on an agent home screen -->
+            <Grid Grid.Row="1">
+                <StackPanel VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            Width="620"
+                            Spacing="18">
+
                     <TextBox x:Name="SearchBox"
-                             Classes="minimalSearch"
-                             PlaceholderText="search games..."
+                             Classes="heroSearch"
+                             PlaceholderText="search games or appids"
                              TextChanged="OnSearchTextChanged"
                              KeyDown="OnSearchBoxKeyDown"
                              GotFocus="OnSearchBoxGotFocus" />
+
+                    <!-- Filters sit under the field, centred, and stay out of the way -->
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="10"
+                                HorizontalAlignment="Center">
+                        <Button x:Name="SortChipBtn" Classes="chip" Content="sort: name"  Click="OnSortChipClicked" />
+                        <Button x:Name="ModeChipBtn" Classes="chip" Content="all"          Click="OnModeChipClicked" />
+                        <Button x:Name="UpdatesChipBtn" Classes="chip" Content="updates"  Click="OnUpdatesChipClicked" />
+                    </StackPanel>
+
+                    <TextBlock x:Name="SearchStatusText"
+                               Classes="railLabel"
+                               HorizontalAlignment="Center"
+                               IsVisible="False" />
+
+                    <TextBlock x:Name="EmptyStateText"
+                               Text="no games found"
+                               FontSize="15"
+                               Foreground="#5A5A5A"
+                               HorizontalAlignment="Center"
+                               IsVisible="False" />
                 </StackPanel>
-                <TextBlock x:Name="SearchStatusText"
-                           FontSize="13"
-                           FontWeight="Normal"
-                           Foreground="#666666"
-                           IsVisible="False" />
 
-                <!-- Sort and mode filter chips -->
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                    <TextBlock Classes="ctrlPromptKey" Text="(X)" Cursor="Hand"
-                               PointerPressed="OnSearchBadgeClicked" VerticalAlignment="Center" />
-
-                    <Button x:Name="SortChipBtn"
-                            Classes="chip"
-                            Content="sort: name"
-                            Click="OnSortChipClicked" />
-
-                    <Button x:Name="ModeChipBtn"
-                            Classes="chip"
-                            Content="all"
-                            Click="OnModeChipClicked" />
-                </StackPanel>
-            </StackPanel>
-
-            <!-- Bottom: Waterfall List of Games / Search Results (seamless gradual bottom blur/fade) -->
-            <Grid Grid.Row="1" Margin="0, 42, 0, 0">
-                <Grid.OpacityMask>
-                    <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
-                        <GradientStop Color="#FFFFFFFF" Offset="0.0" />
-                        <GradientStop Color="#FFFFFFFF" Offset="0.55" />
-                        <GradientStop Color="#88FFFFFF" Offset="0.80" />
-                        <GradientStop Color="#00000000" Offset="1.0" />
-                    </LinearGradientBrush>
-                </Grid.OpacityMask>
-                <!-- 1A: Normal Installed Games Waterfall (glides up when accessed) -->
-                <ListBox x:Name="GamesListBox"
-                         SelectionMode="Single"
-                         DoubleTapped="OnGameDoubleTapped"
-                         SelectionChanged="OnGameSelectionChanged"
-                         KeyDown="OnGameListKeyDown">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:PluginGame">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Capsule artwork, filled lazily -->
-                                <Border Grid.Column="0"
-                                        Width="92" Height="34"
-                                        CornerRadius="3"
-                                        Margin="0,0,10,0"
-                                        VerticalAlignment="Center"
-                                        Background="#14FFFFFF"
-                                        IsVisible="{Binding Thumbnail, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                    <Image Source="{Binding Thumbnail}"
-                                           Stretch="UniformToFill" />
-                                </Border>
-
-                                <StackPanel Grid.Column="1"
-                                            Orientation="Horizontal"
-                                            Spacing="10"
-                                            VerticalAlignment="Center">
-                                    <TextBlock Classes="gameTitle"
-                                               Classes.accela="{Binding IsAccela}"
-                                               Text="{Binding Name}"
-                                               OpacityMask="{Binding NameOpacityMask}"
-                                               VerticalAlignment="Center" />
-
-                                    <!-- "New" Tag -->
-                                    <Border Background="#1E293B" CornerRadius="4" Padding="6,2" VerticalAlignment="Center" IsVisible="{Binding IsNew}">
-                                        <TextBlock Text="New"
-                                                   FontSize="11"
-                                                   FontWeight="Bold"
-                                                   Foreground="#38BDF8" />
+                <!-- Overlay shown above the field once a query is running or resolved -->
+                <Grid x:Name="SearchOverlay" IsVisible="False" Background="#CC0A0A0C">
+                    <ListBox x:Name="SearchResultsListBox"
+                             MaxWidth="760"
+                             MaxHeight="420"
+                             Margin="40"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             SelectionMode="Single"
+                             DoubleTapped="OnSearchResultDoubleTapped"
+                             SelectionChanged="OnSearchResultSelectionChanged"
+                             KeyDown="OnSearchResultsKeyDown">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:SearchResultItem">
+                                <Grid Height="46" ColumnDefinitions="Auto,*,Auto">
+                                    <Border Grid.Column="0" Width="64" Height="30" CornerRadius="3"
+                                            Margin="0,0,12,0" VerticalAlignment="Center"
+                                            Background="#14FFFFFF">
+                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                                     </Border>
-
-                                    <!-- Download Status / Percentage Text -->
-                                    <TextBlock Text="{Binding DownloadStatusText}"
-                                               FontSize="13"
-                                               FontWeight="Normal"
-                                               Foreground="#38BDF8"
+                                    <TextBlock Grid.Column="1"
+                                               Classes="rowTitle"
+                                               Text="{Binding Name}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2"
+                                               Classes="railLabel"
+                                               Margin="12,0,0,0"
                                                VerticalAlignment="Center"
-                                               IsVisible="{Binding IsDownloading}" />
-                                </StackPanel>
-
-                                <!-- Sync state -->
-                                <TextBlock Grid.Column="2"
-                                           Classes="syncBadge"
-                                           Margin="10,0,4,0"
-                                           Text="{Binding SyncBadgeText}"
-                                           Foreground="{Binding SyncBadgeColorHex}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-
-                <!-- 1B: Online & Cached Search Results with in-memory Capsule Thumbnails -->
-                <ListBox x:Name="SearchResultsListBox"
-                         SelectionMode="Single"
-                         DoubleTapped="OnSearchResultDoubleTapped"
-                         SelectionChanged="OnSearchResultSelectionChanged"
-                         KeyDown="OnSearchResultsKeyDown"
-                         IsVisible="False">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:SearchResultItem">
-                            <Border Background="Transparent"
-                                    CornerRadius="6"
-                                    Padding="8, 6"
-                                    Margin="0, 2">
-                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
-                                     <!-- In-memory game thumbnail (clean capsule) -->
-                                     <Border Grid.Column="0"
-                                             Width="110"
-                                             Height="50"
-                                             CornerRadius="4"
-                                             ClipToBounds="True"
-                                             Background="#0FFFFFFF">
-                                         <Image Source="{Binding Thumbnail}"
-                                                Stretch="UniformToFill"
-                                                IsVisible="{Binding HasThumbnail}" />
-                                     </Border>
-
-                                     <!-- Game Details -->
-                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                                         <TextBlock Text="{Binding Name}"
-                                                    FontSize="17"
-                                                    FontWeight="Normal"
-                                                    Foreground="{Binding TitleColorHex}" />
-                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                             <TextBlock Text="{Binding AppId, StringFormat='App ID: {0}'}"
-                                                        FontSize="12"
-                                                        Foreground="#555555" />
-                                             <TextBlock Text="{Binding StatusText, StringFormat='|  {0}'}"
-                                                        FontSize="12"
-                                                        Foreground="{Binding StatusColorHex}" />
-                                         </StackPanel>
-                                     </StackPanel>
-                                 </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-
-                <!-- Minimal Empty State -->
-                <TextBlock x:Name="EmptyStateText"
-                           Text="no games found"
-                           FontSize="18"
-                           FontWeight="Normal"
-                           Foreground="#333333"
-                           HorizontalAlignment="Left"
-                           VerticalAlignment="Top"
-                           Margin="0,12,0,0"
-                           IsVisible="False" />
+                                               Text="{Binding InstallMode}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
             </Grid>
 
-            <!-- Row 2: Controller Hints on Left & Settings on Right -->
-            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,16,0,0" VerticalAlignment="Bottom">
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                    <TextBlock Classes="ctrlPrompt" Text="(A) select" />
-                    <TextBlock Classes="ctrlPrompt" Text="(X) options" />
-                    <TextBlock Classes="ctrlPrompt" Text="(Y) search" />
-                </StackPanel>
+            <!-- Bottom: filmstrip of the library, updates first -->
+            <Grid Grid.Row="2" Margin="0,0,0,22">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <!-- Settings Button -->
-                <Button x:Name="SettingsBtn"
-                        Grid.Column="1"
-                        Classes="minimalTextBtn"
-                        Content="settings"
-                        Focusable="False"
-                        Click="OnOpenSettingsClicked" />
+                <TextBlock Grid.Row="0"
+                           Classes="railLabel"
+                           Margin="40,0,0,8"
+                           Text="library" />
+
+                <controls:Filmstrip x:Name="Filmstrip"
+                                    Grid.Row="1"
+                                    Margin="40,0,0,0"
+                                    ItemActivated="OnFilmstripItemActivated">
+                    <controls:Filmstrip.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </controls:Filmstrip.ItemsPanel>
+                    <controls:Filmstrip.ItemTemplate>
+                        <DataTemplate DataType="controls:FilmstripEntry">
+                            <controls:FilmstripCard>
+                                <Grid RowDefinitions="116,Auto">
+                                    <!-- Artwork, or a neutral placeholder when not loaded -->
+                                    <Grid Grid.Row="0">
+                                        <Border Background="#0FFFFFFF" />
+                                        <Image Source="{Binding Artwork}" Stretch="UniformToFill" />
+                                    </Grid>
+
+                                    <Grid Grid.Row="1" Margin="10,7,10,8" ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="12"
+                                                       Foreground="#D8D8D8"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Subtitle}"
+                                                       FontSize="10"
+                                                       Foreground="#6E6E6E"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+
+                                        <!-- Update dot: present only when a newer build exists -->
+                                        <Border Grid.Column="1"
+                                                Width="9" Height="9"
+                                                CornerRadius="5"
+                                                Margin="6,3,0,0"
+                                                VerticalAlignment="Top"
+                                                Background="#5EEAD4"
+                                                IsVisible="{Binding HasUpdate}" />
+                                    </Grid>
+                                </Grid>
+                            </controls:FilmstripCard>
+                        </DataTemplate>
+                    </controls:Filmstrip.ItemTemplate>
+                </controls:Filmstrip>
             </Grid>
         </Grid>
 
