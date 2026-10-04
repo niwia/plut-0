@@ -706,6 +706,7 @@ public partial class MainWindow
     private PluginGame? GetQuickActionTarget()
     {
         return _selectedGame
+            ?? SelectedGame
             ?? (_selectedSearchResult != null
                 ? new PluginGame
                 {

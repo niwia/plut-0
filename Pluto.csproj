@@ -31,4 +31,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!-- The render check is a standalone project with its own Main and its own
+       Avalonia.Headless/Skia references. Without this the default glob pulls its
+       sources and obj output into the app and the build fails on duplicate
+       assembly attributes. -->
+  <ItemGroup>
+    <Compile Remove="Tests/**" />
+    <None Remove="Tests/**" />
+    <EmbeddedResource Remove="Tests/**" />
+    <AvaloniaResource Remove="Tests/**" />
+  </ItemGroup>
 </Project>

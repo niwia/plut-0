@@ -420,19 +420,20 @@
     <!-- Quick actions panel, opened with (X) -->
         <Border x:Name="QuickActionsPanel"
                     IsVisible="False"
-                    Margin="64,48,64,24"
-                    HorizontalAlignment="Left"
+                    Margin="0,74,40,0"
+                    HorizontalAlignment="Right"
                     VerticalAlignment="Top"
-                    Background="#F2121216"
-                    BorderBrush="#33FFFFFF"
+                    Background="#F20A0C10"
+                    BorderBrush="#26FFFFFF"
                     BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="18,14"
-                    Width="280">
-                <StackPanel Spacing="10">
+                    CornerRadius="10"
+                    Padding="16,14"
+                    Width="290">
+                <StackPanel Spacing="9">
                     <TextBlock x:Name="QuickActionsTitle"
                                FontSize="13"
                                Foreground="#CCCCCC"
+                               TextTrimming="CharacterEllipsis"
                                Text="actions" />
 
                     <Button x:Name="QuickActionSyncBtn"   Classes="chip" Content="sync to sls"      Click="OnQuickActionSyncClicked" />
@@ -653,8 +654,23 @@
 
                 <controls:Filmstrip x:Name="Filmstrip"
                                     Grid.Row="1"
+                                    Height="182"
                                     Margin="40,0,0,0"
                                     ItemActivated="OnFilmstripItemActivated">
+                    <!-- Explicit template because neither theme provides one for a
+                         bare ItemsControl: Fluent only themes ListBox and friends,
+                         so without this the strip measures, holds items, and draws
+                         nothing at all. A plain scroller is also what a filmstrip
+                         wants, rather than the themed chrome. -->
+                    <controls:Filmstrip.Template>
+                        <ControlTemplate TargetType="controls:Filmstrip">
+                            <ScrollViewer HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled"
+                                          Focusable="False">
+                                <ItemsPresenter Name="PART_ItemsPresenter" />
+                            </ScrollViewer>
+                        </ControlTemplate>
+                    </controls:Filmstrip.Template>
                     <controls:Filmstrip.ItemsPanel>
                         <ItemsPanelTemplate>
                             <VirtualizingStackPanel Orientation="Horizontal" />
