@@ -143,6 +143,14 @@ public partial class MainWindow
             ToggleDdmFilterExtrasBtn.Content    = _settingDdmFilterExtras ? "hidden by default" : "visible in selector";
             ToggleDdmFilterExtrasBtn.Foreground = _settingDdmFilterExtras ? Avalonia.Media.Brushes.CornflowerBlue : Avalonia.Media.Brushes.Gray;
         }
+
+        if (ToggleThemeStyleBtn != null)
+        {
+            bool classic = _themeService.CurrentStyle == ThemeStyle.Classic;
+            ToggleThemeStyleBtn.Content    = classic ? "classic windows" : "modern";
+            ToggleThemeStyleBtn.Foreground = classic
+                ? Avalonia.Media.Brushes.MediumSpringGreen : Avalonia.Media.Brushes.Gray;
+        }
     }
 
     // Tab activation
@@ -474,6 +482,39 @@ public partial class MainWindow
 
     private void OnToggleNativeThemeClicked(object? sender, RoutedEventArgs e)  { _themeService.CycleNextNative();  ApplyThemeColors(); }
     private void OnToggleAccelaThemeClicked(object? sender, RoutedEventArgs e)  { _themeService.CycleNextAccela();  ApplyThemeColors(); }
+
+    /// <summary>
+    /// Switches between the Modern and Classic Windows control themes.
+    ///
+    /// Swapping Application.Styles replaces every control template, so the whole
+    /// window restyles in place. The accent palette survives the swap because it
+    /// lives in window resources rather than in the theme's brushes.
+    /// </summary>
+    private void OnToggleThemeStyleClicked(object? sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _themeService.CycleStyle(Avalonia.Application.Current!);
+
+            // Re-apply the accent palette: the Classic theme resets
+            // RequestedThemeVariant, which re-resolves the dynamic resources.
+            ApplyThemeColors();
+            UpdateSettingsUi();
+
+            if (SettingsThemePanel != null)
+                SettingsThemePanel.IsVisible = true;
+        }
+        catch (Exception ex)
+        {
+            PlutoLogger.Error("Theme", "Could not switch control theme", ex);
+
+            if (SanitationStatusText != null)
+            {
+                SanitationStatusText.Text = "theme switch failed - see log";
+                SanitationStatusText.IsVisible = true;
+            }
+        }
+    }
     private void OnToggleSearchResetClicked(object? sender, RoutedEventArgs e)
     {
         _settingSearchResetOnAccess = !_settingSearchResetOnAccess;
@@ -496,6 +537,7 @@ public partial class MainWindow
         switch (_activeSettingsTab)
         {
             case SettingsTab.Theme:
+                if (ToggleThemeStyleBtn != null) list.Add(ToggleThemeStyleBtn);
                 if (ToggleNativeThemeBtn != null) list.Add(ToggleNativeThemeBtn);
                 if (ToggleAccelaThemeBtn != null) list.Add(ToggleAccelaThemeBtn);
                 if (ToggleSearchResetBtn != null) list.Add(ToggleSearchResetBtn);
@@ -542,6 +584,7 @@ public partial class MainWindow
     private IEnumerable<Button?> AllSettingsTabPanelButtons() => new Button?[]
     {
         ToggleNativeThemeBtn, ToggleAccelaThemeBtn, ToggleSearchResetBtn,
+        ToggleThemeStyleBtn,
         ToggleSgdbApiBtn, ToggleRawgBtn, ToggleHubcapApiBtn,
         ToggleVaporBtn, ToggleDownloadActionBtn, ToggleUpdatesBtn,
         ToggleMainBackdropBtn, ToggleMainBackdropIntervalBtn,

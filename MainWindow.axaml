@@ -995,6 +995,16 @@
                     <!-- 3A: THEME SUBMENU -->
                     <StackPanel x:Name="SettingsThemePanel" Spacing="24" IsVisible="True">
                         <StackPanel Spacing="4">
+                            <TextBlock Text="control theme" FontSize="13" Foreground="#666666" />
+                            <Button x:Name="ToggleThemeStyleBtn"
+                                    Classes="minimalTextBtn"
+                                    Content="modern"
+                                    FontSize="16"
+                                    Foreground="#38BDF8"
+                                    Click="OnToggleThemeStyleClicked" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4">
                             <TextBlock Text="native games color" FontSize="13" Foreground="#666666" />
                             <Button x:Name="ToggleNativeThemeBtn"
                                     Classes="minimalTextBtn"

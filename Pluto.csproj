@@ -17,6 +17,10 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageReference Include="ppy.SDL2-CS" Version="1.0.82" />
+    <!-- Optional Classic Windows control theme, selectable at runtime.
+         12.0.1-beta1 is the only release targeting Avalonia 12; verified to
+         compile and run against 12.1.1. -->
+    <PackageReference Include="Classic.Avalonia.Theme" Version="12.0.1-beta1" />
     <!-- Used only to validate config.yaml before commit; edits remain text-based
          so comments survive a write. See Services/YamlGuard.cs. -->
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
