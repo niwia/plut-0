@@ -32,68 +32,72 @@
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
         </Style>
 
+        <!-- Fixed-height rows.
+             Selection used to be signalled by growing the type from 20px to 32px.
+             With no fixed height that resized the row and pushed everything below
+             it down the screen, so scrolling made the list jump. Rows are now a
+             constant height and focus is carried by a selection bar instead. -->
         <Style Selector="ListBoxItem">
-            <Setter Property="Padding" Value="0, 8" />
+            <Setter Property="Height" Value="46" />
+            <Setter Property="Padding" Value="12,0" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="Cursor" Value="Hand" />
         </Style>
 
-        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+        <Style Selector="ListBoxItem /template/ ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
+        <!-- Unfocused: a faint wash, enough to separate rows over a photo backdrop -->
         <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Background" Value="#14FFFFFF" />
         </Style>
 
-        <Style Selector="ListBoxItem:focus /template/ ContentPresenter">
-            <Setter Property="Background" Value="Transparent" />
+        <!-- Focused: a solid bar. Reads at TV distance and never reflows. -->
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource NativeGameColor}" />
         </Style>
 
-        <!-- Niagara Waterfall Typography: Clean, NO BOLD anywhere -->
+        <Style Selector="ListBoxItem:selected:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource NativeGameHoverColor}" />
+        </Style>
+
+        <!-- Library rows: uniform type, emphasis by colour rather than size -->
         <Style Selector="ListBoxItem TextBlock.gameTitle">
-            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontSize" Value="19" />
             <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="{DynamicResource NativeGameUnselectedColor}" />
             <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Transitions">
                 <Transitions>
-                    <DoubleTransition Property="FontSize" Duration="0:0:0.18" Easing="CubicEaseOut" />
-                    <BrushTransition Property="Foreground" Duration="0:0:0.18" />
+                    <BrushTransition Property="Foreground" Duration="0:0:0.15" />
                 </Transitions>
             </Setter>
         </Style>
 
         <Style Selector="ListBoxItem:pointerover TextBlock.gameTitle">
             <Setter Property="Foreground" Value="{DynamicResource NativeGameHoverColor}" />
-            <Setter Property="FontSize" Value="25" />
-            <Setter Property="FontWeight" Value="Normal" />
         </Style>
 
         <Style Selector="ListBoxItem:selected TextBlock.gameTitle">
-            <Setter Property="FontSize" Value="32" />
-            <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="{DynamicResource NativeGameColor}" />
+            <Setter Property="Foreground" Value="#0A0A0C" />
         </Style>
 
-        <!-- ACCELA Installed Games: Refined theme color -->
+        <!-- ACCELA-managed rows use the accent palette instead -->
         <Style Selector="ListBoxItem TextBlock.accela">
             <Setter Property="Foreground" Value="{DynamicResource AccelaGameUnselectedColor}" />
         </Style>
 
         <Style Selector="ListBoxItem:pointerover TextBlock.accela">
             <Setter Property="Foreground" Value="{DynamicResource AccelaGameHoverColor}" />
-            <Setter Property="FontSize" Value="25" />
-            <Setter Property="FontWeight" Value="Normal" />
         </Style>
 
         <Style Selector="ListBoxItem:selected TextBlock.accela">
-            <Setter Property="FontSize" Value="32" />
-            <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="Foreground" Value="{DynamicResource AccelaGameColor}" />
+            <Setter Property="Foreground" Value="#0A0A0C" />
         </Style>
 
         <!-- Games list scrolling bounding box: Allows waterfall list to flow with seamless bottom fade -->
@@ -485,7 +489,7 @@
                          KeyDown="OnGameListKeyDown">
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="models:PluginGame">
-                            <Grid Margin="0,2">
+                            <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -494,7 +498,7 @@
 
                                 <!-- Capsule artwork, filled lazily -->
                                 <Border Grid.Column="0"
-                                        Width="92" Height="32"
+                                        Width="92" Height="34"
                                         CornerRadius="3"
                                         Margin="0,0,10,0"
                                         VerticalAlignment="Center"
